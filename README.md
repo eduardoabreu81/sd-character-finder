@@ -74,11 +74,6 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 - Send negative tags to negative prompt field
 - Pagination for large result sets
 
-### v2.0.0 — Live Data *(planned)*
-- Optional live Danbooru API search alongside local DB
-- Refresh DB from within the UI
-- Breaking change: new DB schema to support live + cached data
-
 ---
 
 ## 🎯 Features
