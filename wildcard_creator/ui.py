@@ -157,7 +157,20 @@ def _build_characters_content():
         inputs=[char_tags_out],
         outputs=[char_send_status],
         js="""(tags) => {
-            if (tags) navigator.clipboard.writeText(tags);
+            if (!tags) return [tags];
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(tags);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = tags;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
             return [tags];
         }"""
     )
