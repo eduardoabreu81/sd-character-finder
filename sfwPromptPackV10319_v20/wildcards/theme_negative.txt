@@ -1,4 +1,0 @@
-slow, peaceful, quiet, bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality
-cheerful, bright, bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality
-physical, literal, bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality
-action, violent, bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality

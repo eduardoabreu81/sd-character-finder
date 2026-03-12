@@ -1,5 +1,0 @@
-(archery:1.2), drawing bow, arrow nocked, archer stance, longbow or compound, aiming, forest target, hunter skill
-(crafting or building:1.2), hands working, making something, artisan at work, creating with hands, workshop activity, building skill
-looking into the distance, (contemplative pose:1.2), hand shielding eyes, wind in hair, standing at edge, vista view
-(painting:1.2), artist at easel, paintbrush in hand, canvas, palette, art studio, paint smudges, creating artwork, artist at work
-sitting, (relaxed pose:1.2), comfortable seated position, legs crossed, casual sitting, at ease, resting

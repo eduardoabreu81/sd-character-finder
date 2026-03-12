@@ -1,4 +1,0 @@
-calm, happy, neutral, submissive
-confident, calm, proud, neutral
-rejecting, angry, scared, neutral, distant
-confident, calm, relaxed, bold

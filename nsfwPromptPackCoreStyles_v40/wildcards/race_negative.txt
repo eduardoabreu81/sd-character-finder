@@ -1,5 +1,0 @@
-human, earth, fantasy
-human, pale skin, round ears
-human, round ears, no tail
-normal furniture, human, no monster features
-solid, opaque, normal skin, no slime

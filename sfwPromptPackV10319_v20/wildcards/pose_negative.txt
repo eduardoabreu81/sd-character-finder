@@ -1,6 +1,0 @@
-static, standing, bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality
-standing, upright
-arms at side, no hip contact
-standing straight, rigid, dynamic battle
-bad anatomy, bad hands, extra fingers, extra limbs, blurry, jpeg artifacts, text, watermark, low quality
-tense, rigid, formal

@@ -1,7 +1,0 @@
-casual, plain, armor, uniform
-urban, cyberpunk, armor, dark
-modern clothes, casual, office, school uniform
-fantasy, armor, formal evening
-formal, armor, fantasy, tight
-formal, armor, fantasy, skirt, dress
-western, casual, fantasy armor

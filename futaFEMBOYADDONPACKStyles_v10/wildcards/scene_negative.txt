@@ -1,8 +1,0 @@
-indoor, clean, bedroom
-clean, modern, bedroom, outdoor, mechanical
-
-
-cold, indoor, dry setting
-clean, modern, bright, bedroom, office
-private, bedroom, indoor
-outdoor, bedroom, bright

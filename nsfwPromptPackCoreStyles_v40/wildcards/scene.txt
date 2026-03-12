@@ -1,7 +1,0 @@
-dark alley, back alley, street, urban, city alley, dirty alley, narrow alley, against wall, outdoor alley
-(breeding chamber:1.3), (monster breeding pit:1.2), organic walls, fleshy interior, egg sacs, mucus-coated floor, pulsating walls, alien hive interior, biomechanical breeding room
-dungeon, basement, dark room, BDSM dungeon, chains on walls, stone walls, dark dungeon, underground room
-feudal japan, japanese architecture, wooden structure, (paper lanterns:1.2), torii gate, japanese garden, wooden floor, BREAK (night sky:1.2), full moon, stars, moonlight, blue night lighting, shadows, night atmosphere
-(nightclub:1.3), (dance club:1.2), club interior, dark club with lights, dance floor, club scene, VIP booth, nightlife setting
-(rooftop:1.3), (city rooftop:1.2), building roof, urban rooftop, skyline view, roof at night
-(strip club:1.3), nightclub, (stage with pole:1.2), neon lights, dark club, strip club interior, lap dance setting, club stage, club chairs
