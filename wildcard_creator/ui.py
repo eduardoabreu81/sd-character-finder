@@ -148,7 +148,6 @@ def build_ui() -> gr.Blocks:
     Build the full Gradio UI (attach to SD WebUI via script_callbacks).
     """
     with gr.Blocks(analytics_enabled=False) as ui:
-        gr.Markdown("# � SD Character Finder")
         _build_characters_tab()
     return ui
 
