@@ -120,7 +120,9 @@ def _build_characters_content():
         return gr.update(value="✅ Sent to txt2img")
 
     def do_copy_tags(tags):
-        return prompt_sender.copy_positive(tags)
+        if not tags:
+            return gr.update(value="⚠️ No tags to copy")
+        return gr.update(value="✅ Copied to clipboard")
 
     btn_char_search.click(
         do_search,
@@ -150,7 +152,15 @@ def _build_characters_content():
             return [tags];
         }"""
     )
-    btn_char_copy.click(do_copy_tags, inputs=[char_tags_out], outputs=[char_send_status])
+    btn_char_copy.click(
+        fn=do_copy_tags,
+        inputs=[char_tags_out],
+        outputs=[char_send_status],
+        js="""(tags) => {
+            if (tags) navigator.clipboard.writeText(tags);
+            return [tags];
+        }"""
+    )
 
 
 # ---------------------------------------------------------------------------
