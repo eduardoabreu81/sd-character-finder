@@ -16,7 +16,7 @@ try:
     def on_ui_tabs():
         from wildcard_creator.ui import build_ui
         blocks = build_ui()
-        return [(blocks, "🎭 Characters", "sd_character_finder")]
+        return [(blocks, "Danbooru Characters", "sd_character_finder")]
 
     script_callbacks.on_ui_tabs(on_ui_tabs)
 

@@ -85,7 +85,7 @@ def _build_characters_content():
         with gr.Column(scale=2):
             char_name_out = gr.Textbox(label="Character", interactive=False, lines=1)
             char_series_out = gr.Textbox(label="Series", interactive=False, lines=1)
-            char_tags_out = gr.Textbox(label="Prompt tags", lines=4, interactive=True)
+            char_tags_out = gr.Textbox(label="Prompt tags", lines=4, interactive=True, elem_id="char_finder_tags_out")
             with gr.Row():
                 btn_char_send = gr.Button("➡️ Send to Generate", variant="primary")
                 btn_char_copy = gr.Button("📋 Copy Tags")
@@ -116,8 +116,8 @@ def _build_characters_content():
 
     def do_send_to_generate(tags):
         if not tags:
-            return "⚠️ No tags to send"
-        return prompt_sender.send_to_txt2img(tags, "")
+            return gr.update(value="⚠️ No tags to send")
+        return gr.update(value="✅ Sent to txt2img")
 
     def do_copy_tags(tags):
         return prompt_sender.copy_positive(tags)
@@ -137,7 +137,19 @@ def _build_characters_content():
         inputs=[char_results_state],
         outputs=[char_image, char_name_out, char_series_out, char_tags_out],
     )
-    btn_char_send.click(do_send_to_generate, inputs=[char_tags_out], outputs=[char_send_status])
+    btn_char_send.click(
+        fn=do_send_to_generate,
+        inputs=[char_tags_out],
+        outputs=[char_send_status],
+        js="""(tags) => {
+            const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
+            if (promptEl && tags) {
+                promptEl.value = tags;
+                promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+            }
+            return [tags];
+        }"""
+    )
     btn_char_copy.click(do_copy_tags, inputs=[char_tags_out], outputs=[char_send_status])
 
 
