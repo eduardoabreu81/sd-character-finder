@@ -1,0 +1,4 @@
+(angry expression:1.3), (furious face:1.2), scowling, rage, anger, bared teeth, glaring, aggressive expression, fierce anger, wrathful
+embarrassed, (blushing:1.3), covering face, shy expression, ashamed, flustered, looking away, red-faced, embarrassed smile
+(inviting expression:1.3), (come hither look:1.2), beckoning, seductive invitation, bedroom eyes invitation, finger beckoning, flirtatious inviting gaze
+(nervous expression:1.3), (anxious face:1.2), biting lip nervously, worried eyes, uncertain, fidgeting, uneasy smile, tense

@@ -1,0 +1,7 @@
+indoor, clean, bedroom
+clean, modern, bedroom, outdoor, mechanical
+bright, outdoor, normal room
+daylight, modern, western architecture
+strip club, daytime, outdoor
+indoor, underground, basement
+outdoor, bedroom, bright

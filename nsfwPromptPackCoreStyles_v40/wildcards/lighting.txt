@@ -1,0 +1,4 @@
+backlit, (backlighting:1.3), light from behind, glowing outline, rim light, contre-jour, halo effect, bright background, dark foreground, silhouette light
+dramatic lighting, strong shadows, contrast lighting, chiaroscuro, (rim lighting:1.2), moody lighting, dark shadows, high contrast
+neon lights, colorful lighting, neon glow, vibrant colors, neon signs, cyberpunk lighting, bright colors, electric colors
+(screen glow:1.3), (monitor light:1.2), blue screen illumination, device light on face, cold blue screen cast, PC monitor light, phone screen glow

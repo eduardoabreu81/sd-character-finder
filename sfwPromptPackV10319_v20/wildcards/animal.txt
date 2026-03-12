@@ -1,0 +1,3 @@
+bear, (brown bear:1.2), grizzly, powerful, thick fur, bear portrait, forest bear, standing or resting, ursine
+eagle, (bald eagle or golden eagle:1.2), raptor, soaring bird, sharp talons, feather detail, bird of prey, eagle portrait
+owl, (great horned owl:1.2), nocturnal bird, feathered, large eyes, perched owl, wisdom symbol, night bird, detailed feathers

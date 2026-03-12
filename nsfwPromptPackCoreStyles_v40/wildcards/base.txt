@@ -1,0 +1,10 @@
+
+
+(high detail:1.2), (sharp focus:1.1), intricate details, fine textures, crisp edges, refined rendering, enhanced clarity, detailed skin texture, detailed eyes, detailed hair strands, BREAK
+(landscape composition:1.2), wide scene, horizontal framing, environmental storytelling, wide shot, scenic view
+(portrait composition:1.2), vertical framing, subject centered, upper body or face focus, portrait orientation
+(genderswap:1.4), (female to male:1.3), (gender bender:1.2), 1boy, male version, rule 63, male presenting, masculine features, boy version of character, gender bent male
+(genderswap:1.4), (male to female:1.3), (gender bender:1.2), 1girl, female version, rule 63, feminine features, girl version of character, gender bent female, feminized
+masterpiece, best quality, very aesthetic, absurdres, newest, (detailed:1.2), (intricate:1.1), BREAK
+very awa, year 2024, year 2025, newest, source_anime, absurdres, (high resolution:1.1), (intricate details:1.1), BREAK
+score_9, score_8_up, score_7_up, source_anime, rating_explicit, (masterpiece:1.2), (best quality:1.2), absurdres, BREAK

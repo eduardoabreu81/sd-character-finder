@@ -1,0 +1,4 @@
+(determined expression:1.3), set jaw, focused eyes, resolute, unwavering gaze, battle will, strong-willed look
+(knowing smirk:1.2), I know something you don't, secret keeper face, sly grin, mysterious amusement, enigmatic smile, cunning look
+(pouting:1.3), puffed cheeks, sulking expression, childish pout, stubborn face, arms crossed expression, slightly furrowed brow
+(surprised expression:1.3), wide eyes, open mouth slightly, eyebrows raised, startled, shocked, taken aback

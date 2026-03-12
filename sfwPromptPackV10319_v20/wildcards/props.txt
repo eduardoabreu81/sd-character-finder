@@ -1,0 +1,3 @@
+(ancient tome:1.2), old leather book, spell book, grimoire, forbidden book, thick ancient text, cracked spine, glowing pages optional
+(candle or candelabra:1.2), wax dripping candle, candleholder, multiple candles, gothic candelabra, flickering flame, candle light source
+(potion vials:1.2), glass vials with colored liquid, alchemical bottles, magic potion, experimental flask, colored bubbling liquid

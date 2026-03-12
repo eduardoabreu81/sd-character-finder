@@ -1,0 +1,12 @@
+1girl, alchemist, (alchemist robe:1.2), potion bottles, mortar and pestle, mystical ingredients, alchemy lab, apron, glowing potions, flask
+1person, bard, (lute musician:1.2), colorful medieval clothes, performer, storyteller, traveling musician, jester-adjacent, tavern performer
+1girl, demon queen, dark crown, (dark armor:1.2), large dark wings, glowing red or purple eyes, imposing presence, dark cape, queen of darkness
+1girl, fortune teller, (crystal ball:1.3), mystic veil, tarot cards, mysterious robes, henna, coin jewelry, mystical gaze, tent backdrop
+1girl, female knight, (plate armor:1.3), sword and shield, paladin, holy knight, armored knight, heroic knight, full plate armor, visor optional
+1girl, maid outfit, frilly maid dress, white apron, maid headdress, black and white uniform, collar, long sleeves
+1boy, male mage, wizard, sorcerer, (magical staff:1.2), robes, arcane symbols, glowing eyes, mystic, spellcaster, male magic user
+1boy, sailor, (naval uniform:1.2), captain hat, seafarer, ocean man, ship crew, weathered face, maritime clothing, anchor motif
+1person, monk, (monk robes:1.2), shaved head or cloth wrap, meditation, martial arts, Buddhist or fantasy monk, inner peace, training gi
+1girl, female pirate captain, (tricorn hat:1.2), pirate coat, cutlass, pirate outfit, naval pirate, bandana, boots, seafaring attire
+1girl, miko, shrine maiden, (white haori:1.2), red hakama, ofuda, hair ribbon, traditional japanese clothing, tabi socks
+1girl, teacher, (formal teacher attire:1.2), pointer stick, glasses, chalkboard, lesson, stern but kind teacher, educator, school teacher

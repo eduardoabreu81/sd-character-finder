@@ -1,0 +1,10 @@
+{
+  "name": "example_sfw",
+  "display_name": "Example SFW Pack",
+  "description": "A curated set of SFW wildcard categories and recipe templates for portrait and fantasy character generation. Includes hair, eyes, body, outfit, scene, camera, and lighting wildcards.",
+  "version": "1.0.0",
+  "author": "",
+  "tags": ["portrait", "fantasy", "sfw", "female", "example"],
+  "wildcard_count": 9,
+  "recipe_count": 2
+}

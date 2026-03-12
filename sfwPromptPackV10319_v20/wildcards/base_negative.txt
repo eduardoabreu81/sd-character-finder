@@ -1,0 +1,7 @@
+blurry, soft focus, simple, plain, low detail, sketch
+landscape, random crop, text-heavy
+single angle, dramatic lighting, background scene
+wide landscape, random composition
+lowres, (bad anatomy:1.3), (bad hands:1.4), (mutated hands:1.4), (extra fingers:1.5), (fused fingers:1.5), (missing fingers:1.5), text, error, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry, (extra limbs:1.5), (malformed limbs:1.4), (mutation:1.4), (deformed:1.4), nsfw, explicit, nude, naked
+worst aesthetic, bad aesthetic, lowres, year 2020, year 2021, year 2022, (bad anatomy:1.3), (bad hands:1.4), (extra fingers:1.5), (fused fingers:1.5), (extra limbs:1.5), (malformed limbs:1.4), (bad proportions:1.3), (deformed:1.4), blurry, jpeg artifacts, text, watermark, nsfw, explicit, nude, naked
+score_4, score_5, score_6, source_cartoon, source_pony, source_furry, 3d, realistic, photorealistic, (bad anatomy:1.3), (bad hands:1.4), (mutated hands:1.4), (extra fingers:1.5), (fused fingers:1.5), (missing fingers:1.5), (extra limbs:1.5), (missing limbs:1.4), (malformed limbs:1.4), (bad proportions:1.3), (mutation:1.4), (deformed:1.4), blurry, jpeg artifacts, text, watermark, nsfw, explicit, nude, naked

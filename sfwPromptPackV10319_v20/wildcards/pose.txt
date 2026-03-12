@@ -1,0 +1,6 @@
+(mid-strike pose:1.2), weapon swing, punch or kick, attack motion, dynamic combat, action moment, fighting pose with impact
+1girl, (crouching:1.2), low crouch, squatting down, knees bent deep, low to ground
+1girl, (hands on hips:1.2), both hands on waist, akimbo stance, confident hip pose
+(leaning against wall:1.2), wall lean pose, casual wall lean, hip against wall, shoulder to wall, relaxed lean, slouching against wall
+(seated on throne:1.2), regal sitting position, one leg up, arm on armrest, commanding seated pose, ruler sitting, dominance from seat
+1girl, (standing relaxed:1.2), weight on one leg, casual stance, natural standing, hip slightly out

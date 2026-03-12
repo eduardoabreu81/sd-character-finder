@@ -1,0 +1,7 @@
+# ============================================
+# Documentação privada de contexto para IA
+# ============================================
+.github/copilot-instructions.md
+AGENTS.local.md
+docs/PROJECT_LOG.md
+.specstory/

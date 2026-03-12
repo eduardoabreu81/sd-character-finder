@@ -1,0 +1,4 @@
+(bag:1.2), handbag, shoulder bag, school bag, backpack, stylish purse
+(glasses:1.2), eyeglasses, spectacles, thin frame glasses, round glasses, semi-rimless
+(cat eye liner:1.3), winged eyeliner, cat eyeliner, sharp liner wing, dramatic liner, kohl eyeliner, eyeliner flick
+(mask:1.2), face mask, kitsune mask, half mask, decorative mask, masquerade mask

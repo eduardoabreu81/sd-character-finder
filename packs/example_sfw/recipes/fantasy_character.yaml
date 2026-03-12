@@ -1,0 +1,26 @@
+FANTASY_CHARACTER:
+    Warrior:
+    - "__base__, 1girl, solo, fantasy armor, warrior, __hair/color__, __hair/style__,\
+      \ __eyes/color__, __body__, determined expression, battle-ready pose, __scene__,\
+      \ __lighting__, __camera__"
+    - negative: "__base_negative__, worst quality, low quality, modern clothes"
+    Mage:
+    - "__base__, 1girl, solo, mage outfit, arcane glow, magic particles, __hair/color__,\
+      \ __hair/style__, __eyes/color__, __body__, staff, casting spell, __scene__,\
+      \ __lighting__, __camera__"
+    - negative: "__base_negative__, worst quality, low quality, mundane setting"
+    Rogue:
+    - "__base__, 1girl, solo, rogue outfit, dark cloak, hood, daggers, __hair/color__,\
+      \ __hair/style__, __eyes/color__, __body__, stealthy pose, __scene__, __lighting__,\
+      \ __camera__"
+    - negative: "__base_negative__, worst quality, low quality, bright colors"
+    Healer:
+    - "__base__, 1girl, solo, white robes, healer, divine light, __hair/color__, __hair/style__,\
+      \ __eyes/color__, __body__, gentle expression, holy symbol, __scene__, __lighting__,\
+      \ __camera__"
+    - negative: "__base_negative__, worst quality, low quality, dark theme"
+    Archer:
+    - "__base__, 1girl, solo, ranger outfit, bow and arrow, __hair/color__, __hair/style__,\
+      \ __eyes/color__, __body__, focused expression, forest setting, __lighting__,\
+      \ __camera__"
+    - negative: "__base_negative__, worst quality, low quality"
