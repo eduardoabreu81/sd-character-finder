@@ -172,6 +172,20 @@ scripts/wildcard_creator.py
 
 ---
 
+## Versionamento
+
+O projeto segue **Semantic Versioning** `vX.Y.Z`:
+
+| Campo | Tipo | Quando usar |
+|---|---|---|
+| **X** (major) | Quebra de arquitetura | Mudança incompatível com versões anteriores. Ex.: troca de DB schema, reestruturação de API, mudança de motor. |
+| **Y** (minor) | Nova feature | Nova funcionalidade retrocompatível. Ex.: novo filtro de busca, novo endpoint, nova ação de botão. |
+| **Z** (patch) | Bug fix / estabilidade | Correção que não altera comportamento esperado. Ex.: crash fix, seletor CSS errado, fallback de clipboard. |
+
+**Versão atual:** `v1.0.1`
+
+---
+
 ## Documentos fonte a consultar
 
 | Documento | Conteúdo |

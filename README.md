@@ -35,7 +35,7 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🆕 What's New
 
-### v1.1 — WebUI Integration Fixes
+### v1.0.1 — WebUI Integration Fixes
 
 - **Tab now appears correctly** in all SD WebUI forks — fixed `on_ui_tabs` callback returning a bare `Blocks` object instead of the required tuple
 - **Send to Generate** now injects tags directly into `#txt2img_prompt` via JavaScript — works in any WebUI environment without server-side dependencies
@@ -45,14 +45,14 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 📖 Changelog
 
-### v1.1 — WebUI Integration Fixes
-- Fixed `TypeError: 'Blocks' object is not iterable` on extension load
-- Fixed tab rendering empty (nested `gr.Tab` inside `gr.Blocks` returned to `on_ui_tabs`)
+### v1.0.1 — WebUI Integration Fixes *(patch)*
+- Fixed `TypeError: 'Blocks' object is not iterable` on extension load (`on_ui_tabs` must return a list of tuples)
+- Fixed tab rendering empty — removed nested `gr.Tab` wrapper inside `gr.Blocks` returned to `on_ui_tabs`
 - Renamed tab from `🎭 Characters` to `Danbooru Characters`
-- Send to Generate: JS injection into `#txt2img_prompt textarea` with `input` event dispatch
-- Copy Tags: `navigator.clipboard.writeText()` → `execCommand('copy')` fallback for HTTP
+- Send to Generate: replaced broken `modules.generation_parameters_copypaste` call with JS injection into `#txt2img_prompt textarea`
+- Copy Tags: replaced server-side `tkinter` clipboard (fails on Linux headless) with `navigator.clipboard.writeText()` + `execCommand('copy')` fallback for HTTP
 
-### v1.0 — Initial Release
+### v1.0.0 — Initial Release *(minor)*
 - 20,016 Danbooru characters indexed in SQLite (`data/characters.db`, ~7 MB)
 - Search by name or tag, filter by series
 - Character card with thumbnail, name, series, and prompt tags
@@ -63,20 +63,21 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🗺️ Roadmap
 
-### v1.0 — Initial Release *(complete)* ✅
+### v1.0.0 — Initial Release *(complete)* ✅
 
-### v1.1 — WebUI Integration Fixes *(current)*
+### v1.0.1 — WebUI Integration Fixes *(complete)* ✅
 - Fixed tab registration and rendering
 - JS-based Send to Generate and Copy Tags
 
-### v1.2 — UX Improvements *(planned)*
+### v1.1.0 — UX Improvements *(planned)*
 - Append to existing prompt instead of replacing
 - Send negative tags to negative prompt field
 - Pagination for large result sets
 
-### v2.0 — Live Data *(planned)*
+### v2.0.0 — Live Data *(planned)*
 - Optional live Danbooru API search alongside local DB
 - Refresh DB from within the UI
+- Breaking change: new DB schema to support live + cached data
 
 ---
 
