@@ -412,3 +412,23 @@ sfwPromptPackCoreStyles_v40/\, \sfwPromptPackV10319_v20/\, \segsWildcards_positi
 **Impactos e pontos de atenção:**
 - Repositório significativamente mais leve para os usuários clonarem na pasta \xtensions\ do SD WebUI.
 
+### [2026-03-13] Melhoria na UI e Limpeza do Banco (Series Metadata)
+
+**O que foi feito:**
+- O dropdown de séries (combobox 'Series') na interface Gradio agora é ordenado de forma estritamente alfabética para facilitar a navegação pelo usuário, em vez da antiga ordenação por volume (contagem).
+- Criado o script isolado \scripts/clean_series_metadata.py\ para aplicar heurísticas via RegEx (Regex) diretamente sobre o banco SQLite.
+- A base \data/characters.db\ passou pelo scrub, no qual 19.345 registros tiveram nomes de 'séries' malformados (onde a tag continha roupagens/costumes escapados com parênteses e falsas franquias) aglutinados na série correta, movendo a roupagem opcional para frente do nome de exibição do personagem.
+
+**Arquivos alterados:**
+- \wildcard_creator/character_db.py\ — query SQL de \list_series\ atualizada para ordenação ASC.
+- \scripts/clean_series_metadata.py\ — ferramenta adicionada ao core.
+- \data/characters.db\ — DB sanitizado recarregado.
+- \docs/PROJECT_LOG.md\ — esta entrada.
+
+**Decisões técnicas:**
+- Optou-se por rodar o processo sintético localmente sem depender da API Live do Danbooru, por conta da restrição agressiva de requisições. 
+- O texto integral utilizado para prompt (as Danbooru tags e Character tags de Categoria 4 que são enviadas ao txt2img) foram preservadas intocadas. Somente nomes e metadados de UI foram refatorados para maior imersão.
+
+**Impactos e pontos de atenção:**
+- A UI passa a exibir franquias centralizadas com facilidade de navegação, extinguindo repetições de nomes na barra lateral.
+
