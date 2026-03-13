@@ -208,10 +208,9 @@ def _build_characters_content():
     # Character card
     with gr.Row():
         with gr.Column(scale=1, min_width=260):
-            char_image = gr.Image(
-                label="Preview",
-                height=280,
-                interactive=False,
+            char_image = gr.HTML(
+                value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>",
+                label="Preview"
             )
         with gr.Column(scale=2):
             char_name_out = gr.Textbox(label="Character", interactive=False, lines=1)
@@ -303,7 +302,7 @@ def _build_characters_content():
             1,
             1,
             gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),
-            gr.update(value=None),
+            gr.update(value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"),
             gr.update(value=""),
             gr.update(value=""),
             gr.update(value=""),
@@ -326,8 +325,16 @@ def _build_characters_content():
         # DB tags are mandatory — always use them as the prompt base.
         # canonical_tag is only a fallback when tags is empty.
         prompt_value = (char.get("tags") or canonical_tag or "").strip()
+        
+        # Build HTML for image preview to avoid Gradio server-side caching pool timeouts
+        img_url = char.get("image_url")
+        if img_url:
+            img_html = f"<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; overflow: hidden;'><img src='{img_url}' style='max-height: 100%; max-width: 100%; object-fit: contain;'></div>"
+        else:
+            img_html = "<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"
+
         return (
-            char.get("image_url"),
+            img_html,
             char["name"],
             char.get("series") or "",
             canonical_tag,
