@@ -35,8 +35,14 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🆕 What's New
 
-### v1.0.1 — WebUI Integration Fixes
+### v1.1.0 — UX Improvements *(current)*
 
+- **Clear button** — reset search query, filters, results table, and selected card with one click
+- **Add to txt2img** — new button appends tags to existing prompt (deduplication by lowercase)
+- **Live Danbooru enrichment** — optional accordion fetches extra tags via Danbooru API, grouped by category (character/general/copyright), with checkboxes and NovelAI-like ordering
+- **DB tags are always used as base** — fixed bug where canonical_tag could override full tags from the database
+
+### v1.0.1 — WebUI Integration Fixes *(patch)*
 - **Tab now appears correctly** in all SD WebUI forks — fixed `on_ui_tabs` callback returning a bare `Blocks` object instead of the required tuple
 - **Send to Generate** now injects tags directly into `#txt2img_prompt` via JavaScript — works in any WebUI environment without server-side dependencies
 - **Copy Tags** now uses `navigator.clipboard` with `execCommand` fallback for HTTP (non-secure) contexts — works on local network, LAN, and tunnels
@@ -69,10 +75,11 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 - Fixed tab registration and rendering
 - JS-based Send to Generate and Copy Tags
 
-### v1.1.0 — UX Improvements *(planned)*
-- Append to existing prompt instead of replacing
-- Send negative tags to negative prompt field
-- Pagination for large result sets
+### v1.1.0 — UX Improvements *(complete)* ✅
+- Clear button to reset search and results
+- Add to txt2img (append with deduplication)
+- Live Danbooru tag enrichment with category checkboxes
+- NovelAI-like tag ordering for enriched prompts
 
 ---
 
@@ -93,13 +100,25 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ### ➡️ Send to txt2img
 
-- One click to populate the **positive prompt field** in txt2img
-- Implemented via JavaScript DOM injection — works in any WebUI fork, any hosting environment
+- **Send to Generate** — replaces prompt with selected tags
+- **Add to txt2img** — appends tags to existing prompt (deduplication by lowercase)
+- Both implemented via JavaScript DOM injection — works in any WebUI fork, any hosting environment
 
 ### 📋 Copy Tags
 
 - Copies tags to clipboard via `navigator.clipboard` (HTTPS/localhost)
 - Falls back to `execCommand('copy')` for plain HTTP (local network, LAN setups)
+
+### 🔄 Clear Search
+
+- One-click reset of search query, filters, results table, and selected card
+
+### 🌐 Live Danbooru Enrichment (optional)
+
+- Fetch extra tags directly from Danbooru for the selected character
+- Tags grouped by category: character, general, copyright
+- Checkbox selection with automatic prompt assembly
+- NovelAI-like ordering: count tags (1girl/1boy) → character → series → others
 
 ### 🖥️ Standalone Mode
 

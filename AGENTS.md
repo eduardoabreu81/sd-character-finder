@@ -4,11 +4,13 @@
 
 **Projeto:** SD Character Finder (`sd-character-finder`)
 
-**Objetivo:** Extensão para SD WebUI (AUTOMATIC1111 / Forge) para navegar em um banco de 20 mil+ personagens Danbooru e enviar suas tags de prompt diretamente para o txt2img.
+**Objetivo:** Extensão para SD WebUI (AUTOMATIC1111 / Forge / Forge Neo) para navegar em um banco de 20 mil+ personagens Danbooru e enviar suas tags de prompt diretamente para o txt2img.
 
 **Público-alvo:** Usuários de SD que querem encontrar rapidamente as tags corretas de personagens anime/jogo para seus prompts.
 
 **Modo de uso principal:** Extensão instalada no SD WebUI (registrada via `script_callbacks.on_ui_tabs`). Também roda em modo standalone local para desenvolvimento sem GPU.
+
+**Estado atual:** Single-tab — apenas o browser de personagens está ativo na UI. Módulos `pack_manager` e `recipe_engine` permanecem no código para compatibilidade e testes, mas estão desconectados da interface.
 
 ---
 
@@ -34,7 +36,7 @@
 
 ### Standalone (sem SD WebUI / sem GPU)
 ```bash
-pip install gradio pyyaml requests
+pip install gradio beautifulsoup4 requests
 python -m wildcard_creator.ui          # porta padrão 7861
 python -m wildcard_creator.ui 7862     # porta customizada
 ```
@@ -44,13 +46,11 @@ Acesse: **http://127.0.0.1:7861**
 ```bash
 python -c "
 import sys; sys.path.insert(0, '.')
-from wildcard_creator import pack_manager as pm, recipe_engine as re
-from wildcard_creator.danbooru import get_db
-print(pm.list_packs())
-print(pm.get_all_category_paths('example_sfw'))
-print(get_db().tag_count())
-pos, neg = re.roll_recipe('example_sfw', 'portrait_girl')
-print(pos[:80])
+from wildcard_creator import character_db as cdb
+db = cdb.get_character_db()
+print('populated:', db.is_populated())
+print('count:', db.count())
+print('sample:', db.search('miku', limit=3))
 "
 ```
 
@@ -79,19 +79,21 @@ sd-character-finder/                ← raiz da extensão SD WebUI
 │   └── wildcard_creator.py         ← PONTO DE ENTRADA: registra on_ui_tabs()
 ├── wildcard_creator/               ← pacote Python principal
 │   ├── __init__.py
-│   ├── pack_manager.py             ← CRUD: packs, categorias, receitas, CSV, zip
-│   ├── recipe_engine.py            ← resolve __tokens__, roll prompts, parse YAML
-│   ├── danbooru.py                 ← DB de tags (CSV local + API live)
+│   ├── character_db.py             ← CRUD SQLite: busca, filtro, card
+│   ├── danbooru.py                 ← API client + CSV local (tags)
+│   ├── pack_manager.py             ← CRUD de packs (desconectado da UI)
+│   ├── recipe_engine.py            ← engine de receitas (desconectado)
 │   ├── prompt_sender.py            ← send to txt2img ou clipboard fallback
-│   └── ui.py                       ← UI Gradio 3 tabs, build_ui() + build_standalone_ui()
+│   └── ui.py                       ← UI Gradio single-tab: Characters
 ├── packs/                          ← dados de usuário (gitignore recomendado)
-│   └── example_sfw/               ← pack de exemplo incluído
+│   └── example_sfw/               ← pack de exemplo (herdado, não usado na UI)
 │       ├── pack.json
 │       ├── styles.csv
-│       ├── wildcards/              ← .txt por categoria (subpastas = subcategorias)
+│       ├── wildcards/              ← .txt por categoria
 │       └── recipes/                ← .yaml por recipe
 ├── data/
-│   └── danbooru_tags.csv           ← ~200 tags curadas, carregadas offline
+│   ├── characters.db               ← SQLite principal (20.016 chars)
+│   └── danbooru_tags.csv           ← ~200 tags curadas (offline fallback)
 └── README.md
 ```
 
@@ -100,19 +102,17 @@ sd-character-finder/                ← raiz da extensão SD WebUI
 ```
 scripts/wildcard_creator.py
   └─ on_ui_tabs() → wildcard_creator/ui.py → build_ui()
-                        ├─ pack_manager.py   (leitura/escrita de arquivos)
-                        ├─ recipe_engine.py  (resolução de __tokens__)
-                        ├─ danbooru.py       (busca de tags)
-                        └─ prompt_sender.py  (envio para txt2img)
+                        ├─ character_db.py   (busca SQLite)
+                        ├─ danbooru.py       (API live opcional)
+                        └─ prompt_sender.py  (envio ao txt2img)
 ```
 
-### Fluxo de dados principal
+### Fluxo de dados principal (UI atual)
 
-1. **Pack Editor**: usuário cria pack → `pack_manager.create_pack()` → cria `packs/<name>/wildcards/` + `recipes/` + `pack.json`
-2. **Edição de categoria**: textarea → `pack_manager.save_category()` → grava `<cat>.txt` e `<cat>_negative.txt`
-3. **Recipe Editor**: YAML editado → `pack_manager.save_recipe_raw()` → grava `recipes/<name>.yaml`
-4. **Generate**: pack + recipe + entry → `recipe_engine.get_recipe_entries()` → `roll_recipe_entry()` → `_pick_variant()` → lê `.txt` aleatoriamente → prompts resolvidos → `prompt_sender.send_to_txt2img()`
-5. **Export**: `pack_manager.export_pack_zip()` → `zipfile.ZipFile` em memória → download via `gr.File`
+1. **Busca**: usuário digita query + filtros → `character_db.search()` → resultados em tabela
+2. **Seleção**: clique na linha → `on_row_select()` preenche card com tags do DB
+3. **Envio**: botões usam JS para injetar tags no `#txt2img_prompt` ou copiar para clipboard
+4. **Enriquecimento opcional**: accordion "Extra tags" → `danbooru.fetch_character_post_tags()` → checkboxes → aplicar com ordenação NovelAI-like
 
 ### Pontos de entrada / saída
 
@@ -120,8 +120,8 @@ scripts/wildcard_creator.py
 |---|---|
 | Entrada WebUI | `scripts/wildcard_creator.py` → `on_ui_tabs()` |
 | Entrada standalone | `wildcard_creator/ui.py` → `if __name__ == "__main__"` |
-| Saída prompts | `prompt_sender.send_to_txt2img()` ou clipboard |
-| Saída exportação | `pack_manager.export_pack_zip()` → bytes `.zip` |
+| Saída prompts | JS injection em `#txt2img_prompt` ou clipboard |
+| Dados principais | `data/characters.db` (SQLite, incluso no repo) |
 
 ---
 
@@ -182,7 +182,7 @@ O projeto segue **Semantic Versioning** `vX.Y.Z`:
 | **Y** (minor) | Nova feature | Nova funcionalidade retrocompatível. Ex.: novo filtro de busca, novo endpoint, nova ação de botão. |
 | **Z** (patch) | Bug fix / estabilidade | Correção que não altera comportamento esperado. Ex.: crash fix, seletor CSS errado, fallback de clipboard. |
 
-**Versão atual:** `v1.0.1`
+**Versão atual:** `v1.1.0`
 
 ---
 
