@@ -121,14 +121,20 @@ def _build_characters_content():
     # ----- Events -----
 
     def do_search(query, series, tag_status):
-        results = cdb.search(
-            query.strip(),
-            series_filter=series if series != "All" else None,
-            tag_status_filter=tag_status,
-            limit=100,
-        )
-        table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
-        return table, results
+        query = (query or "").strip()
+        series = (series or "All").strip() or "All"
+        tag_status = (tag_status or "All").strip() or "All"
+        try:
+            results = cdb.search(
+                query,
+                series_filter=series if series != "All" else None,
+                tag_status_filter=tag_status,
+                limit=100,
+            )
+            table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
+            return table, results
+        except Exception:
+            return [], []
 
     def on_row_select(results_state, evt: gr.SelectData):
         row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index

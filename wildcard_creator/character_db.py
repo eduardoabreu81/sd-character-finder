@@ -78,7 +78,8 @@ class CharacterDB:
         Optionally filter by danbooru_tag status.
         Returns list of dicts with keys: id, name, series, tags, image_url, rank.
         """
-        query = query.strip()
+        query = (query or "").strip()
+        normalized_series = (series_filter or "").strip()
         params: list = []
         clauses: list[str] = []
 
@@ -87,9 +88,9 @@ class CharacterDB:
             like = f"%{query}%"
             params += [like, like, like]
 
-        if series_filter and series_filter != "All":
-            clauses.append("series = ?")
-            params.append(series_filter)
+        if normalized_series and normalized_series != "All":
+            clauses.append("series = ? COLLATE NOCASE")
+            params.append(normalized_series)
 
         if tag_status_filter == "Missing Danbooru Tag":
             clauses.append("(danbooru_tag IS NULL OR danbooru_tag = '')")
