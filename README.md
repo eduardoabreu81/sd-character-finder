@@ -45,6 +45,7 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 - **Tag Cache & Rate Limits** — Live API calls now cache locally for `sdcf_live_cache_ttl` seconds, adhering cleanly to `sdcf_scraper_rate_limit`.
 - **Loading Spinners & Feedback** — The Live tag fetching now explicitly displays loading text during the IO request to avoid frustrating silent waits.
 - **Enhanced Normalization** — Live tags with underscores are perfectly recognized alongside user spaces for accurate deduplications on send.
+- **Background Auto-Scraping** — If the database starts completely empty (e.g. when downloaded without `characters.db`), the extension automatically spins up a background thread to safely scrape all 20,000 Danbooru tags directly from the web source, skipping the need for manual python script triggers!
 
 ### v1.1.0 — UX Improvements
 

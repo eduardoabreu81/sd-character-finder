@@ -46,15 +46,13 @@ def _build_characters_content():
     _series_choices = ["All"] + [s for s, _ in cdb.list_series()] if _populated else ["All"]
 
     _NOT_POPULATED_MSG = (
-        "⚠️ Character database not found.\n\n"
-        "Run the scraper to populate it:\n"
-        "```\npython scripts/scrape_characters.py\n```\n"
-        "(~14 min, 834 pages, ~20k characters)"
+        "⚠️ **Character database is downloading in the background!**\n\n"
+        "It takes a few minutes to fetch the 20k characters for the first time. "
+        "You can search, but results may be partial until it finishes."
     )
 
-    if not _populated:
+    if _total < 20000:
         gr.Markdown(_NOT_POPULATED_MSG)
-        return
 
     def _discover_wildcard_dirs() -> tuple[list[str], dict[str, str]]:
         """
@@ -705,6 +703,27 @@ def build_standalone_ui() -> gr.Blocks:
     Build a standalone Gradio app for local development (no SD WebUI).
     Launch with: build_standalone_ui().launch(server_port=7861)
     """
+    
+    import threading
+    def _check_and_scrape():
+        from wildcard_creator.character_db import get_character_db
+        try:
+            db = get_character_db()
+            if db.count() < 20000:
+                import sys
+                from pathlib import Path
+                scripts_dir = str(Path(__file__).parent.parent / "scripts")
+                if scripts_dir not in sys.path:
+                    sys.path.insert(0, scripts_dir)
+                from scrape_characters import scrape
+                print("[SD Character Finder] Auto-scraping database in background...")
+                scrape(pages=0, resume=True)
+                print("[SD Character Finder] Background scraping complete.")
+        except Exception as e:
+            print(f"[SD Character Finder] Auto-scrape failed: {e}")
+
+    threading.Thread(target=_check_and_scrape, daemon=True).start()
+
     return build_ui()
 
 

@@ -377,3 +377,19 @@ YAML-wildcard-creator/
 **Decisões técnicas:**
 - Utilizou-se yield contínuo do próprio Gradio para atualizar o status em múltiplos estados de pre-flight em vez de introduzir complexidade side-effects com JS.
 
+
+### [2026-03-13] Lote 5: Auto-Scrap DB on Startup
+
+**O que foi feito:**
+- Se o banco de dados principal de personagens (\characters.db\) não for encontrado ou estiver incompleto (menos de 20k de registros), a extensão agora disparará a função \scrape\ nativa do \scrape_characters.py\ silenciosamente via thread em background (daemon).
+- A UI deixou de ter um \
+hard
+block\ exibindo aviso estático fechado. Ela agora é renderizada normalmente e informa sutilmente que o banco está sendo preenchido caso esteja menor que a quantidade total aceitável.
+
+**Arquivos alterados:**
+- \scripts/wildcard_creator.py\
+- \wildcard_creator/ui.py\
+
+**Decisões técnicas:**
+- Utilizou-se \	hreading.Thread\ do tipo daemon durante o processo de build do UI para evitar que o WebUI pendure na tela de splash. A escrita não paralisa os selects pois o SQLite com timeout cuida do lock. O usuário simplesmente verá os personagens aparecendo conforme a lista progride caso forcem buscam durante o donwload.
+

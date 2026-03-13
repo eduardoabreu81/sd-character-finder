@@ -17,6 +17,28 @@ try:
 
     def on_ui_tabs():
         from wildcard_creator.ui import build_ui
+        from wildcard_creator.character_db import get_character_db
+        import threading
+        
+        # Trigger auto-scrape in background if DB is missing or incomplete
+        def _check_and_scrape():
+            try:
+                db = get_character_db()
+                if db.count() < 20000:
+                    import sys
+                    from pathlib import Path
+                    scripts_dir = str(Path(__file__).parent)
+                    if scripts_dir not in sys.path:
+                        sys.path.insert(0, scripts_dir)
+                    from scrape_characters import scrape
+                    print("[SD Character Finder] Auto-scraping database in background...")
+                    scrape(pages=0, resume=True)
+                    print("[SD Character Finder] Background scraping complete.")
+            except Exception as e:
+                print(f"[SD Character Finder] Auto-scrape failed: {e}")
+
+        threading.Thread(target=_check_and_scrape, daemon=True).start()
+        
         blocks = build_ui()
         return [(blocks, "Danbooru Characters", "sd_character_finder")]
 
