@@ -13,6 +13,7 @@ Entry points:
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import gradio as gr
 
@@ -53,6 +54,101 @@ def _build_characters_content():
     if not _populated:
         gr.Markdown(_NOT_POPULATED_MSG)
         return
+
+    def _discover_wildcard_dirs() -> tuple[list[str], dict[str, str]]:
+        """
+        Discover wildcard folders using Forge/A1111 conventions:
+          1) <webui_root>/scripts/wildcards
+          2) <webui_root>/extensions/*/wildcards
+          3) shared.opts.wildcard_dir (sd-dynamic-prompts)
+        Falls back to local repo scan in standalone mode.
+        """
+        repo_root = Path(__file__).resolve().parent.parent
+        labels: list[str] = []
+        label_to_path: dict[str, str] = {}
+        seen: set[str] = set()
+
+        webui_root: Path | None = None
+
+        def _label_for(path_obj: Path) -> str:
+            try:
+                if webui_root:
+                    rel = path_obj.relative_to(webui_root)
+                    return str(rel).replace("\\", "/")
+            except Exception:
+                pass
+            return str(path_obj).replace("\\", "/")
+
+        def _add_dir(path_like):
+            if not path_like:
+                return
+            p = Path(path_like).expanduser()
+            try:
+                p = p.resolve()
+            except Exception:
+                pass
+            key = str(p)
+            if key in seen:
+                return
+            seen.add(key)
+            label = _label_for(p)
+            labels.append(label)
+            label_to_path[label] = key
+
+        try:
+            from modules import shared  # type: ignore
+
+            try:
+                from modules import paths_internal as _paths_internal  # type: ignore
+                script_path = getattr(_paths_internal, "script_path", "")
+                if script_path:
+                    webui_root = Path(script_path).resolve()
+            except Exception:
+                webui_root = None
+
+            try:
+                from modules import shared_paths as _shared_paths  # type: ignore
+
+                # 1) Main scripts wildcard folder
+                _add_dir(getattr(_shared_paths, "WILDCARD_PATH", None))
+
+                # 2) Extension wildcard folders
+                find_ext = getattr(_shared_paths, "find_ext_wildcard_paths", None)
+                if callable(find_ext):
+                    for ext_wc in find_ext():
+                        _add_dir(ext_wc)
+                else:
+                    ext_path = getattr(_shared_paths, "EXT_PATH", None)
+                    if ext_path:
+                        for ext_wc in Path(ext_path).glob("*/wildcards"):
+                            _add_dir(ext_wc)
+            except Exception:
+                # Fallback for environments without shared_paths helper
+                try:
+                    from modules import paths_internal as _paths_internal  # type: ignore
+                    extensions_dir = getattr(_paths_internal, "extensions_dir", "")
+                    if extensions_dir:
+                        for ext_wc in Path(extensions_dir).glob("*/wildcards"):
+                            _add_dir(ext_wc)
+                    if webui_root:
+                        _add_dir(webui_root / "scripts" / "wildcards")
+                except Exception:
+                    pass
+
+            # 3) sd-dynamic-prompts custom wildcard_dir if configured
+            custom_wildcard_dir = str(getattr(shared.opts, "wildcard_dir", "") or "").strip()
+            if custom_wildcard_dir:
+                _add_dir(custom_wildcard_dir)
+
+        except Exception:
+            # Standalone/local fallback
+            for p in sorted(repo_root.rglob("wildcards")):
+                if p.is_dir():
+                    _add_dir(p)
+
+        return labels, label_to_path
+
+    _wildcard_dirs, _wildcard_dir_map = _discover_wildcard_dirs()
 
     gr.Markdown(
         f"### Browse {_total:,} Danbooru characters\n"
@@ -127,7 +223,14 @@ def _build_characters_content():
                     placeholder="e.g. sakura_street_fighter",
                     lines=1,
                 )
-                btn_export_wildcard_txt = gr.Button("⬇️ Export TXT wildcard")
+                wildcard_target_dir = gr.Dropdown(
+                    label="Target wildcards folder",
+                    choices=_wildcard_dirs,
+                    value=_wildcard_dirs[0] if _wildcard_dirs else None,
+                    interactive=True,
+                )
+                btn_export_wildcard_txt = gr.Button("💾 Save TXT wildcard")
+            wildcard_dir_map_state = gr.State(_wildcard_dir_map)
             wildcard_export_status = gr.Textbox(label="", interactive=False, max_lines=1)
 
     # ----- Events -----
@@ -216,13 +319,26 @@ def _build_characters_content():
             return gr.update(value="⚠️ No tags to add")
         return gr.update(value="✅ Added to txt2img")
 
-    def do_export_wildcard_txt(name: str, tags: str):
+    def do_export_wildcard_txt(name: str, tags: str, target_dir: str, dir_map: dict[str, str]):
         safe = _normalize_wildcard_name(name)
         if not safe:
             return gr.update(value="⚠️ Enter a valid wildcard name")
         if not tags or not tags.strip():
             return gr.update(value="⚠️ No tags to export")
-        return gr.update(value=f"✅ Exported {safe}.txt — use __{safe}__ in prompt")
+        if not target_dir:
+            return gr.update(value="⚠️ Select a target wildcards folder")
+        try:
+            selected = (dir_map or {}).get(target_dir, "")
+            if not selected:
+                return gr.update(value="❌ Invalid target folder")
+            target_path = Path(selected).resolve()
+            target_path.mkdir(parents=True, exist_ok=True)
+            out_file = target_path / f"{safe}.txt"
+            out_file.write_text(tags.strip() + "\n", encoding="utf-8")
+            out_str = str(out_file).replace("\\", "/")
+            return gr.update(value=f"✅ Saved {out_str} — use __{safe}__ in prompt")
+        except Exception as exc:
+            return gr.update(value=f"❌ Failed to save wildcard: {exc}")
 
     def do_send_to_generate(tags):
         if not tags:
@@ -316,23 +432,8 @@ def _build_characters_content():
     )
     btn_export_wildcard_txt.click(
         fn=do_export_wildcard_txt,
-        inputs=[wildcard_name, char_tags_out],
+        inputs=[wildcard_name, char_tags_out, wildcard_target_dir, wildcard_dir_map_state],
         outputs=[wildcard_export_status],
-        js="""(name, tags) => {
-            const safe = (name || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '');
-            if (!safe || !tags || !tags.trim()) return [name, tags];
-
-            const blob = new Blob([tags.trim() + '\n'], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${safe}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            return [safe, tags];
-        }"""
     )
 
     # =========================================================
