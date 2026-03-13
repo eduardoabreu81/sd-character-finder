@@ -257,7 +257,53 @@ def _build_characters_content():
             return None, "", "", "", "", None
         char = results_state[row_idx]
         canonical_tag = (char.get("danbooru_tag") or "").strip()
-        prompt_value = canonical_tag or (char.get("tags") or "")
+        base_prompt = canonical_tag or (char.get("tags") or "")
+        series = (char.get("series") or "").strip()
+        seed = canonical_tag or char.get("name") or ""
+
+        # Auto-fetch enriched Danbooru tags for the selected character.
+        prompt_value = base_prompt
+        try:
+            if seed:
+                login, api_key = _get_default_danbooru_auth()
+                live_tags = _live_db.fetch_character_post_tags(
+                    seed,
+                    login=login,
+                    api_key=api_key,
+                    n_posts=120,
+                    top_n=40,
+                    min_freq=0.08,
+                )
+                if live_tags:
+                    category_map: dict[str, int] = {}
+                    tag_list: list[str] = []
+                    for t in live_tags:
+                        tag = (t.get("tag") or "").strip()
+                        if not tag:
+                            continue
+                        tag_list.append(tag)
+                        category_map[tag.lower()] = int(t.get("category", 0))
+                    # Inject character name and series if not already present.
+                    if seed and seed.lower() not in category_map:
+                        tag_list.insert(0, seed)
+                        category_map[seed.lower()] = 4
+                    if series and series.lower() not in category_map:
+                        tag_list.insert(1 if tag_list else 0, series)
+                        category_map[series.lower()] = 3
+                    # Deduplicate preserving order.
+                    seen_tags: set[str] = set()
+                    dedup: list[str] = []
+                    for tag in tag_list:
+                        key = tag.lower()
+                        if key not in seen_tags:
+                            seen_tags.add(key)
+                            dedup.append(tag)
+                    ordered = _order_tags_novelai_like(dedup, category_map)
+                    if ordered:
+                        prompt_value = ", ".join(ordered)
+        except Exception:
+            pass  # Falls back to base_prompt on any error.
+
         return (
             char.get("image_url"),
             char["name"],
