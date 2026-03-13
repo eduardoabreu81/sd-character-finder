@@ -307,7 +307,7 @@ def _build_characters_content():
     def _normalize_wildcard_name(name: str) -> str:
         name = (name or "").strip().replace(" ", "_").lower()
         name = re.sub(r"[^a-z0-9_\-]", "", name)
-        return name
+        return name[:50]
 
     def _order_tags_novelai_like(tags: list[str], category_map: dict[str, int]) -> list[str]:
         # Inspired by Takenoko's ordering concept, implemented from scratch.
