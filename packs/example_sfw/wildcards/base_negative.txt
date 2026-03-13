@@ -1,5 +1,0 @@
-lowres, bad anatomy, bad hands, text, error, missing fingers
-worst quality, low quality, blurry, jpeg artifacts, watermark
-lowres, bad anatomy, extra limbs, cloned face, bad proportions
-worst quality, low quality, normal quality, grainy, noisy
-lowres, cropped, worst quality, low quality, signature, watermark

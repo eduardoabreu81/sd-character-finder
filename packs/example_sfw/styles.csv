@@ -1,9 +1,0 @@
-name,prompt,negative_prompt,sd_model,clip_skip
-Simple Portrait,"masterpiece, best quality, 1girl, solo, blonde hair, long hair, blue eyes, looking at viewer, close-up portrait","lowres, bad anatomy, worst quality, low quality",,"2"
-Casual Outdoor,"masterpiece, best quality, 1girl, solo, brown hair, ponytail, green eyes, casual outfit, park background, natural lighting","lowres, bad anatomy, worst quality, low quality",,"2"
-Fantasy Warrior,"masterpiece, best quality, 1girl, solo, silver hair, warrior armor, red eyes, determined expression, battle scene, dramatic lighting","lowres, bad anatomy, worst quality, low quality, bad armor",,"2"
-Elegant Fashion,"masterpiece, best quality, 1girl, solo, black hair, elegant dress, formal wear, studio lighting, close-up portrait, graceful","lowres, bad anatomy, worst quality, low quality",,"2"
-Magical Girl,"masterpiece, best quality, 1girl, solo, pink hair, twin tails, purple eyes, magical outfit, sparkles, fantasy background, colorful","lowres, bad anatomy, worst quality, low quality, dark theme",,"2"
-Midnight Rogue,"masterpiece, best quality, 1girl, solo, dark hair, short hair, amber eyes, rogue outfit, dark cloak, city at night, neon lights","lowres, bad anatomy, worst quality, low quality",,"2"
-Nature Spirit,"masterpiece, best quality, 1girl, solo, green hair, long wavy hair, golden eyes, white dress, forest setting, magical glow, ethereal","lowres, bad anatomy, worst quality, low quality",,"2"
-Shrine Maiden,"masterpiece, best quality, 1girl, solo, black hair, hairpin, dark eyes, shrine maiden outfit, japanese garden, cherry blossoms","lowres, bad anatomy, worst quality, low quality, western style",,"2"
