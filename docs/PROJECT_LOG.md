@@ -363,3 +363,17 @@ YAML-wildcard-creator/
 **Decisões técnicas:**
 - Fix bug onde usar 'hatsune miku' e 'hatsune_miku' duplicava o conceito na linha do usuário dependendo se era tag canonica do banco ou live fetch do Danbooru.
 
+
+### [2026-03-13] Lote 4: Spinners e UX Feedback para Live API
+
+**O que foi feito:**
+- A função \_fetch_extra_tags\ foi refatorada de \eturn\ para \yield\ (Generator).
+- Antes de iniciar o request longo à Danbooru API, a UI agora emite imediatamente um update no \xtra_status\ indicando: '⏳ Fetching live tags from Danbooru...'
+- O UX recebe feedback visual imediato bloqueando cliques impacientes antes do Gradio resolver.
+
+**Arquivos alterados:**
+- \wildcard_creator/ui.py\
+
+**Decisões técnicas:**
+- Utilizou-se yield contínuo do próprio Gradio para atualizar o status em múltiplos estados de pre-flight em vez de introduzir complexidade side-effects com JS.
+

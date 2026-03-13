@@ -542,14 +542,18 @@ def _build_characters_content():
 
     def _fetch_extra_tags(enabled, selected_name, selected_series, manual_danbooru_tag):
         if not enabled:
-            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Enable extra-tag suggestions first")
+            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Enable extra-tag suggestions first")
+            return
 
         seed = (manual_danbooru_tag or selected_name or "").strip()
         if not seed:
-            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Select a character first")
+            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Select a character first")
+            return
+
+        yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⏳ Fetching live tags from Danbooru...")
 
         login, api_key = _get_default_danbooru_auth()
-        
+
         n_posts = get_shared_opt("sdcf_live_n_posts", 120)
         top_n = get_shared_opt("sdcf_live_top_n", 40)
         min_freq = get_shared_opt("sdcf_live_min_freq", 0.08)
@@ -566,9 +570,8 @@ def _build_characters_content():
                 cache_ttl=cache_ttl,
             )
         except Exception as exc:
-            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
-
-        extras: list[str] = []
+            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
+            return
         category_map: dict[str, int] = {}
         
         def _norm(tag_str):
@@ -604,10 +607,11 @@ def _build_characters_content():
 
         ordered = _order_tags_novelai_like(dedup_extras, category_map)
         if not ordered:
-            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ No useful extra tags found")
+            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ No useful extra tags found")
+            return
 
         default_selected = ordered[:20]
-        return (
+        yield (
             gr.update(choices=ordered, value=default_selected, visible=True),
             category_map,
             gr.update(value=f"✅ Loaded {len(ordered)} extra tags"),
