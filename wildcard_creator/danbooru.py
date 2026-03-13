@@ -246,6 +246,7 @@ class DanbooruDB:
         params: dict = {
             "tags": tag_query,
             "limit": min(n_posts, 200),
+            "only": "tag_string_general,tag_string_character,tag_string_copyright",
         }
         if login and api_key:
             params["login"] = login
@@ -263,86 +264,75 @@ class DanbooruDB:
 
         # Count tag occurrences across all posts
         from collections import Counter
-        counter: Counter = Counter()
+        counter_char: Counter = Counter()
+        counter_copy: Counter = Counter()
+        counter_general: Counter = Counter()
         total_posts = len(posts)
         for post in posts:
-            tag_string = post.get("tag_string", "")
-            for t in tag_string.split():
-                counter[t] += 1
+            for t in str(post.get("tag_string_character", "") or "").split():
+                counter_char[t] += 1
+            for t in str(post.get("tag_string_copyright", "") or "").split():
+                counter_copy[t] += 1
+            for t in str(post.get("tag_string_general", "") or "").split():
+                counter_general[t] += 1
 
-        # Build result list — keep only physical description tags.
-        # Skip: artists (1), meta (5), image-quality general tags, poses, actions, expressions.
-        SKIP_CATEGORIES = {1, 5}  # artist, meta
+        # Fallback for servers that don't honor `only` fields
+        if not counter_char and not counter_copy and not counter_general:
+            raw_counter: Counter = Counter()
+            for post in posts:
+                tag_string = str(post.get("tag_string", "") or "")
+                for t in tag_string.split():
+                    raw_counter[t] += 1
+            counter_general = raw_counter
+
+        # Build result list.
+        # Skip only quality/source noise; keep semantic tags such as 1girl/solo/etc.
         SKIP_GENERAL_TAGS = {
-            # ── Image quality / source (category 0 but not character trait) ──
+            # Image quality / source noise
             "highres", "absurdres", "ultra-detailed", "commentary",
             "commentary request", "english commentary", "translation request",
             "translated", "paid reward available", "patreon reward",
             "official art", "scan", "censored", "uncensored",
             "jpeg artifacts", "watermark", "web address", "signature",
-            # ── Poses / positions ──
-            "standing", "sitting", "lying", "kneeling", "squatting", "crouching",
-            "leaning forward", "leaning back", "on one knee", "all fours",
-            "lying on back", "lying on side", "on stomach", "spread legs",
-            "legs apart", "wariza", "seiza", "bent over", "arched back",
-            "legs up", "legs together",
-            # ── Actions ──
-            "holding", "running", "walking", "jumping", "floating", "flying",
-            "dancing", "fighting", "sleeping", "eating", "drinking", "reading",
-            "pointing", "reaching", "stretching", "waving", "raising hand",
-            "arms up", "arms behind back", "arms behind head", "hand on hip",
-            "hand on own chest", "hands clasped", "hands on own hips",
-            "hands on own thighs", "hands on own face",
-            "hugging", "kissing", "carrying",
-            # ── Expressions / emotions ──
-            "smile", "smiling", "grin", "grinning", "laughing", "crying",
-            "tears", "blush", "blushing", "open mouth", "closed mouth",
-            "frown", "frowning", "pout", "pouting", "embarrassed", "surprised",
-            "confused", "angry", "expressionless", "serious", "nervous",
-            "seductive smile", "light smile", "closed eyes", "one eye closed",
-            "wink",
-            # ── Looking direction ──
-            "looking at viewer", "looking back", "looking up", "looking down",
-            "looking away", "looking to the side", "looking to the left",
-            "looking to the right", "looking over shoulder", "eye contact",
-            "staring", "pov",
-            # ── Scene / background / framing ──
-            "solo", "duo", "outdoors", "indoors", "simple background",
-            "white background", "black background", "pink background",
-            "gradient background", "upper body", "full body", "cowboy shot",
-            "close-up", "portrait", "from below", "from above", "from behind",
-            "from side", "dutch angle", "profile",
-            # ── Count tags ──
-            "1girl", "1boy", "2girls", "2boys", "3girls", "3boys",
-            "multiple girls", "multiple boys", "no humans",
         }
         results = []
-        for raw_tag, count in counter.most_common():
-            if raw_tag == tag_query:
+
+        def append_from_counter(counter: Counter, category: int):
+            for raw_tag, count in counter.most_common():
+                freq = count / total_posts
+                if freq < min_freq:
+                    break
+                human_tag = raw_tag.replace("_", " ")
+                if category == 0 and human_tag in SKIP_GENERAL_TAGS:
+                    continue
+                results.append(
+                    {
+                        "tag": human_tag,
+                        "raw_tag": raw_tag,
+                        "count": count,
+                        "frequency": round(freq, 3),
+                        "category": category,
+                        "category_name": CATEGORY_NAMES.get(category, "general"),
+                    }
+                )
+
+        append_from_counter(counter_char, 4)
+        append_from_counter(counter_copy, 3)
+        append_from_counter(counter_general, 0)
+
+        # Deduplicate by raw_tag while preserving first occurrence (category priority).
+        dedup = []
+        seen = set()
+        for item in results:
+            raw_tag = item.get("raw_tag", "")
+            if raw_tag in seen:
                 continue
-            freq = count / total_posts
-            if freq < min_freq:
-                break  # already sorted desc, can stop early
-            human_tag = raw_tag.replace("_", " ")
-            # Look up category — falls back to general(0) if unknown
-            info = self._tags.get(human_tag) or self._tags.get(raw_tag)
-            category = info["category"] if info else 0
-            if category in SKIP_CATEGORIES:
-                continue
-            if human_tag in SKIP_GENERAL_TAGS:
-                continue
-            results.append({
-                "tag": human_tag,
-                "raw_tag": raw_tag,
-                "count": count,
-                "frequency": round(freq, 3),
-                "category": category,
-                "category_name": CATEGORY_NAMES.get(category, "general"),
-            })
-            if len(results) >= top_n:
+            seen.add(raw_tag)
+            dedup.append(item)
+            if len(dedup) >= top_n:
                 break
 
-        return results
+        return dedup
 
     def search_character_tags(
         self,

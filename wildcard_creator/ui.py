@@ -12,6 +12,8 @@ Entry points:
 
 from __future__ import annotations
 
+import re
+
 import gradio as gr
 
 from wildcard_creator import prompt_sender
@@ -113,10 +115,20 @@ def _build_characters_content():
             char_tags_out = gr.Textbox(label="Prompt tags", lines=4, interactive=True, elem_id="char_finder_tags_out")
             with gr.Row():
                 btn_char_send = gr.Button("➡️ Send to Generate", variant="primary")
+                btn_char_add = gr.Button("➕ Add to txt2img")
                 btn_char_copy = gr.Button("📋 Copy Tags")
                 btn_char_save_tag = gr.Button("💾 Save Danbooru Tag")
             char_selected_id = gr.State(None)
             char_send_status = gr.Textbox(label="", interactive=False, max_lines=1)
+
+            with gr.Row():
+                wildcard_name = gr.Textbox(
+                    label="Wildcard name (.txt)",
+                    placeholder="e.g. sakura_street_fighter",
+                    lines=1,
+                )
+                btn_export_wildcard_txt = gr.Button("⬇️ Export TXT wildcard")
+            wildcard_export_status = gr.Textbox(label="", interactive=False, max_lines=1)
 
     # ----- Events -----
 
@@ -163,6 +175,55 @@ def _build_characters_content():
             return gr.update(value="❌ Failed to save Danbooru tag"), gr.update()
         return gr.update(value="✅ Danbooru tag saved"), gr.update(value=manual_tag)
 
+    def _normalize_wildcard_name(name: str) -> str:
+        name = (name or "").strip().replace(" ", "_").lower()
+        name = re.sub(r"[^a-z0-9_\-]", "", name)
+        return name
+
+    def _order_tags_novelai_like(tags: list[str], category_map: dict[str, int]) -> list[str]:
+        # Inspired by Takenoko's ordering concept, implemented from scratch.
+        count_re = re.compile(r"^[1-6]\+?(girl|boy)s?$", re.IGNORECASE)
+        boys: list[str] = []
+        girls: list[str] = []
+        characters: list[str] = []
+        series: list[str] = []
+        others: list[str] = []
+
+        for tag in tags:
+            t = (tag or "").strip()
+            if not t:
+                continue
+            lower_t = t.lower()
+            if count_re.match(lower_t):
+                if "girl" in lower_t:
+                    girls.append(t)
+                else:
+                    boys.append(t)
+                continue
+
+            cat = category_map.get(lower_t)
+            if cat == 4:
+                characters.append(t)
+            elif cat == 3:
+                series.append(t)
+            else:
+                others.append(t)
+
+        return boys + girls + characters + series + others
+
+    def do_add_to_generate(tags):
+        if not tags:
+            return gr.update(value="⚠️ No tags to add")
+        return gr.update(value="✅ Added to txt2img")
+
+    def do_export_wildcard_txt(name: str, tags: str):
+        safe = _normalize_wildcard_name(name)
+        if not safe:
+            return gr.update(value="⚠️ Enter a valid wildcard name")
+        if not tags or not tags.strip():
+            return gr.update(value="⚠️ No tags to export")
+        return gr.update(value=f"✅ Exported {safe}.txt — use __{safe}__ in prompt")
+
     def do_send_to_generate(tags):
         if not tags:
             return gr.update(value="⚠️ No tags to send")
@@ -206,6 +267,31 @@ def _build_characters_content():
             return [tags];
         }"""
     )
+    btn_char_add.click(
+        fn=do_add_to_generate,
+        inputs=[char_tags_out],
+        outputs=[char_send_status],
+        js="""(tags) => {
+            const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
+            if (!promptEl || !tags) return [tags];
+
+            const parse = (s) => (s || '').split(',').map(x => x.trim()).filter(Boolean);
+            const existing = parse(promptEl.value);
+            const incoming = parse(tags);
+            const seen = new Set(existing.map(x => x.toLowerCase()));
+            for (const tag of incoming) {
+                const k = tag.toLowerCase();
+                if (!seen.has(k)) {
+                    existing.push(tag);
+                    seen.add(k);
+                }
+            }
+
+            promptEl.value = existing.join(', ');
+            promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+            return [tags];
+        }"""
+    )
     btn_char_copy.click(
         fn=do_copy_tags,
         inputs=[char_tags_out],
@@ -228,6 +314,26 @@ def _build_characters_content():
             return [tags];
         }"""
     )
+    btn_export_wildcard_txt.click(
+        fn=do_export_wildcard_txt,
+        inputs=[wildcard_name, char_tags_out],
+        outputs=[wildcard_export_status],
+        js="""(name, tags) => {
+            const safe = (name || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '');
+            if (!safe || !tags || !tags.trim()) return [name, tags];
+
+            const blob = new Blob([tags.trim() + '\n'], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${safe}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            return [safe, tags];
+        }"""
+    )
 
     # =========================================================
     # Extra tags (discrete mode)
@@ -247,17 +353,18 @@ def _build_characters_content():
             interactive=True,
             visible=False,
         )
+        extra_tags_meta = gr.State({})
         extra_status = gr.Textbox(label="", interactive=False, max_lines=1)
 
     _live_db = DanbooruDB()
 
-    def _fetch_extra_tags(enabled, selected_name, manual_danbooru_tag):
+    def _fetch_extra_tags(enabled, selected_name, selected_series, manual_danbooru_tag):
         if not enabled:
-            return gr.update(choices=[], value=[], visible=False), gr.update(value="⚠️ Enable extra-tag suggestions first")
+            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Enable extra-tag suggestions first")
 
         seed = (manual_danbooru_tag or selected_name or "").strip()
         if not seed:
-            return gr.update(choices=[], value=[], visible=False), gr.update(value="⚠️ Select a character first")
+            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Select a character first")
 
         login, api_key = _get_default_danbooru_auth()
         try:
@@ -270,19 +377,47 @@ def _build_characters_content():
                 min_freq=0.08,
             )
         except Exception as exc:
-            return gr.update(choices=[], value=[], visible=False), gr.update(value=f"❌ {exc}")
+            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
 
-        extras = [t["tag"] for t in tags if t.get("category") in {0, 3}]
-        if not extras:
-            return gr.update(choices=[], value=[], visible=False), gr.update(value="⚠️ No useful extra tags found")
+        extras: list[str] = []
+        category_map: dict[str, int] = {}
+        for t in tags:
+            tag = (t.get("tag") or "").strip()
+            if not tag:
+                continue
+            extras.append(tag)
+            category_map[tag.lower()] = int(t.get("category", 0))
 
-        default_selected = extras[:12]
+        # Ensure character and series are always available in suggestions.
+        selected_series = (selected_series or "").strip()
+        if seed and seed.lower() not in category_map:
+            extras.insert(0, seed)
+            category_map[seed.lower()] = 4
+        if selected_series and selected_series.lower() not in category_map:
+            extras.insert(1 if extras else 0, selected_series)
+            category_map[selected_series.lower()] = 3
+
+        dedup_extras: list[str] = []
+        seen = set()
+        for tag in extras:
+            key = tag.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            dedup_extras.append(tag)
+
+        ordered = _order_tags_novelai_like(dedup_extras, category_map)
+        if not ordered:
+            return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ No useful extra tags found")
+
+        default_selected = ordered[:20]
         return (
-            gr.update(choices=extras, value=default_selected, visible=True),
-            gr.update(value=f"✅ Loaded {len(extras)} extra tags"),
+            gr.update(choices=ordered, value=default_selected, visible=True),
+            category_map,
+            gr.update(value=f"✅ Loaded {len(ordered)} extra tags"),
         )
 
-    def _apply_extra_tags(enabled, current_prompt, selected_extras):
+    def _apply_extra_tags(enabled, current_prompt, selected_extras, category_map):
         if not enabled:
             return gr.update(), gr.update(value="⚠️ Enable extra-tag suggestions first")
 
@@ -299,23 +434,25 @@ def _build_characters_content():
                 seen.add(tag.lower())
                 added.append(tag)
 
+        ordered = _order_tags_novelai_like(current_parts, category_map or {})
+
         if not added:
-            return gr.update(value=", ".join(current_parts)), gr.update(value="ℹ️ All selected tags were already present")
+            return gr.update(value=", ".join(ordered)), gr.update(value="ℹ️ All selected tags were already present")
 
         return (
-            gr.update(value=", ".join(current_parts)),
+            gr.update(value=", ".join(ordered)),
             gr.update(value=f"✅ Added {len(added)} extra tag(s)"),
         )
 
     btn_extra_fetch.click(
         _fetch_extra_tags,
-        inputs=[extra_enabled, char_name_out, char_danbooru_tag_out],
-        outputs=[extra_tag_choices, extra_status],
+        inputs=[extra_enabled, char_name_out, char_series_out, char_danbooru_tag_out],
+        outputs=[extra_tag_choices, extra_tags_meta, extra_status],
     )
 
     btn_extra_apply.click(
         _apply_extra_tags,
-        inputs=[extra_enabled, char_tags_out, extra_tag_choices],
+        inputs=[extra_enabled, char_tags_out, extra_tag_choices, extra_tags_meta],
         outputs=[char_tags_out, extra_status],
     )
 
