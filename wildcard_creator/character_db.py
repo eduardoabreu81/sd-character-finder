@@ -179,12 +179,13 @@ class CharacterDB:
             return 0
 
     def list_series(self) -> list[tuple[str, int]]:
-        """Returns list of (series, count) sorted by count descending."""
+        """Returns list of (series, count) sorted by series name alphabetically."""
         try:
             rows = self._get_conn().execute(
                 "SELECT series, COUNT(*) as cnt FROM characters "
                 "WHERE series IS NOT NULL AND series != '' "
-                "GROUP BY series ORDER BY cnt DESC"
+                "GROUP BY series "
+                "ORDER BY series COLLATE NOCASE ASC"
             ).fetchall()
             return [(r[0], r[1]) for r in rows]
         except Exception as e:
