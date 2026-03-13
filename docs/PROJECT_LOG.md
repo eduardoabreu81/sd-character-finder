@@ -393,3 +393,22 @@ block\ exibindo aviso estático fechado. Ela agora é renderizada normalmente e 
 **Decisões técnicas:**
 - Utilizou-se \	hreading.Thread\ do tipo daemon durante o processo de build do UI para evitar que o WebUI pendure na tela de splash. A escrita não paralisa os selects pois o SQLite com timeout cuida do lock. O usuário simplesmente verá os personagens aparecendo conforme a lista progride caso forcem buscam durante o donwload.
 
+### [2026-03-13] Lote 6: Linting e Limpeza de Repositório
+
+**O que foi feito:**
+- Validação de sintaxe com \py_compile.py\ concluída com sucesso (arquivos core não possuem erros de sintaxe).
+- Remoção definitiva de diretórios e artefatos de pacotes antigos da raiz do repositório (\packs/\, \	ests/\, \utaFEMBOYADDONPACKStyles_v10/\, \
+sfwPromptPackCoreStyles_v40/\, \sfwPromptPackV10319_v20/\, \segsWildcards_positions/\).
+- Finalização da adequação do repositório ao escopo simplificado (*single-tab*) da extensão.
+
+**Arquivos alterados:**
+- Remoção das pastas \packs/\, \	ests/\ e subdiretórios de legacy wildcard packs.
+- \docs/PROJECT_LOG.md\ — esta entrada.
+
+**Decisões técnicas:**
+- O projeto foi originalmente forktado de um gerenciador de wildcards, acumulando pastas de pacotes pesadas. A limpeza remove essas sobras para focar apenas na funcionalidade do *Danbooru Character Finder*.
+- A suíte de testes (que focava no antigo \pack_manager\) foi removida, uma vez que a UI correspondente foi desacoplada.
+
+**Impactos e pontos de atenção:**
+- Repositório significativamente mais leve para os usuários clonarem na pasta \xtensions\ do SD WebUI.
+
