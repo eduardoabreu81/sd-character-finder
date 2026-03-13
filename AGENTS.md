@@ -10,7 +10,7 @@
 
 **Modo de uso principal:** Extensão instalada no SD WebUI (registrada via `script_callbacks.on_ui_tabs`). Também roda em modo standalone local para desenvolvimento sem GPU.
 
-**Estado atual:** Single-tab — apenas o browser de personagens está ativo na UI. Arquitetura simplificada focada exclusivamente em consultar o banco de personagens e enviar prompts as UIs do SD. Módulos relacionados a criação de pacotes ("packs") e de receitas foram removidos para reduzir complexidade.
+**Estado atual:** Single-tab — apenas o browser de personagens está ativo na UI. Arquitetura simplificada focada exclusivamente em consultar o banco de personagens e enviar prompts as UIs do SD. Módulos antigos relacionados a test-suite, criação de pacotes ("packs") e motor de receitas foram completamente removidos do repositório para garantir performance e clareza.
 
 ---
 
@@ -81,16 +81,9 @@ sd-character-finder/                ← raiz da extensão SD WebUI
 │   ├── __init__.py
 │   ├── character_db.py             ← CRUD SQLite: busca, filtro, card
 │   ├── danbooru.py                 ← API client + CSV local (tags)
-│   ├── pack_manager.py             ← CRUD de packs (desconectado da UI)
-│   ├── recipe_engine.py            ← engine de receitas (desconectado)
-│   ├── prompt_sender.py            ← send to txt2img ou clipboard fallback
-│   └── ui.py                       ← UI Gradio single-tab: Characters
-├── packs/                          ← dados de usuário (gitignore recomendado)
-│   └── example_sfw/               ← pack de exemplo (herdado, não usado na UI)
-│       ├── pack.json
-│       ├── styles.csv
-│       ├── wildcards/              ← .txt por categoria
-│       └── recipes/                ← .yaml por recipe
+│   ├── ui.py                       ← UI Gradio single-tab: Characters
+│   └── utils/
+│       └── strings.py              ← Utilitários de texto (ex: deduplicação)
 ├── data/
 │   ├── characters.db               ← SQLite principal (20.016 chars)
 │   └── danbooru_tags.csv           ← ~200 tags curadas (offline fallback)
@@ -103,8 +96,7 @@ sd-character-finder/                ← raiz da extensão SD WebUI
 scripts/wildcard_creator.py
   └─ on_ui_tabs() → wildcard_creator/ui.py → build_ui()
                         ├─ character_db.py   (busca SQLite)
-                        ├─ danbooru.py       (API live opcional)
-                        └─ prompt_sender.py  (envio ao txt2img)
+                        └─ danbooru.py       (API live opcional)
 ```
 
 ### Fluxo de dados principal (UI atual)
@@ -183,9 +175,6 @@ O projeto segue **Semantic Versioning** `vX.Y.Z`:
 | [README.md](README.md) | Features, instalação, formato de pack, compatibilidade |
 | [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md) | Histórico de decisões, mudanças por data |
 | [AGENTS.md](AGENTS.md) | Este arquivo — visão técnica completa |
-| [wildcard_creator/pack_manager.py](wildcard_creator/pack_manager.py) | API completa de CRUD |
-| [wildcard_creator/recipe_engine.py](wildcard_creator/recipe_engine.py) | Lógica de resolução de tokens |
-| [packs/example_sfw/](packs/example_sfw/) | Pack de referência com estrutura completa |
 
 ---
 
