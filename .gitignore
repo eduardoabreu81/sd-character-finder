@@ -11,5 +11,4 @@ docs/PROJECT_LOG.md
 # ============================================
 __pycache__/
 *.py[cod]
-data/characters.db
 tmp_resolve_*.txt
