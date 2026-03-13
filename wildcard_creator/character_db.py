@@ -13,9 +13,12 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -55,14 +58,16 @@ class CharacterDB:
         try:
             row = self._get_conn().execute("SELECT 1 FROM characters LIMIT 1").fetchone()
             return row is not None
-        except Exception:
+        except Exception as e:
+            logger.error(f"is_populated failed: {e}", exc_info=True)
             return False
 
     def count(self) -> int:
         try:
             row = self._get_conn().execute("SELECT COUNT(*) FROM characters").fetchone()
             return row[0] if row else 0
-        except Exception:
+        except Exception as e:
+            logger.error(f"count failed: {e}", exc_info=True)
             return 0
 
     def search(
@@ -110,7 +115,8 @@ class CharacterDB:
         try:
             rows = self._get_conn().execute(sql, params).fetchall()
             return [dict(r) for r in rows]
-        except Exception:
+        except Exception as e:
+            logger.error(f"search failed: query={query!r}, series={series_filter!r}, tag_status={tag_status_filter!r}, error={e}", exc_info=True)
             return []
 
     def get(self, name: str) -> Optional[dict]:
@@ -122,7 +128,8 @@ class CharacterDB:
                 (name,),
             ).fetchone()
             return dict(row) if row else None
-        except Exception:
+        except Exception as e:
+            logger.error(f"get failed: name={name!r}, error={e}", exc_info=True)
             return None
 
     def save_danbooru_tag(self, char_id: int, danbooru_tag: str) -> bool:
@@ -134,7 +141,8 @@ class CharacterDB:
             )
             self._get_conn().commit()
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"save_danbooru_tag failed: char_id={char_id}, tag={danbooru_tag!r}, error={e}", exc_info=True)
             return False
 
     def list_pending_danbooru(self, limit: int = 500) -> list[dict]:
@@ -147,7 +155,8 @@ class CharacterDB:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
-        except Exception:
+        except Exception as e:
+            logger.error(f"list_pending_danbooru failed: limit={limit}, error={e}", exc_info=True)
             return []
 
     def pending_danbooru_count(self) -> int:
@@ -157,7 +166,8 @@ class CharacterDB:
                 "SELECT COUNT(*) FROM characters WHERE danbooru_tag IS NULL OR danbooru_tag = ''"
             ).fetchone()
             return row[0] if row else 0
-        except Exception:
+        except Exception as e:
+            logger.error(f"pending_danbooru_count failed: error={e}", exc_info=True)
             return 0
 
     def list_series(self) -> list[tuple[str, int]]:
@@ -169,7 +179,8 @@ class CharacterDB:
                 "GROUP BY series ORDER BY cnt DESC"
             ).fetchall()
             return [(r[0], r[1]) for r in rows]
-        except Exception:
+        except Exception as e:
+            logger.error(f"list_series failed: error={e}", exc_info=True)
             return []
 
     def close(self) -> None:
@@ -190,3 +201,30 @@ def get_character_db() -> CharacterDB:
     if _db_instance is None:
         _db_instance = CharacterDB()
     return _db_instance
+
+# ---------------------------------------------------------------------------
+# Auto-close on exit
+# ---------------------------------------------------------------------------
+
+import atexit
+
+@atexit.register
+def _close_db_on_exit() -> None:
+    \
+\\Ensure
+the
+DB
+connection
+is
+closed
+when
+the
+process
+exits.\\\
+    global _db_instance
+    if _db_instance is not None:
+        try:
+            _db_instance.close()
+        except Exception:
+            pass  # Best effort
+

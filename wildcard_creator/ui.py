@@ -12,14 +12,15 @@ Entry points:
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
 import gradio as gr
 
-from wildcard_creator import prompt_sender
 from wildcard_creator.character_db import get_character_db
 from wildcard_creator.danbooru import DanbooruDB
+from wildcard_creator.utils.strings import normalize_wildcard_name
 
 
 def _get_default_danbooru_auth() -> tuple[str, str]:
