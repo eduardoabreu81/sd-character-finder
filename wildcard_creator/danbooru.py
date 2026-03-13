@@ -353,14 +353,18 @@ class DanbooruDB:
     ) -> list[dict]:
         """
         Search Danbooru for character tags matching a query string.
-        Returns list of {tag, post_count} sorted by post_count desc.
+        Returns list of {tag, post_count} sorted by relevance and post_count.
         """
+        normalized_query = query.strip().replace(" ", "_").lower()
+        if not normalized_query:
+            return []
+
         url = f"{DANBOORU_API_BASE}/tags.json"
         params: dict = {
-            "search[name_matches]": f"*{query.replace(' ', '_')}*",
+            "search[name_matches]": f"*{normalized_query}*",
             "search[category]": 4,  # character tags only
             "order": "count",
-            "limit": limit,
+            "limit": max(limit * 5, 30),
         }
         if login and api_key:
             params["login"] = login
@@ -376,15 +380,46 @@ class DanbooruDB:
         if not isinstance(raw, list):
             return []
 
-        return [
-            {
-                "tag": t["name"].replace("_", " "),
-                "raw_tag": t["name"],
-                "post_count": int(t.get("post_count", 0)),
-            }
-            for t in raw
-            if t.get("name")
-        ]
+        candidates = []
+        for t in raw:
+            raw_name = str(t.get("name") or "")
+            if not raw_name:
+                continue
+            post_count = int(t.get("post_count", 0))
+
+            exact = raw_name == normalized_query
+            series_main = (
+                raw_name.startswith(f"{normalized_query}_(")
+                and raw_name.endswith(")")
+                and raw_name.count("_(") == 1
+            )
+            starts_with = raw_name.startswith(f"{normalized_query}_")
+            contains = normalized_query in raw_name
+
+            # Prefer exact and "main with series" tags over noisy variants.
+            score = (
+                int(exact),
+                int(series_main),
+                int(starts_with),
+                int(contains),
+                post_count,
+                -len(raw_name),
+            )
+
+            candidates.append(
+                {
+                    "tag": raw_name.replace("_", " "),
+                    "raw_tag": raw_name,
+                    "post_count": post_count,
+                    "_score": score,
+                }
+            )
+
+        candidates.sort(key=lambda x: x["_score"], reverse=True)
+        trimmed = candidates[:limit]
+        for item in trimmed:
+            item.pop("_score", None)
+        return trimmed
 
     def fetch_tag_group(
         self,

@@ -69,11 +69,13 @@ class CharacterDB:
         self,
         query: str,
         series_filter: Optional[str] = None,
+        tag_status_filter: str = "All",
         limit: int = 50,
     ) -> list[dict]:
         """
-        Full-text search on name and tags.
+        Full-text search on name, tags and danbooru_tag.
         Optionally filter by exact series.
+        Optionally filter by danbooru_tag status.
         Returns list of dicts with keys: id, name, series, tags, image_url, rank.
         """
         query = query.strip()
@@ -81,13 +83,18 @@ class CharacterDB:
         clauses: list[str] = []
 
         if query:
-            clauses.append("(name LIKE ? OR tags LIKE ?)")
+            clauses.append("(name LIKE ? OR tags LIKE ? OR danbooru_tag LIKE ?)")
             like = f"%{query}%"
-            params += [like, like]
+            params += [like, like, like]
 
         if series_filter and series_filter != "All":
             clauses.append("series = ?")
             params.append(series_filter)
+
+        if tag_status_filter == "Missing Danbooru Tag":
+            clauses.append("(danbooru_tag IS NULL OR danbooru_tag = '')")
+        elif tag_status_filter == "Has Danbooru Tag":
+            clauses.append("(danbooru_tag IS NOT NULL AND danbooru_tag != '')")
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = f"""
