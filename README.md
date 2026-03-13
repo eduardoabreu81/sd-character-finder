@@ -35,8 +35,9 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🆕 What's New
 
-### v1.2.0 — Configuration & Pagination *(current)*
+### v0.2.0 — Configuration & Pagination *(current)*
 
+- **Database Metadata Cleanup** — rebuilt the UI filtering by stripping corrupt characters and regex parsing exact franchise names (e.g. `Arknights`, `Fate`) for a completely consolidated Dropdown list ordered alphabetically.
 - **Dead Code Removal** — removed legacy modules related to wildcard pack creation and prompt generation to focus 100% on the single-tab character browsing experience.
 - **WebUI Settings Integration** — added native `shared.opts` integration for `sdcf_search_limit`, `sdcf_live_n_posts`, API keys, etc. You can now configure limits and credentials inside your SD WebUI Settings tab.
 - **Robust Error Logging** — implemented `logging` wrappers across DB and API touchpoints for simpler remote diagnostics.
@@ -47,30 +48,25 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 - **Enhanced Normalization** — Live tags with underscores are perfectly recognized alongside user spaces for accurate deduplications on send.
 - **Background Auto-Scraping** — If the database starts completely empty (e.g. when downloaded without `characters.db`), the extension automatically spins up a background thread to safely scrape all 20,000 Danbooru tags directly from the web source, skipping the need for manual python script triggers!
 
-### v1.1.0 — UX Improvements
-
-- **Clear button** — reset search query, filters, results table, and selected card with one click
-- **Add to txt2img** — new button appends tags to existing prompt (deduplication by lowercase)
-- **Live Danbooru enrichment** — optional accordion fetches extra tags via Danbooru API, grouped by category (character/general/copyright), with checkboxes and NovelAI-like ordering
-- **DB tags are always used as base** — fixed bug where canonical_tag could override full tags from the database
-
-### v1.0.1 — WebUI Integration Fixes *(patch)*
-- **Tab now appears correctly** in all SD WebUI forks — fixed `on_ui_tabs` callback returning a bare `Blocks` object instead of the required tuple
-- **Send to Generate** now injects tags directly into `#txt2img_prompt` via JavaScript — works in any WebUI environment without server-side dependencies
-- **Copy Tags** now uses `navigator.clipboard` with `execCommand` fallback for HTTP (non-secure) contexts — works on local network, LAN, and tunnels
-
 ---
 
 ## 📖 Changelog
 
-### v1.0.1 — WebUI Integration Fixes *(patch)*
+### v0.1.0 — UX Improvements *(minor)*
+- Clear button to reset search and results
+- Add to txt2img (append with deduplication)
+- Live Danbooru tag enrichment with category checkboxes
+- NovelAI-like tag ordering for enriched prompts
+- DB tags are always used as base (fixed override bug)
+
+### v0.0.2 — WebUI Integration Fixes *(patch)*
 - Fixed `TypeError: 'Blocks' object is not iterable` on extension load (`on_ui_tabs` must return a list of tuples)
 - Fixed tab rendering empty — removed nested `gr.Tab` wrapper inside `gr.Blocks` returned to `on_ui_tabs`
 - Renamed tab from `🎭 Characters` to `Danbooru Characters`
 - Send to Generate: replaced broken `modules.generation_parameters_copypaste` call with JS injection into `#txt2img_prompt textarea`
 - Copy Tags: replaced server-side `tkinter` clipboard (fails on Linux headless) with `navigator.clipboard.writeText()` + `execCommand('copy')` fallback for HTTP
 
-### v1.0.0 — Initial Release *(minor)*
+### v0.0.1 — Initial Release *(patch)*
 - 20,016 Danbooru characters indexed in SQLite (`data/characters.db`, ~7 MB)
 - Search by name or tag, filter by series
 - Character card with thumbnail, name, series, and prompt tags
@@ -81,21 +77,22 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🗺️ Roadmap
 
-### v1.0.0 — Initial Release *(complete)* ✅
+### v0.0.1 — Initial Release *(complete)* ✅
 
-### v1.0.1 — WebUI Integration Fixes *(complete)* ✅
+### v0.0.2 — WebUI Integration Fixes *(complete)* ✅
 - Fixed tab registration and rendering
 - JS-based Send to Generate and Copy Tags
 
-### v1.1.0 — UX Improvements *(complete)* ✅
+### v0.1.0 — UX Improvements *(complete)* ✅
 - Clear button to reset search and results
 - Add to txt2img (append with deduplication)
 - Live Danbooru tag enrichment with category checkboxes
 - NovelAI-like tag ordering for enriched prompts
 
-### v1.2.0 — Foundation & Configuration *(complete)* ✅
+### v0.2.0 — Foundation & Configuration *(complete)* ✅
 - Single-tab architecture explicitly enforced.
 - Configurable variables in WebUI `shared.opts`.
+- Database Series metadata cleaned and consolidated.
 - Comprehensive module cleanup & debug logging readiness.
 
 ---
