@@ -182,6 +182,19 @@ def _build_characters_content():
         with gr.Column(scale=1, min_width=100):
             btn_char_reset = gr.Button("✖ Clear")
 
+    with gr.Row():
+        with gr.Column(scale=4):
+            pass # spacer
+        with gr.Column(scale=1, min_width=100):
+            btn_prev_page = gr.Button("◀ Prev", interactive=True)
+        with gr.Column(scale=1, min_width=120):
+            page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+        with gr.Column(scale=1, min_width=100):
+            btn_next_page = gr.Button("Next ▶", interactive=True)
+
+    current_page_state = gr.State(1)
+    total_pages_state = gr.State(1)
+
     # Results table
     char_results = gr.Dataframe(
         headers=["name", "series", "rank"],
@@ -238,21 +251,49 @@ def _build_characters_content():
 
     # ----- Events -----
 
-    def do_search(query, series, tag_status):
+    def get_shared_opt(key: str, default):
+        try:
+            from modules import shared
+            if hasattr(shared, "opts") and hasattr(shared.opts, key):
+                return getattr(shared.opts, key)
+        except Exception:
+            pass
+        return default
+
+    def do_search(query, series, tag_status, page):
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
+        limit = get_shared_opt("sdcf_search_limit", 100)
+        
         try:
-            results = cdb.search(
+            offset = (page - 1) * limit
+            results, total = cdb.search(
                 query,
                 series_filter=series if series != "All" else None,
                 tag_status_filter=tag_status,
-                limit=100,
+                limit=limit,
+                offset=offset,
             )
             table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
-            return table, results
+            
+            total_pages = max(1, (total + limit - 1) // limit)
+            page_text = f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages} ({total} results)</div>"
+            
+            return table, results, page, total_pages, gr.update(value=page_text)
         except Exception:
-            return [], []
+            return [], [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
+
+    def search_first_page(query, series, tag_status):
+        return do_search(query, series, tag_status, 1)
+
+    def prev_page_action(query, series, tag_status, page):
+        new_page = max(1, page - 1)
+        return do_search(query, series, tag_status, new_page)
+
+    def next_page_action(query, series, tag_status, page, total_pages):
+        new_page = min(total_pages, page + 1)
+        return do_search(query, series, tag_status, new_page)
 
     def do_reset_search():
         return (
@@ -261,6 +302,9 @@ def _build_characters_content():
             gr.update(value="All"),
             gr.update(value=[]),
             [],
+            1,
+            1,
+            gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),
             gr.update(value=None),
             gr.update(value=""),
             gr.update(value=""),
@@ -377,14 +421,24 @@ def _build_characters_content():
         return gr.update(value="✅ Copied to clipboard")
 
     btn_char_search.click(
-        do_search,
+        search_first_page,
         inputs=[char_search, char_series, tag_status_filter],
-        outputs=[char_results, char_results_state],
+        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_search.submit(
-        do_search,
+        search_first_page,
         inputs=[char_search, char_series, tag_status_filter],
-        outputs=[char_results, char_results_state],
+        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+    )
+    btn_prev_page.click(
+        prev_page_action,
+        inputs=[char_search, char_series, tag_status_filter, current_page_state],
+        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+    )
+    btn_next_page.click(
+        next_page_action,
+        inputs=[char_search, char_series, tag_status_filter, current_page_state, total_pages_state],
+        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_results.select(
         on_row_select,
@@ -494,14 +548,21 @@ def _build_characters_content():
             return gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Select a character first")
 
         login, api_key = _get_default_danbooru_auth()
+        
+        n_posts = get_shared_opt("sdcf_live_n_posts", 120)
+        top_n = get_shared_opt("sdcf_live_top_n", 40)
+        min_freq = get_shared_opt("sdcf_live_min_freq", 0.08)
+        cache_ttl = get_shared_opt("sdcf_live_cache_ttl", 1800)
+
         try:
             tags = _live_db.fetch_character_post_tags(
                 seed,
                 login=login,
                 api_key=api_key,
-                n_posts=120,
-                top_n=40,
-                min_freq=0.08,
+                n_posts=n_posts,
+                top_n=top_n,
+                min_freq=min_freq,
+                cache_ttl=cache_ttl,
             )
         except Exception as exc:
             return gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
@@ -579,6 +640,9 @@ def _build_characters_content():
             tag_status_filter,
             char_results,
             char_results_state,
+            current_page_state,
+            total_pages_state,
+            page_indicator,
             char_image,
             char_name_out,
             char_series_out,

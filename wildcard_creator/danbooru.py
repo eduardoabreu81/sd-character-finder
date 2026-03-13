@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import fnmatch
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -40,6 +41,17 @@ CATEGORY_NAMES = {
 # Categories we actually care about for wildcard generation
 USEFUL_CATEGORIES = {0, 4}  # general + character tags
 
+_last_api_request_time = 0.0
+
+def _rate_limit(min_interval: float = 1.0) -> None:
+    """Enforce a simple delay between requests."""
+    global _last_api_request_time
+    now = time.time()
+    elapsed = now - _last_api_request_time
+    if elapsed < min_interval:
+        time.sleep(min_interval - elapsed)
+    _last_api_request_time = time.time()
+
 
 # ---------------------------------------------------------------------------
 # DanbooruDB
@@ -55,6 +67,8 @@ class DanbooruDB:
         # tag → {post_count, category, aliases}
         self._tags: dict[str, dict] = {}
         self._loaded = False
+        # live posts cache: cache_key → (timestamp, tag_list)
+        self._posts_cache: dict[str, tuple[float, list[dict]]] = {}
 
     # ------------------------------------------------------------------
     # Loading
@@ -220,6 +234,7 @@ class DanbooruDB:
         n_posts: int = 100,
         top_n: int = 40,
         min_freq: float = 0.10,
+        cache_ttl: float = 1800.0,
     ) -> list[dict]:
         """
         Fetch the most common tags associated with a character on Danbooru.
@@ -241,6 +256,12 @@ class DanbooruDB:
         """
         # Normalize name to Danbooru underscore format
         tag_query = character_name.strip().replace(" ", "_").lower()
+        
+        cache_key = f"{tag_query}_{n_posts}_{top_n}_{min_freq}"
+        if cache_key in self._posts_cache:
+            ts, cached_tags = self._posts_cache[cache_key]
+            if time.time() - ts < cache_ttl:
+                return cached_tags
 
         url = f"{DANBOORU_API_BASE}/posts.json"
         params: dict = {
@@ -251,6 +272,16 @@ class DanbooruDB:
         if login and api_key:
             params["login"] = login
             params["api_key"] = api_key
+
+        rate_limit = 1.0  # Would be better to fetch from opts if accessible here
+        try:
+            from modules import shared
+            if hasattr(shared, "opts") and hasattr(shared.opts, "sdcf_scraper_rate_limit"):
+                rate_limit = getattr(shared.opts, "sdcf_scraper_rate_limit", 1.0)
+        except Exception:
+            pass
+
+        _rate_limit(rate_limit)
 
         try:
             resp = requests.get(url, params=params, timeout=15)
@@ -332,6 +363,7 @@ class DanbooruDB:
             if len(dedup) >= top_n:
                 break
 
+        self._posts_cache[cache_key] = (time.time(), dedup)
         return dedup
 
     def search_character_tags(

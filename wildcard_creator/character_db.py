@@ -76,12 +76,14 @@ class CharacterDB:
         series_filter: Optional[str] = None,
         tag_status_filter: str = "All",
         limit: int = 50,
-    ) -> list[dict]:
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
         """
         Full-text search on name, tags and danbooru_tag.
         Optionally filter by exact series.
         Optionally filter by danbooru_tag status.
-        Returns list of dicts with keys: id, name, series, tags, image_url, rank.
+        Returns a tuple of (list of dicts, total match count).
+        Dicts have keys: id, name, series, tags, image_url, rank.
         """
         query = (query or "").strip()
         normalized_series = (series_filter or "").strip()
@@ -103,21 +105,27 @@ class CharacterDB:
             clauses.append("(danbooru_tag IS NOT NULL AND danbooru_tag != '')")
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        
+        sql_count = f"SELECT COUNT(*) FROM characters {where}"
+        
         sql = f"""
             SELECT id, name, series, tags, image_url, rank, danbooru_tag
             FROM characters
             {where}
             ORDER BY rank ASC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
-        params.append(limit)
+        
+        count_params = list(params)
+        params.extend([limit, offset])
 
         try:
+            total_count = self._get_conn().execute(sql_count, count_params).fetchone()[0]
             rows = self._get_conn().execute(sql, params).fetchall()
-            return [dict(r) for r in rows]
+            return [dict(r) for r in rows], total_count
         except Exception as e:
             logger.error(f"search failed: query={query!r}, series={series_filter!r}, tag_status={tag_status_filter!r}, error={e}", exc_info=True)
-            return []
+            return [], 0
 
     def get(self, name: str) -> Optional[dict]:
         """Exact lookup by character name (case-insensitive)."""
@@ -210,17 +218,7 @@ import atexit
 
 @atexit.register
 def _close_db_on_exit() -> None:
-    \
-\\Ensure
-the
-DB
-connection
-is
-closed
-when
-the
-process
-exits.\\\
+    """Ensure the DB connection is closed when the process exits."""
     global _db_instance
     if _db_instance is not None:
         try:
