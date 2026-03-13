@@ -35,7 +35,15 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 
 ## 🆕 What's New
 
-### v1.1.0 — UX Improvements *(current)*
+### v1.2.0 — Foundation & Configuration *(current)*
+
+- **Dead Code Removal** — removed legacy modules related to wildcard pack creation and prompt generation to focus 100% on the single-tab character browsing experience.
+- **WebUI Settings Integration** — added native `shared.opts` integration for `sdcf_search_limit`, `sdcf_live_n_posts`, API keys, etc. You can now configure limits and credentials inside your SD WebUI Settings tab.
+- **Robust Error Logging** — implemented `logging` wrappers across DB and API touchpoints for simpler remote diagnostics.
+- **Safe DB Teardown** — added `atexit` hooks to manage SQLite connections correctly to prevent lockouts.
+- **Improved Validations** — TXT wildcards names automatically sanitized and capped at 50 chars.
+
+### v1.1.0 — UX Improvements
 
 - **Clear button** — reset search query, filters, results table, and selected card with one click
 - **Add to txt2img** — new button appends tags to existing prompt (deduplication by lowercase)
@@ -80,6 +88,11 @@ Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search 
 - Add to txt2img (append with deduplication)
 - Live Danbooru tag enrichment with category checkboxes
 - NovelAI-like tag ordering for enriched prompts
+
+### v1.2.0 — Foundation & Configuration *(complete)* ✅
+- Single-tab architecture explicitly enforced.
+- Configurable variables in WebUI `shared.opts`.
+- Comprehensive module cleanup & debug logging readiness.
 
 ---
 

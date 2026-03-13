@@ -10,7 +10,7 @@
 
 **Modo de uso principal:** Extensão instalada no SD WebUI (registrada via `script_callbacks.on_ui_tabs`). Também roda em modo standalone local para desenvolvimento sem GPU.
 
-**Estado atual:** Single-tab — apenas o browser de personagens está ativo na UI. Módulos `pack_manager` e `recipe_engine` permanecem no código para compatibilidade e testes, mas estão desconectados da interface.
+**Estado atual:** Single-tab — apenas o browser de personagens está ativo na UI. Arquitetura simplificada focada exclusivamente em consultar o banco de personagens e enviar prompts as UIs do SD. Módulos relacionados a criação de pacotes ("packs") e de receitas foram removidos para reduzir complexidade.
 
 ---
 
@@ -24,7 +24,7 @@
 | **HTTP / Danbooru API** | requests | ≥ 2.31 |
 | **WebUI integration** | modules.script_callbacks, modules.generation_parameters_copypaste | A1111 / Forge |
 | **Storage** | Sistema de arquivos local (`pathlib.Path`) | — |
-| **Empacotamento** | zipfile + io.BytesIO (stdlib) | — |
+| **Empacotamento** | (removido, foco apenas em search/export) | — |
 | **Deploy** | SD WebUI Extensions (git clone) ou RunPod remoto | — |
 
 **Libs críticas instaladas via `install.py`:** `pyyaml`, `requests`  
@@ -142,24 +142,14 @@ scripts/wildcard_creator.py
 - Erros de I/O retornam string `"❌ <motivo>"` para a textbox de status
 
 ### 4. Paths sempre via `pathlib.Path`
-- `pack_manager._ext_dir()` → `Path(__file__).parent.parent` — raiz da extensão
-- `get_packs_dir()` → `_ext_dir() / "packs"` — cria se não existir
+- `ui._discover_wildcard_dirs()` → Busca pastas na raiz do WebUI
 - Nunca concatenar strings para paths
 
-### 5. Formato de arquivo do pack (não quebrar)
-- `<category>.txt` — variantes positivas, uma por linha
-- `<category>_negative.txt` — variantes negativas, one per line  
-- `<subcategory/path>.txt` — subpastas suportadas (ex: `hair/color.txt`)
-- `recipes/<name>.yaml` — YAML compatível com sd-dynamic-prompts
-- `styles.csv` — 5 colunas: `name,prompt,negative_prompt,description,category`
-- `pack.json` — metadata JSON com `name, version, description, rating, author`
+### 5. Configurações Integradas (A partir da v1.2.0)
+- Configurações (ex: limite de busca, chaves de API, rates) no `shared.opts`
+- Variáveis são registradas em `scripts/wildcard_creator.py` e extraídas de modo fault-tolerant.
 
-### 6. Token wildcard `__category__`
-- Padrão regex: `__([a-zA-Z0-9_/\-]+)__`
-- `hair/color` → lê `wildcards/hair/color.txt`
-- Fallback se arquivo não existe: retorna `(category)` como hint visual, sem crash
-
-### 7. Danbooru API
+### 6. Danbooru API
 - Credenciais NUNCA commitadas — usuário insere na UI em campo `type="password"`
 - Live API é opcional — extensão funciona 100% offline com `data/danbooru_tags.csv`
 - `USEFUL_CATEGORIES = {0, 4}` — apenas tags general + character (evita artists/meta)
@@ -182,7 +172,7 @@ O projeto segue **Semantic Versioning** `vX.Y.Z`:
 | **Y** (minor) | Nova feature | Nova funcionalidade retrocompatível. Ex.: novo filtro de busca, novo endpoint, nova ação de botão. |
 | **Z** (patch) | Bug fix / estabilidade | Correção que não altera comportamento esperado. Ex.: crash fix, seletor CSS errado, fallback de clipboard. |
 
-**Versão atual:** `v1.1.0`
+**Versão atual:** `v1.2.0`
 
 ---
 
