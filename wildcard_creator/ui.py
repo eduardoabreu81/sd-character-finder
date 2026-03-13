@@ -178,6 +178,8 @@ def _build_characters_content():
             )
         with gr.Column(scale=1, min_width=100):
             btn_char_search = gr.Button("🔍 Search", variant="primary")
+        with gr.Column(scale=1, min_width=100):
+            btn_char_reset = gr.Button("✖ Clear")
 
     # Results table
     char_results = gr.Dataframe(
@@ -250,6 +252,27 @@ def _build_characters_content():
             return table, results
         except Exception:
             return [], []
+
+    def do_reset_search():
+        return (
+            gr.update(value=""),
+            gr.update(value="All"),
+            gr.update(value="All"),
+            gr.update(value=[]),
+            [],
+            gr.update(value=None),
+            gr.update(value=""),
+            gr.update(value=""),
+            gr.update(value=""),
+            gr.update(value=""),
+            None,
+            gr.update(value=""),
+            gr.update(value=""),
+            gr.update(value=""),
+            gr.update(choices=[], value=[], visible=False),
+            {},
+            gr.update(value=""),
+        )
 
     def on_row_select(results_state, evt: gr.SelectData):
         row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
@@ -546,6 +569,29 @@ def _build_characters_content():
             gr.update(value=", ".join(ordered)),
             gr.update(value=f"✅ Added {len(added)} extra tag(s)"),
         )
+
+    btn_char_reset.click(
+        do_reset_search,
+        outputs=[
+            char_search,
+            char_series,
+            tag_status_filter,
+            char_results,
+            char_results_state,
+            char_image,
+            char_name_out,
+            char_series_out,
+            char_danbooru_tag_out,
+            char_tags_out,
+            char_selected_id,
+            char_send_status,
+            wildcard_name,
+            wildcard_export_status,
+            extra_tag_choices,
+            extra_tags_meta,
+            extra_status,
+        ],
+    )
 
     btn_extra_fetch.click(
         _fetch_extra_tags,
