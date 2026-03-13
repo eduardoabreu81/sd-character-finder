@@ -366,7 +366,7 @@ def _build_characters_content():
             t = (tag or "").strip()
             if not t:
                 continue
-            lower_t = t.lower()
+            lower_t = t.lower().replace("_", " ")
             if count_re.match(lower_t):
                 if "girl" in lower_t:
                     girls.append(t)
@@ -472,11 +472,12 @@ def _build_characters_content():
             if (!promptEl || !tags) return [tags];
 
             const parse = (s) => (s || '').split(',').map(x => x.trim()).filter(Boolean);
+            const norm = (s) => (s || '').toLowerCase().replace(/_/g, ' ');
             const existing = parse(promptEl.value);
             const incoming = parse(tags);
-            const seen = new Set(existing.map(x => x.toLowerCase()));
+            const seen = new Set(existing.map(norm));
             for (const tag of incoming) {
-                const k = tag.toLowerCase();
+                const k = norm(tag);
                 if (!seen.has(k)) {
                     existing.push(tag);
                     seen.add(k);
@@ -569,26 +570,33 @@ def _build_characters_content():
 
         extras: list[str] = []
         category_map: dict[str, int] = {}
+        
+        def _norm(tag_str):
+            return tag_str.strip().lower().replace("_", " ")
+
         for t in tags:
             tag = (t.get("tag") or "").strip()
             if not tag:
                 continue
             extras.append(tag)
-            category_map[tag.lower()] = int(t.get("category", 0))
+            category_map[_norm(tag)] = int(t.get("category", 0))
 
         # Ensure character and series are always available in suggestions.
         selected_series = (selected_series or "").strip()
-        if seed and seed.lower() not in category_map:
+        seed_norm = _norm(seed)
+        if seed and seed_norm not in category_map:
             extras.insert(0, seed)
-            category_map[seed.lower()] = 4
-        if selected_series and selected_series.lower() not in category_map:
+            category_map[seed_norm] = 4
+            
+        series_norm = _norm(selected_series)
+        if selected_series and series_norm not in category_map:
             extras.insert(1 if extras else 0, selected_series)
-            category_map[selected_series.lower()] = 3
+            category_map[series_norm] = 3
 
         dedup_extras: list[str] = []
         seen = set()
         for tag in extras:
-            key = tag.lower()
+            key = _norm(tag)
             if key in seen:
                 continue
             seen.add(key)
@@ -614,12 +622,17 @@ def _build_characters_content():
             return gr.update(), gr.update(value="⚠️ Select at least one extra tag")
 
         current_parts = [p.strip() for p in (current_prompt or "").split(",") if p.strip()]
-        seen = {p.lower() for p in current_parts}
+        
+        def _norm(tag_str):
+            return tag_str.strip().lower().replace("_", " ")
+        
+        seen = {_norm(p) for p in current_parts}
         added = []
         for tag in selected_extras:
-            if tag.lower() not in seen:
+            norm_tag = _norm(tag)
+            if norm_tag not in seen:
                 current_parts.append(tag)
-                seen.add(tag.lower())
+                seen.add(norm_tag)
                 added.append(tag)
 
         ordered = _order_tags_novelai_like(current_parts, category_map or {})

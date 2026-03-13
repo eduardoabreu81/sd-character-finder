@@ -349,3 +349,17 @@ YAML-wildcard-creator/
 **Decisões técnicas:**
 - Optamos pela paginação manual simples com states (Prev/Next) no Gradio ao invés de paginação complexa via javascript. O estado da página é injetado recursivamente na função de search.
 
+
+### [2026-03-13] Lote 3: Fix Tag Deduplication and Ordering
+
+**O que foi feito:**
+- Normalização de espaços e underscores (\_\ virando espace \ \) garantida antes da deduplicação de tags extras e no JS de 'Add to txt2img'.
+- \_order_tags_novelai_like\ foi ajustado para sempre reconhecer strings mesmo quando estão com espaços ao invés de underscore vindos do WebUI.
+- \_fetch_extra_tags\ e \_apply_extra_tags\ foram atualizados com a lambda interna \_norm(tag_str)\.
+
+**Arquivos alterados:**
+- \wildcard_creator/ui.py\
+
+**Decisões técnicas:**
+- Fix bug onde usar 'hatsune miku' e 'hatsune_miku' duplicava o conceito na linha do usuário dependendo se era tag canonica do banco ou live fetch do Danbooru.
+
