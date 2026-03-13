@@ -37,7 +37,16 @@ class CharacterDB:
         if self._conn is None:
             self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
+            self._migrate()
         return self._conn
+
+    def _migrate(self) -> None:
+        """Add new columns to existing DBs without breaking older installs."""
+        try:
+            self._conn.execute("ALTER TABLE characters ADD COLUMN danbooru_tag TEXT")
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
     def is_populated(self) -> bool:
         """Returns True if the DB file exists and has at least one row."""
@@ -82,7 +91,7 @@ class CharacterDB:
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = f"""
-            SELECT id, name, series, tags, image_url, rank
+            SELECT id, name, series, tags, image_url, rank, danbooru_tag
             FROM characters
             {where}
             ORDER BY rank ASC
@@ -100,13 +109,48 @@ class CharacterDB:
         """Exact lookup by character name (case-insensitive)."""
         try:
             row = self._get_conn().execute(
-                "SELECT id, name, series, tags, image_url, rank "
+                "SELECT id, name, series, tags, image_url, rank, danbooru_tag "
                 "FROM characters WHERE name = ? COLLATE NOCASE LIMIT 1",
                 (name,),
             ).fetchone()
             return dict(row) if row else None
         except Exception:
             return None
+
+    def save_danbooru_tag(self, char_id: int, danbooru_tag: str) -> bool:
+        """Persist the canonical Danbooru tag for a character (used by resolve script)."""
+        try:
+            self._get_conn().execute(
+                "UPDATE characters SET danbooru_tag = ? WHERE id = ?",
+                (danbooru_tag, char_id),
+            )
+            self._get_conn().commit()
+            return True
+        except Exception:
+            return False
+
+    def list_pending_danbooru(self, limit: int = 500) -> list[dict]:
+        """List characters where danbooru_tag is still empty."""
+        try:
+            rows = self._get_conn().execute(
+                "SELECT id, name, series FROM characters "
+                "WHERE danbooru_tag IS NULL OR danbooru_tag = '' "
+                "ORDER BY id ASC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception:
+            return []
+
+    def pending_danbooru_count(self) -> int:
+        """Count characters where danbooru_tag is still empty."""
+        try:
+            row = self._get_conn().execute(
+                "SELECT COUNT(*) FROM characters WHERE danbooru_tag IS NULL OR danbooru_tag = ''"
+            ).fetchone()
+            return row[0] if row else 0
+        except Exception:
+            return 0
 
     def list_series(self) -> list[tuple[str, int]]:
         """Returns list of (series, count) sorted by count descending."""
