@@ -587,6 +587,7 @@ def _build_characters_content():
             yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
             return
         category_map: dict[str, int] = {}
+        extras: list[str] = []
         
         def _norm(tag_str):
             return tag_str.strip().lower().replace("_", " ")
