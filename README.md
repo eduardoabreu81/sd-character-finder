@@ -2,7 +2,6 @@
 
 [![SD WebUI](https://img.shields.io/badge/SD_WebUI-A1111%20%7C%20Forge-blue)](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
 [![Forge Neo](https://img.shields.io/badge/Forge-Neo-blue)](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)
-[![Gradio](https://img.shields.io/badge/Gradio-4.x-orange)](https://gradio.app/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
@@ -11,229 +10,66 @@
 
 <div align="center">
 
-> **Extension for Stable Diffusion WebUI (A1111 / Forge / Forge Neo)**
+> **Your ultimate character encyclopedia directly inside Stable Diffusion WebUI.**
 
 </div>
 
-Browse **20,000+ Danbooru characters** directly inside your SD WebUI — search by name, tag or series, preview the character card with thumbnail, and send prompt tags straight to txt2img with one click.
+Browse **20,000+ Danbooru characters** without leaving your UI. Search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
 
 ---
 
-## 📋 Table of Contents
+## ✨ Why use this extension?
 
-- [What's New](#-whats-new)
-- [Changelog](#-changelog)
-- [Roadmap](#️-roadmap)
-- [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Character Database](#-character-database)
-- [Standalone Mode](#-standalone-development-mode)
-- [Credits](#-credits)
-
----
-
-## 🆕 What's New
-
-### v0.2.0 — Configuration & Pagination *(current)*
-
-- **Database Metadata Cleanup** — rebuilt the UI filtering by stripping corrupt characters and regex parsing exact franchise names (e.g. `Arknights`, `Fate`) for a completely consolidated Dropdown list ordered alphabetically.
-- **Dead Code Removal** — removed legacy modules related to wildcard pack creation and prompt generation to focus 100% on the single-tab character browsing experience.
-- **WebUI Settings Integration** — added native `shared.opts` integration for `sdcf_search_limit`, `sdcf_live_n_posts`, API keys, etc. You can now configure limits and credentials inside your SD WebUI Settings tab.
-- **Robust Error Logging** — implemented `logging` wrappers across DB and API touchpoints for simpler remote diagnostics.
-- **Safe DB Teardown** — added `atexit` hooks to manage SQLite connections correctly to prevent lockouts.
-- **Pagination** — results are now paginated via simple `Prev`/`Next` buttons, preventing Gradio dataframe crashes from large queries (e.g. searching "All" with no limits).
-- **Tag Cache & Rate Limits** — Live API calls now cache locally for `sdcf_live_cache_ttl` seconds, adhering cleanly to `sdcf_scraper_rate_limit`.
-- **Loading Spinners & Feedback** — The Live tag fetching now explicitly displays loading text during the IO request to avoid frustrating silent waits.
-- **Enhanced Normalization** — Live tags with underscores are perfectly recognized alongside user spaces for accurate deduplications on send.
-- **Background Auto-Scraping** — If the database starts completely empty (e.g. when downloaded without `characters.db`), the extension automatically spins up a background thread to safely scrape all 20,000 Danbooru tags directly from the web source, skipping the need for manual python script triggers!
-
----
-
-## 📖 Changelog
-
-### v0.1.0 — UX Improvements *(minor)*
-- Clear button to reset search and results
-- Add to txt2img (append with deduplication)
-- Live Danbooru tag enrichment with category checkboxes
-- NovelAI-like tag ordering for enriched prompts
-- DB tags are always used as base (fixed override bug)
-
-### v0.0.2 — WebUI Integration Fixes *(patch)*
-- Fixed `TypeError: 'Blocks' object is not iterable` on extension load (`on_ui_tabs` must return a list of tuples)
-- Fixed tab rendering empty — removed nested `gr.Tab` wrapper inside `gr.Blocks` returned to `on_ui_tabs`
-- Renamed tab from `🎭 Characters` to `Danbooru Characters`
-- Send to Generate: replaced broken `modules.generation_parameters_copypaste` call with JS injection into `#txt2img_prompt textarea`
-- Copy Tags: replaced server-side `tkinter` clipboard (fails on Linux headless) with `navigator.clipboard.writeText()` + `execCommand('copy')` fallback for HTTP
-
-### v0.0.1 — Initial Release *(patch)*
-- 20,016 Danbooru characters indexed in SQLite (`data/characters.db`, ~7 MB)
-- Search by name or tag, filter by series
-- Character card with thumbnail, name, series, and prompt tags
-- Send to txt2img and Copy Tags buttons
-- Compatible with A1111, Forge, and Forge Classic (neo)
-
----
-
-## 🗺️ Roadmap
-
-### v0.0.1 — Initial Release *(complete)* ✅
-
-### v0.0.2 — WebUI Integration Fixes *(complete)* ✅
-- Fixed tab registration and rendering
-- JS-based Send to Generate and Copy Tags
-
-### v0.1.0 — UX Improvements *(complete)* ✅
-- Clear button to reset search and results
-- Add to txt2img (append with deduplication)
-- Live Danbooru tag enrichment with category checkboxes
-- NovelAI-like tag ordering for enriched prompts
-
-### v0.2.0 — Foundation & Configuration *(complete)* ✅
-- Single-tab architecture explicitly enforced.
-- Configurable variables in WebUI `shared.opts`.
-- Database Series metadata cleaned and consolidated.
-- Comprehensive module cleanup & debug logging readiness.
-
----
-
-## 🎯 Features
-
-### 🔍 Browse & Search
-
-- Search 20,016 characters by **name or tag** (e.g. `miku`, `saber`, `blue hair`)
-- Filter by **series** (Pokémon, Touhou, Fate, Hololive, Azur Lane, and more)
-- Results table with name, series, and rank
-- Click any row to load the full character card
-
-### 🃏 Character Card
-
-- **Thumbnail preview** — lazy-loaded from Danbooru source
-- Character name and series fields
-- **Editable prompt tags** — review and tweak before sending
-
-### ➡️ Send to txt2img
-
-- **Send to Generate** — replaces prompt with selected tags
-- **Add to txt2img** — appends tags to existing prompt (deduplication by lowercase)
-- Both implemented via JavaScript DOM injection — works in any WebUI fork, any hosting environment
-
-### 📋 Copy Tags
-
-- Copies tags to clipboard via `navigator.clipboard` (HTTPS/localhost)
-- Falls back to `execCommand('copy')` for plain HTTP (local network, LAN setups)
-
-### 🔄 Clear Search
-
-- One-click reset of search query, filters, results table, and selected card
-
-### 🌐 Live Danbooru Enrichment (optional)
-
-- Fetch extra tags directly from Danbooru for the selected character
-- Tags grouped by category: character, general, copyright
-- Checkbox selection with automatic prompt assembly
-- NovelAI-like ordering: count tags (1girl/1boy) → character → series → others
-
-### 🖥️ Standalone Mode
-
-- Run the UI locally without SD WebUI for development and testing
+- **Huge Offline Database:** Browse over 20,000 characters from popular series (Pokémon, Fate, Touhou, Arknights, Genshin Impact, etc.) without relying on slow internet searches.
+- **Smart Search & Filters:** Find your favorite character by typing their name or searching alphabetically through our organized Series dropdown.
+- **One-Click Prompting:** Click **Send to Generate** to replace your prompt, or **Add to txt2img** to smoothly append the character tags to your existing prompt intelligently.
+- **Live Danbooru Tags (Optional):** Want more details in your prompt? Automatically fetch extra character-specific tags directly from Danbooru (like their clothes, eyes, hair) and check the ones you want to add.
+- **Fast & Lightweight:** Results are paginated so your WebUI never freezes, and images load instantly!
 
 ---
 
 ## 📦 Installation
 
-### Inside SD WebUI (recommended)
+### Inside SD WebUI (Recommended)
 
-1. Open **Extensions → Install from URL**
-2. Paste: `https://github.com/eduardoabreu81/sd-character-finder`
-3. Click **Install**, then **Apply and restart UI**
+1. Open your WebUI and go to the **Extensions** tab.
+2. Click on the **Install from URL** sub-tab.
+3. Paste this URL into the first field:
+   `https://github.com/eduardoabreu81/sd-character-finder`
+4. Click **Install**.
+5. Go to the **Installed** sub-tab and click **Apply and restart UI**.
 
-### Manual
-
-```bash
-cd <webui_root>/extensions
-git clone https://github.com/eduardoabreu81/sd-character-finder
-# Restart WebUI
-```
-
-> ✅ Compatible with **AUTOMATIC1111**, **Forge**, and **Forge Classic (neo)**
+*(Compatible with AUTOMATIC1111, Forge, and Forge Classic / Neo)*
 
 ---
 
 ## 🚀 Quick Start
 
-1. Open the **Danbooru Characters** tab
-2. Type a character name or tag — e.g. `miku`, `saber`, `blue hair`
-3. Optionally filter by series
-4. Click **🔍 Search**
-5. Click a row in the results table to load the character card
-6. Click **➡️ Send to Generate** to populate txt2img
+1. Go to the new **Danbooru Characters** tab in your WebUI.
+2. Type a character name or tag (e.g., `miku`, `saber`, `blue hair`).
+3. Alternatively, pick a series from the Series Dropdown (e.g., `Arknights`).
+4. Click **🔍 Search**.
+5. Click on any character in the results table to see their preview card and tags.
+6. Click **➡️ Send to Generate** or **➕ Add to txt2img** to instantly fill your prompt!
 
 ---
 
-## 🗃️ Character Database
+## ⚙️ Configuration
 
-The extension ships with a pre-built SQLite database of **20,016 characters** (`data/characters.db`, ~7 MB, included in the repo).
-
-### Top series
-
-| Series | Characters |
-|---|---|
-| Pokémon | 1,315 |
-| Kantai Collection | 574 |
-| Azur Lane | 474 |
-| Fate/series | 437 |
-| Hololive | 411 |
-| Touhou | 400+ |
-| Girls' Frontline | 350+ |
-
-### Rebuild from scratch
-
-```bash
-python scripts/scrape_characters.py
-# ~14 min, 834 pages, ~20k characters
-```
-
-Data sourced from [downloadmost.com/NoobAI-XL/danbooru-character](https://www.downloadmost.com/NoobAI-XL/danbooru-character/) (`robots.txt: Allow: /`).
+You can tweak the extension settings natively in your WebUI!
+Go to **Settings -> Options -> SD Character Finder**.
+Here you can adjust:
+- How many characters show up per page.
+- Your Danbooru API credentials (optional, only needed if you heavily use the Live Tags search feature and want to bypass anonymous limits).
 
 ---
 
-## 🖥️ Standalone Development Mode
+## 🆕 Recent Updates
 
-Run without an SD WebUI installation:
+**v0.2.0 - Big Cleanup & Polish**
+- **Clean Series Menu:** We overhauled our database! The series menu is now alphabetically organized and free of messy, duplicated text. Filtering by franchise is easier than ever.
+- **Pagination:** Browsing massive queries won't freeze your UI anymore. Use the new Prev/Next buttons!
+- **Better Image Previews:** Character images load instantly via your browser, making the app much snappier.
+- **Settings Tab:** Moved all settings gracefully to the native WebUI Settings menu.
 
-```bash
-pip install gradio beautifulsoup4 requests
-python -m wildcard_creator.ui
-# → http://127.0.0.1:7861
-```
-
-Custom port:
-
-```bash
-python -m wildcard_creator.ui 7862
-```
-
----
-
-## 📄 Credits
-
-- **[Danbooru](https://danbooru.donmai.us/)** — character tag database
-- **[NoobAI-XL Danbooru Character List](https://www.downloadmost.com/NoobAI-XL/danbooru-character/)** — source for the character scraper
-- **[Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)** by Haoming02
-
----
-
-## 📜 License
-
-MIT — see [LICENSE](LICENSE)
-
----
-
-<div align="center">
-
-Made with ❤️ for the Stable Diffusion community
-
-**[Report Bug](https://github.com/eduardoabreu81/sd-character-finder/issues)** • **[Request Feature](https://github.com/eduardoabreu81/sd-character-finder/issues)** • **[Discussions](https://github.com/eduardoabreu81/sd-character-finder/discussions)**
-
-</div>
+*(For detailed technical logs and patch notes, check the `docs/` folder)*
