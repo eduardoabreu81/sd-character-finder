@@ -71,6 +71,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 ### v0.3.0 — Custom User Series & Collections *(planned)*
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
+- **Danbooru Artist & Style Browser** — Explore artists and styles directly (inspired by [Downloadmost's Danbooru Artist](https://www.downloadmost.com/NoobAI-XL/danbooru-artist/)).
 
 ---
 
