@@ -510,8 +510,8 @@ def _build_characters_content():
         inputs=[char_selected_id, char_danbooru_tag_out],
         outputs=[char_send_status, char_tags_out],
         js="""(id, tag) => {
-            if(!confirm('Deseja salvar no banco? Essa informação passará a ser a default para este personagem.')) {
-                throw new Error('Cancelado pelo usuário');
+            if(!confirm('Save to database? This will become the default tag for this character.')) {
+                throw new Error('Cancelled by user');
             }
             return [id, tag];
         }"""

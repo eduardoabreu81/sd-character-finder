@@ -95,6 +95,14 @@ try:
             ),
         )
         shared.opts.add_option(
+            "sdcf_default_wildcards_path",
+            shared.OptionInfo(
+                "",
+                "Default folder for exported wildcards (absolute path or relative to sd-webui root)",
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
             "sdcf_scraper_rate_limit",
             shared.OptionInfo(
                 1.0,
