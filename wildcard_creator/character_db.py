@@ -50,6 +50,21 @@ class CharacterDB:
             self._conn.commit()
         except sqlite3.OperationalError:
             pass  # column already exists
+        self.apply_overrides()
+
+    def apply_overrides(self):
+        """Re-apply user saved danbooru tags to the base database."""
+        try:
+            import json
+            overrides_path = self._path.parent / "user_overrides.json"
+            if overrides_path.exists():
+                overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+                if overrides:
+                    for cid, tag in overrides.items():
+                        self._conn.execute("UPDATE characters SET danbooru_tag = ? WHERE id = ?", (tag, int(cid)))
+                    self._conn.commit()
+        except Exception as e:
+            logger.error(f"apply_overrides failed: {e}")
 
     def is_populated(self) -> bool:
         """Returns True if the DB file exists and has at least one row."""

@@ -224,12 +224,13 @@ def _build_characters_content():
             )
             char_tags_out = gr.Textbox(label="Prompt tags", lines=4, interactive=True, elem_id="char_finder_tags_out")
             with gr.Row():
-                btn_char_send = gr.Button("➡️ Send to Generate", variant="primary")
-                btn_char_add = gr.Button("➕ Add to txt2img")
-                btn_char_copy = gr.Button("📋 Copy Tags")
-                btn_char_save_tag = gr.Button("💾 Save Danbooru Tag")
+                btn_char_send = gr.Button("➡️ Send to Generate", variant="primary", size="lg")
+                btn_char_add = gr.Button("➕ Add to txt2img", size="lg")
+            with gr.Row():
+                btn_char_copy = gr.Button("📋 Copy Tags", size="lg")
+                btn_char_save_tag = gr.Button("💾 Save Danbooru Tag", size="lg")
             char_selected_id = gr.State(None)
-            char_send_status = gr.Textbox(label="", interactive=False, max_lines=1)
+            char_send_status = gr.Textbox(visible=False)
 
             with gr.Row():
                 wildcard_name = gr.Textbox(
@@ -266,7 +267,7 @@ def _build_characters_content():
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
-        limit = get_shared_opt("sdcf_search_limit", 100)
+        limit = get_shared_opt("sdcf_search_limit", 10)
         
         try:
             offset = (page - 1) * limit
@@ -493,6 +494,12 @@ def _build_characters_content():
         save_manual_danbooru_tag,
         inputs=[char_selected_id, char_danbooru_tag_out],
         outputs=[char_send_status, char_tags_out],
+        js="""(id, tag) => {
+            if(!confirm('Deseja salvar no banco? Essa informação passará a ser a default para este personagem.')) {
+                throw new Error('Cancelado pelo usuário');
+            }
+            return [id, tag];
+        }"""
     )
     btn_char_send.click(
         fn=do_send_to_generate,
@@ -581,7 +588,7 @@ def _build_characters_content():
         
     _live_db = DanbooruDB()
 
-    def _fetch_extra_tags(selected_name, selected_series, manual_danbooru_tag):
+    def _fetch_extra_tags(selected_name, selected_series, manual_danbooru_tag, current_prompt):
 
         seed = (manual_danbooru_tag or selected_name or "").strip()
         if not seed:
@@ -714,7 +721,7 @@ def _build_characters_content():
 
     btn_extra_fetch.click(
         _fetch_extra_tags,
-        inputs=[char_name_out, char_series_out, char_danbooru_tag_out],
+        inputs=[char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out],
         outputs=[extra_tag_choices, extra_tags_meta, char_send_status],
     )
 

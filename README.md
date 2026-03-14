@@ -12,7 +12,7 @@
 
 </div>
 
-> **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Your problems are over!** 🦸‍♂️
+> **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Say no more!** 🦸‍♂️
 
 Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **20,000+ Danbooru characters** without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
 

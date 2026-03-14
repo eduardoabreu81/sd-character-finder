@@ -12,3 +12,5 @@ docs/PROJECT_LOG.md
 __pycache__/
 *.py[cod]
 tmp_resolve_*.txt
+data/covers/
+data/user_overrides.json
