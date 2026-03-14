@@ -145,6 +145,12 @@ def _build_characters_content():
                 if p.is_dir():
                     _add_dir(p)
 
+        
+        # Always ensure a local 'wildcards' folder exists inside the extension as a reliable fallback
+        local_wc = repo_root / "wildcards"
+        local_wc.mkdir(parents=True, exist_ok=True)
+        _add_dir(local_wc)
+
         return labels, label_to_path
 
     _wildcard_dirs, _wildcard_dir_map = _discover_wildcard_dirs()
@@ -319,7 +325,7 @@ def _build_characters_content():
     def on_row_select(results_state, evt: gr.SelectData):
         row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
         if not results_state or row_idx >= len(results_state):
-            return None, "", "", "", "", None
+            return None, "", "", "", "", None, ""
         char = results_state[row_idx]
         canonical_tag = (char.get("danbooru_tag") or "").strip()
         # DB tags are mandatory — always use them as the prompt base.
@@ -333,6 +339,7 @@ def _build_characters_content():
         else:
             img_html = "<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"
 
+
         return (
             img_html,
             char["name"],
@@ -340,7 +347,9 @@ def _build_characters_content():
             canonical_tag,
             prompt_value,
             char.get("id"),
+            _normalize_wildcard_name(char["name"]),
         )
+
 
     def save_manual_danbooru_tag(selected_id, manual_tag):
         if not selected_id:
@@ -448,7 +457,7 @@ def _build_characters_content():
     char_results.select(
         on_row_select,
         inputs=[char_results_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
     )
     btn_char_save_tag.click(
         save_manual_danbooru_tag,
