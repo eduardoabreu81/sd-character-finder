@@ -12,13 +12,15 @@
 
 </div>
 
-Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **20,000+ Danbooru characters** without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to 	xt2img with a single click!
+> **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Your problems are over!** 🦸‍♂️
+
+Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **20,000+ Danbooru characters** without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
 
 ---
 
 ## 📋 Table of Contents
 
-- [What\'s New](#-whats-new)
+- [What's New](#-whats-new)
 - [Changelog](#-changelog)
 - [Roadmap](#️-roadmap)
 - [Features](#-features)
@@ -28,11 +30,11 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ---
 
-## 🆕 What\'s New
+## 🆕 What's New
 
 ### v0.2.0 — Big Cleanup & Polish
 - **Clean Series Menu** — We overhauled our database! The series dropdown is now alphabetically organized and free of messy, duplicated text. Filtering by franchise is easier than ever.
-- **Pagination & Performance** — Browsing massive queries won\'t freeze your UI anymore. Navigate results effortlessly using the new Prev/Next buttons.
+- **Pagination & Performance** — Browsing massive queries won't freeze your UI anymore. Navigate results effortlessly using the new Prev/Next buttons.
 - **Better Image Previews** — Character images load instantly via your browser, making the app much snappier and immune to backend timeouts.
 - **Settings Integration** — Moved all settings gracefully to the native WebUI Settings menu (*Settings -> Options -> SD Character Finder*).
 
@@ -81,7 +83,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - API key support for Danbooru in settings to bypass anonymous usage limits
 
 ### 🚀 One-Click Prompting
-- **Send to Generate** — Instantly replaces your current 	xt2img prompt with the character\'s signature tags
+- **Send to Generate** — Instantly replaces your current 	xt2img prompt with the character's signature tags
 - **Add to txt2img** — Intelligently appends the character tags to your *existing* prompt ⭐
 - **Smart Deduplication** — Automatically removes duplicate words when sending tags to your prompt
 
