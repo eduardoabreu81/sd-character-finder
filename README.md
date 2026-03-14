@@ -66,12 +66,22 @@ Here you can adjust:
 
 ---
 
-## 🆕 Recent Updates
+## 📖 Changelog (What's New)
 
-**v0.2.0 - Big Cleanup & Polish**
-- **Clean Series Menu:** We overhauled our database! The series menu is now alphabetically organized and free of messy, duplicated text. Filtering by franchise is easier than ever.
-- **Pagination:** Browsing massive queries won't freeze your UI anymore. Use the new Prev/Next buttons!
+**v0.2.0 — Big Cleanup & Polish *(Current)***
+- **Clean Series Menu:** We overhauled our database! The series dropdown is now alphabetically organized and free of messy, duplicated text. Filtering by franchise is easier than ever.
+- **Pagination:** Browsing massive queries won't freeze your UI anymore. Navigate results using the new Prev/Next buttons.
 - **Better Image Previews:** Character images load instantly via your browser, making the app much snappier.
 - **Settings Tab:** Moved all settings gracefully to the native WebUI Settings menu.
+
+**v0.1.0 — Huge UX Improvements**
+- **Add to txt2img Button:** A new action button that intelligently appends tags to your existing prompt without wiping it, automatically preventing duplicate words!
+- **Live Danbooru Enrichment:** Added an optional section to fetch extra tags dynamically from Danbooru (like clothes, hair, eyes) with checkboxes.
+- **Clear Button:** Added a simple one-click reset for your search query and results table.
+
+**v0.0.1 — Initial Release**
+- **Offline Library:** Shipped with an embedded lightweight database containing 20,016 Danbooru characters.
+- **Quick Integration:** Works out of the box with AUTOMATIC1111, Forge, and Forge Classic (Neo).
+- **Core Functionality:** Search by name or tag, filter by series, view character cards, and send prompts straight to generation.
 
 *(For detailed technical logs and patch notes, check the `docs/` folder)*
