@@ -213,11 +213,6 @@ def _build_characters_content():
 
     # Character card
     with gr.Row():
-        with gr.Column(scale=1, min_width=260):
-            char_image = gr.HTML(
-                value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>",
-                label="Preview"
-            )
         with gr.Column(scale=2):
             char_name_out = gr.Textbox(label="Character", interactive=False, lines=1)
             char_series_out = gr.Textbox(label="Series", interactive=False, lines=1)
@@ -250,7 +245,11 @@ def _build_characters_content():
                 )
                 btn_export_wildcard_txt = gr.Button("💾 Save TXT wildcard")
             wildcard_dir_map_state = gr.State(_wildcard_dir_map)
-            wildcard_export_status = gr.Textbox(label="", interactive=False, max_lines=1)
+        with gr.Column(scale=1, min_width=260):
+            char_image = gr.HTML(
+                value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>",
+                label="Preview"
+            )
 
     # ----- Events -----
 
@@ -334,8 +333,39 @@ def _build_characters_content():
         
         # Build HTML for image preview to avoid Gradio server-side caching pool timeouts
         img_url = char.get("image_url")
+        char_id = char.get("id")
         if img_url:
-            img_html = f"<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; overflow: hidden;'><img src='{img_url}' style='max-height: 100%; max-width: 100%; object-fit: contain;'></div>"
+            src_val = img_url
+            if char_id:
+                try:
+                    import base64
+                    import threading
+                    import requests
+                    from pathlib import Path
+                    
+                    repo_root = Path(__file__).resolve().parent.parent
+                    covers_dir = repo_root / "data" / "covers"
+                    cov_path = covers_dir / f"{char_id}.jpg"
+                    
+                    if cov_path.exists():
+                        img_data = base64.b64encode(cov_path.read_bytes()).decode('utf-8')
+                        src_val = f"data:image/jpeg;base64,{img_data}"
+                    else:
+                        def _dl(url, path):
+                            if path.exists(): return
+                            try:
+                                headers = {"User-Agent": "SDCharacterFinder/1.0"}
+                                resp = requests.get(url, headers=headers, timeout=10)
+                                if resp.status_code == 200:
+                                    path.parent.mkdir(parents=True, exist_ok=True)
+                                    path.write_bytes(resp.content)
+                            except:
+                                pass
+                        threading.Thread(target=_dl, args=(img_url, cov_path), daemon=True).start()
+                except Exception:
+                    pass
+
+            img_html = f"<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; overflow: hidden;'><img src='{src_val}' style='max-height: 100%; max-width: 100%; object-fit: contain;'></div>"
         else:
             img_html = "<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"
 
@@ -528,36 +558,30 @@ def _build_characters_content():
     btn_export_wildcard_txt.click(
         fn=do_export_wildcard_txt,
         inputs=[wildcard_name, char_tags_out, wildcard_target_dir, wildcard_dir_map_state],
-        outputs=[wildcard_export_status],
+        outputs=[char_send_status],
     )
 
     # =========================================================
     # Extra tags (discrete mode)
     # =========================================================
-    with gr.Accordion("Extra tags from Danbooru (optional)", open=False):
-        extra_enabled = gr.Checkbox(
-            label="Enable extra-tag suggestions for selected character",
-            value=False,
-        )
+    # We no longer use an Accordion. It's a persistent flat block.
+    with gr.Group():
+        gr.Markdown("### Extra Variables from Danbooru (Optional)", elem_classes=["sdcf-small-header"])
         with gr.Row():
-            btn_extra_fetch = gr.Button("Fetch extra tags")
-            btn_extra_apply = gr.Button("Apply selected extras")
+            btn_extra_fetch = gr.Button("⬇️ Fetch live extra tags", variant="secondary")
+            btn_extra_apply = gr.Button("✅ Apply selected extras", variant="secondary")
         extra_tag_choices = gr.CheckboxGroup(
-            label="Suggested extra tags",
+            label="Live Tags (Select and apply to inject them into the main prompt)",
             choices=[],
             value=[],
             interactive=True,
             visible=False,
         )
         extra_tags_meta = gr.State({})
-        extra_status = gr.Textbox(label="", interactive=False, max_lines=1)
-
+        
     _live_db = DanbooruDB()
 
-    def _fetch_extra_tags(enabled, selected_name, selected_series, manual_danbooru_tag):
-        if not enabled:
-            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Enable extra-tag suggestions first")
-            return
+    def _fetch_extra_tags(selected_name, selected_series, manual_danbooru_tag):
 
         seed = (manual_danbooru_tag or selected_name or "").strip()
         if not seed:
@@ -632,9 +656,7 @@ def _build_characters_content():
             gr.update(value=f"✅ Loaded {len(ordered)} extra tags"),
         )
 
-    def _apply_extra_tags(enabled, current_prompt, selected_extras, category_map):
-        if not enabled:
-            return gr.update(), gr.update(value="⚠️ Enable extra-tag suggestions first")
+    def _apply_extra_tags(current_prompt, selected_extras, category_map):
 
         selected_extras = list(selected_extras or [])
         if not selected_extras:
@@ -683,23 +705,23 @@ def _build_characters_content():
             char_selected_id,
             char_send_status,
             wildcard_name,
-            wildcard_export_status,
+            char_send_status,
             extra_tag_choices,
             extra_tags_meta,
-            extra_status,
+            char_send_status,
         ],
     )
 
     btn_extra_fetch.click(
         _fetch_extra_tags,
-        inputs=[extra_enabled, char_name_out, char_series_out, char_danbooru_tag_out],
-        outputs=[extra_tag_choices, extra_tags_meta, extra_status],
+        inputs=[char_name_out, char_series_out, char_danbooru_tag_out],
+        outputs=[extra_tag_choices, extra_tags_meta, char_send_status],
     )
 
     btn_extra_apply.click(
         _apply_extra_tags,
-        inputs=[extra_enabled, char_tags_out, extra_tag_choices, extra_tags_meta],
-        outputs=[char_tags_out, extra_status],
+        inputs=[char_tags_out, extra_tag_choices, extra_tags_meta],
+        outputs=[char_tags_out, char_send_status],
     )
 
 
