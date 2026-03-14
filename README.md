@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/sdcf-banner.png" alt="SD Character Finder Header" width="100%">
+
 [![SD WebUI](https://img.shields.io/badge/SD_WebUI-A1111%20%7C%20Forge-blue)](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
 [![Forge Neo](https://img.shields.io/badge/Forge-Neo-blue)](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
