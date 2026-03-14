@@ -32,11 +32,12 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.2.0 — Big Cleanup & Polish
-- **Clean Series Menu** — We overhauled our database! The series dropdown is now alphabetically organized and free of messy, duplicated text. Filtering by franchise is easier than ever.
-- **Pagination & Performance** — Browsing massive queries won't freeze your UI anymore. Navigate results effortlessly using the new Prev/Next buttons.
-- **Better Image Previews** — Character images load instantly via your browser, making the app much snappier and immune to backend timeouts.
-- **Settings Integration** — Moved all settings gracefully to the native WebUI Settings menu (*Settings -> Options -> SD Character Finder*).
+### v1.2.0 — Beautiful Layout, Categories & Logic Override
+- **Sleek UI Remaster** — Fully remade the interface taking advantage of horizontal layout capabilities. The character attributes and thumbnail now sit cleanly on the left while results populate on your right.
+- **Categorical Extra Tags** — Now, clicking "Fetch Extra Tags" neatly sorts all live-fetched Danbooru attributes into distinct checkboxes (Character, Series, General, Meta).
+- **NovelAI Tag Ordering** — The algorithm behind tag injections now flawlessly forces ideal syntax orders (`1girl`, `character`, `series`, `everything else`) for much stronger promping results.
+- **User Overrides Persistence** — Your local changes to labels and DB saves now persist accurately to a local `user_overrides.json`, keeping you completely safe from `git pull` overwrites when updating the tool!
+- **Target Folder Cleaner** — Cleaned up wildcards output. The extension now grabs its default Wildcard backup location directly from a global WebUI Setting option!
 
 ---
 
@@ -60,10 +61,15 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### v0.2.0 — Big Cleanup & Polish *(complete)* ✅
 
-### v0.3.0 — Advanced Series Management & User Tags *(planned)*
-- Save custom character tags locally.
-- Favorites system for quickly accessing your top tier characters.
-- Enhanced layout for the extra tags section.
+### v1.2.0 — UI Overhaul & Live API Categories *(complete)* ✅
+- Total layout overhaul (Split screen logic, Thumbnail on the left).
+- Better structure separating Danbooru 'Extra tags' dynamically by category (Character, Copyright, General, Artist and Meta).
+- Accurate default tag ordering mimicking NovelAI's preferred weighting style.
+- Full internal DB persistency using user overrides to avoid conflicts.
+
+### v1.3.0 — Image Cache & Favorites *(planned)*
+- Automatic caching for character thumbnail images to minimize network requests.
+- Custom Collections & Favorites system to save best combinations.
 
 ---
 
@@ -78,9 +84,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Pagination system keeps the UI snappy even when returning thousands of results
 
 ### 🖼️ Character Info & Preview
-- View high-quality character thumbnails instantly
-- Expandable **Live Danbooru Tags** menu: fetch extra character-specific tags dynamically from Danbooru (like their clothes, eyes, hair) and check the ones you want to add ⭐
-- API key support for Danbooru in settings to bypass anonymous usage limits
+- View high-quality character thumbnails instantly.
+- Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category (Copyright, Character, General, Artist, Meta) ⭐
+- Automatically sorts appended web-tags following optimal generation standards (NovelAI style formatting).
+- Clean, translation-ready interface integrating straight into A1111/Forge standard inputs.
 
 ### 🚀 One-Click Prompting
 - **Send to Generate** — Instantly replaces your current 	xt2img prompt with the character's signature tags
