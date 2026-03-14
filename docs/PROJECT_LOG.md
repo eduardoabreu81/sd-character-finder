@@ -8,7 +8,7 @@
 - **Nova seção "Search Danbooru Live"** — busca personagens fora do banco local via API Danbooru, exibe tags mais frequentes por categoria com checkboxes, monta prompt editável e envia para txt2img
 - Módulos `pack_manager` e `recipe_engine` presentes no código mas desconectados da UI (mantidos para compatibilidade e testes)
 - Modo standalone (`python -m wildcard_creator.ui`) para desenvolvimento local sem GPU/WebUI
-- **Versão atual:** `v1.2.0`
+- **Versão atual:** `v0.2.0`
 
 ## Regras de versionamento (Semantic Versioning vX.Y.Z)
 
@@ -30,7 +30,7 @@
 
 ## Linha do tempo de mudanças
 
-### [2026-03-14] Refatoração Visual (UI Layout), Traduções e Ajustes de Target Wildcard Path (v1.2.0)
+### [2026-03-14] Refatoração Visual (UI Layout), Traduções e Ajustes de Target Wildcard Path (v0.2.0)
 
 **O que foi feito:**
 - Refatoração completa do layout (dados e thumbnail do character na esquerda, grid de imagens com melhor aproveitamento lateral).

@@ -137,7 +137,7 @@ scripts/wildcard_creator.py
 - `ui._discover_wildcard_dirs()` → Busca pastas na raiz do WebUI
 - Nunca concatenar strings para paths
 
-### 5. Configurações Integradas (A partir da v1.2.0)
+### 5. Configurações Integradas (A partir da v0.2.0)
 - Configurações (ex: limite de busca, chaves de API, rates) no `shared.opts`
 - Variáveis são registradas em `scripts/wildcard_creator.py` e extraídas de modo fault-tolerant.
 
@@ -164,7 +164,7 @@ O projeto segue **Semantic Versioning** `vX.Y.Z`:
 | **Y** (minor) | Nova feature | Nova funcionalidade retrocompatível. Ex.: novo filtro de busca, novo endpoint, nova ação de botão. |
 | **Z** (patch) | Bug fix / estabilidade | Correção que não altera comportamento esperado. Ex.: crash fix, seletor CSS errado, fallback de clipboard. |
 
-**Versão atual:** `v1.2.0`
+**Versão atual:** `v0.2.0`
 
 ---
 

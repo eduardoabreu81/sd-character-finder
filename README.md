@@ -32,7 +32,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v1.2.0 — Beautiful Layout, Categories & Logic Override
+### v0.2.0 — Beautiful Layout, Categories & Logic Override
 - **Sleek UI Remaster** — Fully remade the interface taking advantage of horizontal layout capabilities. The character attributes and thumbnail now sit cleanly on the left while results populate on your right.
 - **Categorical Extra Tags** — Now, clicking "Fetch Extra Tags" neatly sorts all live-fetched Danbooru attributes into distinct checkboxes (Character, Series, General, Meta).
 - **NovelAI Tag Ordering** — The algorithm behind tag injections now flawlessly forces ideal syntax orders (`1girl`, `character`, `series`, `everything else`) for much stronger promping results.
@@ -61,13 +61,13 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### v0.2.0 — Big Cleanup & Polish *(complete)* ✅
 
-### v1.2.0 — UI Overhaul & Live API Categories *(complete)* ✅
+### v0.2.0 — UI Overhaul & Live API Categories *(complete)* ✅
 - Total layout overhaul (Split screen logic, Thumbnail on the left).
 - Better structure separating Danbooru 'Extra tags' dynamically by category (Character, Copyright, General, Artist and Meta).
 - Accurate default tag ordering mimicking NovelAI's preferred weighting style.
 - Full internal DB persistency using user overrides to avoid conflicts.
 
-### v1.3.0 — Image Cache & Favorites *(planned)*
+### v0.3.0 — Image Cache & Favorites *(planned)*
 - Automatic caching for character thumbnail images to minimize network requests.
 - Custom Collections & Favorites system to save best combinations.
 
