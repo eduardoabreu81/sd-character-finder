@@ -242,7 +242,8 @@ def _build_characters_content():
                     label="Target wildcards folder",
                     choices=_wildcard_dirs,
                     value=_wildcard_dirs[0] if _wildcard_dirs else None,
-                    interactive=True,
+                    interactive=False,
+                    visible=False,
                 )
                 btn_export_wildcard_txt = gr.Button("💾 Save TXT wildcard")
             wildcard_dir_map_state = gr.State(_wildcard_dir_map)

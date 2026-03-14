@@ -8,7 +8,7 @@
 - **Nova seção "Search Danbooru Live"** — busca personagens fora do banco local via API Danbooru, exibe tags mais frequentes por categoria com checkboxes, monta prompt editável e envia para txt2img
 - Módulos `pack_manager` e `recipe_engine` presentes no código mas desconectados da UI (mantidos para compatibilidade e testes)
 - Modo standalone (`python -m wildcard_creator.ui`) para desenvolvimento local sem GPU/WebUI
-- **Versão atual:** `v1.1.0`
+- **Versão atual:** `v1.2.0`
 
 ## Regras de versionamento (Semantic Versioning vX.Y.Z)
 
@@ -29,6 +29,33 @@
 ---
 
 ## Linha do tempo de mudanças
+
+### [2026-03-14] Refatoração Visual (UI Layout), Traduções e Ajustes de Target Wildcard Path (v1.2.0)
+
+**O que foi feito:**
+- Refatoração completa do layout (dados e thumbnail do character na esquerda, grid de imagens com melhor aproveitamento lateral).
+- Separação granular das "Extra Tags" Danbooru provindas da live API em categorias visíveis separadamente (Characters, Series, General, Artist e Meta Checkboxes) sob a exibição principal.
+- Integração da lógica de ordenação (`_order_tags_novelai_like`) em formato padrão *NovelAI* e adaptação dos Handlers de Click e Reset.
+- Injeção das configurações globais de *Target Wildcard Path* no objeto de definições nativo da extensão (`shared.opts`), centralizando a configuração.
+- Ocultamento via layout (`visible=False`) da listagem de diretório redundante do Gradio na interface para priorizar a variável de ambiente recém-configurada.
+- Atualização completa do `README.md` (focada em visuais e documentação em inglês "Say no more").
+- Implementação de um fallback override estrutural no DB local (`user_overrides.json`) para persistir preferências fora de conflitos Git.
+
+**Arquivos alterados:**
+- `wildcard_creator/ui.py`
+- `wildcard_creator/character_db.py`
+- `scripts/wildcard_creator.py`
+- `README.md`
+- `.gitignore`
+
+**Decisões técnicas:**
+- Remodelado os Handlers de evento (`.click` e `.change`) adicionando arrays paralelos na tupla de inputs e outputs do Gradio. Substituição no backend (`apply_extra_tags`) para aglutinar essas checkboxes antes da montagem.
+- Optado por definir a Dropdown com as pastas como `visible=False, interactive=False` para manter a assinatura estrutural dos métodos intacta e prevenida contra falhas de injeção positional na manipulação do Gradio.
+- Definiu-se omitir peso de sintaxe automático em colchetes e apenas fornecer as pre-sets categorizadas ordenadas de acordo com as diretivas do *Danbooru-Tags-Sort-Exporter*, cabendo ao usuário utilizar as opções e shortcuts normais do Stable Diffusion do lado do campo de prompt para formatar numericamente a enfâse final.
+
+**Impactos e pontos de atenção:**
+- Atualizações futuras sobre `extra_tags` ou inputs precisam respeitar a nova tupla de aridade expandida nas funções do UI (com os 5 checkbox groups).
+- As tags salvas via interface agora são persistidas no `user_overrides.json` — a falta de acesso do Gradio a arquivos pode fazer com que alterações de DB se percam momentaneamente as hot-reloads se as permissões de gravação falharem.
 
 ### [2026-03-13] Reset da busca no browser de personagens
 
@@ -344,7 +371,8 @@ YAML-wildcard-creator/
 - \wildcard_creator/danbooru.py\
 - \wildcard_creator/ui.py\
 - \scripts/wildcard_creator.py\
-- Excluídos: \pack_manager.py\, \ecipe_engine.py\, \prompt_sender.py\.
+- Excluídos: \pack_manager.py\, \
+ecipe_engine.py\, \prompt_sender.py\.
 
 **Decisões técnicas:**
 - Optamos pela paginação manual simples com states (Prev/Next) no Gradio ao invés de paginação complexa via javascript. O estado da página é injetado recursivamente na função de search.
@@ -367,7 +395,8 @@ YAML-wildcard-creator/
 ### [2026-03-13] Lote 4: Spinners e UX Feedback para Live API
 
 **O que foi feito:**
-- A função \_fetch_extra_tags\ foi refatorada de \eturn\ para \yield\ (Generator).
+- A função \_fetch_extra_tags\ foi refatorada de \
+eturn\ para \yield\ (Generator).
 - Antes de iniciar o request longo à Danbooru API, a UI agora emite imediatamente um update no \xtra_status\ indicando: '⏳ Fetching live tags from Danbooru...'
 - O UX recebe feedback visual imediato bloqueando cliques impacientes antes do Gradio resolver.
 
