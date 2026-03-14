@@ -61,15 +61,16 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### v0.2.0 — Big Cleanup & Polish *(complete)* ✅
 
-### v0.2.0 — UI Overhaul & Live API Categories *(complete)* ✅
+### v0.2.0 — UI Overhaul, Live API & Offline Caching *(complete)* ✅
 - Total layout overhaul (Split screen logic, Thumbnail on the left).
 - Better structure separating Danbooru 'Extra tags' dynamically by category (Character, Copyright, General, Artist and Meta).
 - Accurate default tag ordering mimicking NovelAI's preferred weighting style.
-- Full internal DB persistency using user overrides to avoid conflicts.
+- Full internal DB persistency using local files to avoid conflicts.
+- Local Base64 Image Caching in `data/covers/` directory to prevent bandwidth usage and timeouts.
 
-### v0.3.0 — Image Cache & Favorites *(planned)*
-- Automatic caching for character thumbnail images to minimize network requests.
-- Custom Collections & Favorites system to save best combinations.
+### v0.3.0 — Custom User Series & Collections *(planned)*
+- Save custom character tags globally.
+- Custom Collections & Favorites system to quickly access and filter your top tier characters.
 
 ---
 
