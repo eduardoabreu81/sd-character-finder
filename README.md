@@ -130,6 +130,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 ## 📄 Credits
 
 - **[Danbooru](https://danbooru.donmai.us/)** — For maintaining the incredible tag database and API this project relies upon.
+- **[NoobAI-XL / Danbooru Character](https://www.downloadmost.com/NoobAI-XL/danbooru-character/)** — Inspiration and reference for Danbooru character tagging.
 - **[Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui)** — The foundation of the extension.
 - **[Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)** by Haoming02
 
