@@ -251,6 +251,17 @@ def _build_characters_content():
                 value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>",
                 label="Preview"
             )
+            gr.Markdown("### Extra Tags (Danbooru)", elem_classes=["sdcf-small-header"])
+            with gr.Row():
+                btn_extra_fetch = gr.Button("⬇️ Fetch live tags", variant="secondary")
+                btn_extra_apply = gr.Button("✅ Apply extras", variant="secondary")
+            
+            extra_tag_character = gr.CheckboxGroup(label="Character", choices=[], interactive=True, visible=False)
+            extra_tag_copyright = gr.CheckboxGroup(label="Copyright/Series", choices=[], interactive=True, visible=False)
+            extra_tag_general = gr.CheckboxGroup(label="General", choices=[], interactive=True, visible=False)
+            extra_tag_artist = gr.CheckboxGroup(label="Artist", choices=[], interactive=True, visible=False)
+            extra_tag_meta = gr.CheckboxGroup(label="Meta", choices=[], interactive=True, visible=False)
+            extra_tags_meta = gr.State({})
 
     # ----- Events -----
 
@@ -317,6 +328,10 @@ def _build_characters_content():
             gr.update(value=""),
             gr.update(value=""),
             gr.update(value=""),
+            gr.update(choices=[], value=[], visible=False),
+            gr.update(choices=[], value=[], visible=False),
+            gr.update(choices=[], value=[], visible=False),
+            gr.update(choices=[], value=[], visible=False),
             gr.update(choices=[], value=[], visible=False),
             {},
             gr.update(value=""),
@@ -570,110 +585,119 @@ def _build_characters_content():
 
     # =========================================================
     # Extra tags (discrete mode)
-    # =========================================================
-    # We no longer use an Accordion. It's a persistent flat block.
-    with gr.Group():
-        gr.Markdown("### Extra Variables from Danbooru (Optional)", elem_classes=["sdcf-small-header"])
-        with gr.Row():
-            btn_extra_fetch = gr.Button("⬇️ Fetch live extra tags", variant="secondary")
-            btn_extra_apply = gr.Button("✅ Apply selected extras", variant="secondary")
-        extra_tag_choices = gr.CheckboxGroup(
-            label="Live Tags (Select and apply to inject them into the main prompt)",
-            choices=[],
-            value=[],
-            interactive=True,
-            visible=False,
-        )
-        extra_tags_meta = gr.State({})
+
         
     _live_db = DanbooruDB()
 
     def _fetch_extra_tags(selected_name, selected_series, manual_danbooru_tag, current_prompt):
-
+        def _empty():
+            return (
+                gr.update(choices=[], value=[], visible=False),
+                gr.update(choices=[], value=[], visible=False),
+                gr.update(choices=[], value=[], visible=False),
+                gr.update(choices=[], value=[], visible=False),
+                gr.update(choices=[], value=[], visible=False),
+                {},
+            )
+            
         seed = (manual_danbooru_tag or selected_name or "").strip()
         if not seed:
-            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ Select a character first")
+            yield (*_empty(), gr.update(value="⚠️ Select a character first"))
             return
 
-        yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⏳ Fetching live tags from Danbooru...")
+        yield (*_empty(), gr.update(value="⏳ Fetching live tags from Danbooru..."))
 
         login, api_key = _get_default_danbooru_auth()
-
         n_posts = get_shared_opt("sdcf_live_n_posts", 120)
-        top_n = get_shared_opt("sdcf_live_top_n", 40)
+        top_n = get_shared_opt("sdcf_live_top_n", 60)
         min_freq = get_shared_opt("sdcf_live_min_freq", 0.08)
-        cache_ttl = get_shared_opt("sdcf_live_cache_ttl", 1800)
-
+        
         try:
             tags = _live_db.fetch_character_post_tags(
-                seed,
-                login=login,
-                api_key=api_key,
-                n_posts=n_posts,
-                top_n=top_n,
-                min_freq=min_freq,
-                cache_ttl=cache_ttl,
+                seed, login=login, api_key=api_key, n_posts=n_posts, top_n=top_n, min_freq=min_freq
             )
         except Exception as exc:
-            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value=f"❌ {exc}")
+            yield (*_empty(), gr.update(value=f"❌ {exc}"))
             return
+            
         category_map: dict[str, int] = {}
-        extras: list[str] = []
         
         def _norm(tag_str):
+            if not tag_str: return ""
             return tag_str.strip().lower().replace("_", " ")
 
-        for t in tags:
-            tag = (t.get("tag") or "").strip()
-            if not tag:
-                continue
-            extras.append(tag)
-            category_map[_norm(tag)] = int(t.get("category", 0))
+        import re as re_mod
+        existing_tags = set(re_mod.split(r",\s*", (current_prompt or "").strip().lower()))
 
-        # Ensure character and series are always available in suggestions.
-        selected_series = (selected_series or "").strip()
+        cat_lists = {4: [], 3: [], 0: [], 1: [], 5: []}
+        
+        for t in tags:
+            try:
+                name_val = t.name if hasattr(t, 'name') else t.get("tag", "") if isinstance(t, dict) else str(t)
+                cat_val = t.category if hasattr(t, 'category') else t.get("category", 0) if isinstance(t, dict) else 0
+            except:
+                continue
+                
+            name_clean = _norm(name_val)
+            if not name_clean or name_clean in existing_tags: continue
+            
+            cat_val = int(cat_val)
+            if cat_val not in cat_lists: cat_val = 0
+            
+            cat_lists[cat_val].append(name_val)
+            category_map[name_clean] = cat_val
+
+        # Ensure seed and series
         seed_norm = _norm(seed)
-        if seed and seed_norm not in category_map:
-            extras.insert(0, seed)
+        if seed and seed_norm not in category_map and seed_norm not in existing_tags:
+            cat_lists[4].insert(0, seed)
             category_map[seed_norm] = 4
             
         series_norm = _norm(selected_series)
-        if selected_series and series_norm not in category_map:
-            extras.insert(1 if extras else 0, selected_series)
+        if selected_series and series_norm not in category_map and series_norm not in existing_tags:
+            cat_lists[3].insert(0, selected_series)
             category_map[series_norm] = 3
 
-        dedup_extras: list[str] = []
-        seen = set()
-        for tag in extras:
-            key = _norm(tag)
-            if key in seen:
-                continue
-            seen.add(key)
-            dedup_extras.append(tag)
+        def _dedup(items):
+            seen = set()
+            res = []
+            for tag in items:
+                k = _norm(tag)
+                if k not in seen:
+                    seen.add(k)
+                    res.append(tag)
+            return res
+            
+        c4 = _dedup(cat_lists[4])
+        c3 = _dedup(cat_lists[3])
+        c0 = _dedup(cat_lists[0])
+        c1 = _dedup(cat_lists[1])
+        c5 = _dedup(cat_lists[5])
 
-        ordered = _order_tags_novelai_like(dedup_extras, category_map)
-        if not ordered:
-            yield gr.update(choices=[], value=[], visible=False), {}, gr.update(value="⚠️ No useful extra tags found")
-            return
+        def _mk(lst):
+            return gr.update(choices=lst, value=[], visible=len(lst) > 0)
+            
+        total = len(c4)+len(c3)+len(c0)+len(c1)+len(c5)
 
-        default_selected = ordered[:20]
-        yield (
-            gr.update(choices=ordered, value=default_selected, visible=True),
-            category_map,
-            gr.update(value=f"✅ Loaded {len(ordered)} extra tags"),
-        )
+        yield (_mk(c4), _mk(c3), _mk(c0), _mk(c1), _mk(c5), category_map, gr.update(value=f"✅ Fetched {total} tags"))
 
-    def _apply_extra_tags(current_prompt, selected_extras, category_map):
+    def _apply_extra_tags(current_prompt, c4, c3, c0, c1, c5, category_map):
+        c4 = list(c4 or [])
+        c3 = list(c3 or [])
+        c0 = list(c0 or [])
+        c1 = list(c1 or [])
+        c5 = list(c5 or [])
+        
+        selected_extras = c4 + c3 + c0 + c1 + c5
 
-        selected_extras = list(selected_extras or [])
         if not selected_extras:
             return gr.update(), gr.update(value="⚠️ Select at least one extra tag")
 
         current_parts = [p.strip() for p in (current_prompt or "").split(",") if p.strip()]
-        
+
         def _norm(tag_str):
             return tag_str.strip().lower().replace("_", " ")
-        
+
         seen = {_norm(p) for p in current_parts}
         added = []
         for tag in selected_extras:
@@ -713,7 +737,11 @@ def _build_characters_content():
             char_send_status,
             wildcard_name,
             char_send_status,
-            extra_tag_choices,
+            extra_tag_character,
+            extra_tag_copyright,
+            extra_tag_general,
+            extra_tag_artist,
+            extra_tag_meta,
             extra_tags_meta,
             char_send_status,
         ],
@@ -722,12 +750,28 @@ def _build_characters_content():
     btn_extra_fetch.click(
         _fetch_extra_tags,
         inputs=[char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out],
-        outputs=[extra_tag_choices, extra_tags_meta, char_send_status],
+        outputs=[
+            extra_tag_character,
+            extra_tag_copyright,
+            extra_tag_general,
+            extra_tag_artist,
+            extra_tag_meta,
+            extra_tags_meta,
+            char_send_status
+        ],
     )
 
     btn_extra_apply.click(
         _apply_extra_tags,
-        inputs=[char_tags_out, extra_tag_choices, extra_tags_meta],
+        inputs=[
+            char_tags_out, 
+            extra_tag_character,
+            extra_tag_copyright,
+            extra_tag_general,
+            extra_tag_artist,
+            extra_tag_meta,
+            extra_tags_meta
+        ],
         outputs=[char_tags_out, char_send_status],
     )
 
