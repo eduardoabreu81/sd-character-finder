@@ -32,19 +32,19 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.2.1 — Forge Classic Startup Fix
+- **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic) where global UI parsing failed during boot.
+
+---
+
+## 📖 Changelog
+
 ### v0.2.0 — Beautiful Layout, Categories & Logic Override
 - **Sleek UI Remaster** — Fully remade the interface taking advantage of horizontal layout capabilities. The character attributes and thumbnail now sit cleanly on the left while results populate on your right.
 - **Categorical Extra Tags** — Now, clicking "Fetch Extra Tags" neatly sorts all live-fetched Danbooru attributes into distinct checkboxes (Character, Series, General, Meta).
 - **NovelAI Tag Ordering** — The algorithm behind tag injections now flawlessly forces ideal syntax orders (`1girl`, `character`, `series`, `everything else`) for much stronger promping results.
 - **User Overrides Persistence** — Your local changes to labels and DB saves now persist accurately to a local `user_overrides.json`, keeping you completely safe from `git pull` overwrites when updating the tool!
 - **Target Folder Cleaner** — Cleaned up wildcards output. The extension now grabs its default Wildcard backup location directly from a global WebUI Setting option!
-
----
-
-## 📖 Changelog
-
-### v0.2.1 — Forge Classic Startup Fix
-- **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic) where global UI parsing failed during boot.
 
 ### v0.1.0 — Huge UX Improvements
 - **Add to txt2img Button** — A new action button that intelligently appends tags to your existing prompt without wiping it, automatically preventing duplicate words!
