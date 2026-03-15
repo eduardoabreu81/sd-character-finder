@@ -8,7 +8,7 @@
 - **Nova seção "Search Danbooru Live"** — busca personagens fora do banco local via API Danbooru, exibe tags mais frequentes por categoria com checkboxes, monta prompt editável e envia para txt2img
 - Módulos `pack_manager` e `recipe_engine` presentes no código mas desconectados da UI (mantidos para compatibilidade e testes)
 - Modo standalone (`python -m wildcard_creator.ui`) para desenvolvimento local sem GPU/WebUI
-- **Versão atual:** `v0.2.0`
+- **Versão atual:** `v0.2.1`
 
 ## Regras de versionamento (Semantic Versioning vX.Y.Z)
 
@@ -29,6 +29,18 @@
 ---
 
 ## Linha do tempo de mudanças
+
+### [2026-03-15] Hotfix de Settings no Forge Classic (v0.2.1)
+
+**O que foi feito:**
+- Corrigida a inicialização que causava crash (`Exception: bad options item type: <class 'float'>`) em instâncias como 'Forge Classic' ao ler configurações definidas na aba do UI do Gradio.
+- Especificado componente `gr.Slider` para mapear variaveis locais `float` ao invocar a `shared.opts.add_option()`.
+
+**Arquivos alterados:**
+- `scripts/wildcard_creator.py` — component_args inseridos para a variável `sdcf_live_min_freq`.
+
+**Impactos e pontos de atenção:**
+- Ambientes Forge mais paralelos ou antigos retomam sua compatibilidade imediata no momento do boot do `webui_worker`.
 
 ### [2026-03-14] Refatoração Visual (UI Layout), Traduções e Ajustes de Target Wildcard Path (v0.2.0)
 

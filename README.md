@@ -43,6 +43,9 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
+### v0.2.1 — Forge Classic Startup Fix
+- **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic) where global UI parsing failed during boot.
+
 ### v0.1.0 — Huge UX Improvements
 - **Add to txt2img Button** — A new action button that intelligently appends tags to your existing prompt without wiping it, automatically preventing duplicate words!
 - **Live Danbooru Enrichment** — Added an optional section to fetch extra tags dynamically from Danbooru (like clothes, hair, eyes) with neat checkboxes.

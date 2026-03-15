@@ -164,7 +164,7 @@ O projeto segue **Semantic Versioning** `vX.Y.Z`:
 | **Y** (minor) | Nova feature | Nova funcionalidade retrocompatível. Ex.: novo filtro de busca, novo endpoint, nova ação de botão. |
 | **Z** (patch) | Bug fix / estabilidade | Correção que não altera comportamento esperado. Ex.: crash fix, seletor CSS errado, fallback de clipboard. |
 
-**Versão atual:** `v0.2.0`
+**Versão atual:** `v0.2.1`
 
 ---
 
