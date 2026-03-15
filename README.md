@@ -121,7 +121,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 ## 🚀 Quick Start
 
 1. Go to the new **Danbooru Characters** tab in your WebUI.
-2. Type a character name or tag (e.g., miku, saber, lue hair), or pick a series from the **Series Dropdown** (e.g., Arknights).
+2. Type a character name or tag (e.g., miku, saber, blue hair), or pick a series from the **Series Dropdown** (e.g., Arknights).
 3. Click **🔍 Search**.
 4. Click on any character in the results table to see their preview card and tags.
 5. Expand **Extra tags** if you want to pull more specific prompt descriptors directly from the web.
