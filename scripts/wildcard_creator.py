@@ -109,6 +109,8 @@ try:
             shared.OptionInfo(
                 1.0,
                 "API rate limit (seconds between requests)",
+                component=gr.Slider,
+                component_args={"minimum": 0.0, "maximum": 10.0, "step": 0.1},
                 section=section,
             ),
         )
