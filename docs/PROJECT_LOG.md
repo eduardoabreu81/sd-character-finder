@@ -30,6 +30,17 @@
 
 ## Linha do tempo de mudanças
 
+### [2026-03-15] Hotfix Complementar de Settings no Forge Classic (v0.2.2)
+
+**O que foi feito:**
+- Encontrada e corrigida uma segunda variável loat não tratada (sdcf_scraper_rate_limit) que ainda causava crash sequencial no carregamento das opções do Forge Classic.
+
+**Arquivos alterados:**
+- scripts/wildcard_creator.py — component_args do gr.Slider inseridos para a variável sdcf_scraper_rate_limit.
+
+**Impactos e pontos de atenção:**
+- Nenhuma outra variável loat existe no settings parser; estabilidade completa recuperada.
+
 ### [2026-03-15] Hotfix de Settings no Forge Classic (v0.2.1)
 
 **O que foi feito:**
