@@ -91,6 +91,8 @@ try:
             shared.OptionInfo(
                 0.08,
                 "Live API: Minimum tag frequency",
+                component=gr.Slider,
+                component_args={"minimum": 0.0, "maximum": 1.0, "step": 0.01},
                 section=section,
             ),
         )
