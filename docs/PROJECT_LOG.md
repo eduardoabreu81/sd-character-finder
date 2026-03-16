@@ -42,7 +42,7 @@
 **Impactos e pontos de atenção:**
 - Total compatibilidade restaurada com interfaces nativas que rodam versões antigas do Gradio.
 
-### [2026-03-15] Hotfix Complementar de Settings no Forge Classic (v0.2.2) de Settings no Forge Classic (v0.2.2)
+### [2026-03-15] Hotfix Complementar de Settings no Forge Classic (v0.2.2)
 
 **O que foi feito:**
 - Encontrada e corrigida uma segunda variável loat não tratada (sdcf_scraper_rate_limit) que ainda causava crash sequencial no carregamento das opções do Forge Classic.

@@ -43,6 +43,9 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
+### v0.2.1 — Forge Classic Startup Fix (Part 1)
+- **Settings Parser Fix** — Explicitly mapped loat config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic).
+
 ### v0.2.0 — Beautiful Layout, Categories & Logic Override
 - **Sleek UI Remaster** — Fully remade the interface taking advantage of horizontal layout capabilities. The character attributes and thumbnail now sit cleanly on the left while results populate on your right.
 - **Categorical Extra Tags** — Now, clicking "Fetch Extra Tags" neatly sorts all live-fetched Danbooru attributes into distinct checkboxes (Character, Series, General, Meta).
