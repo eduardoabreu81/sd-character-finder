@@ -32,6 +32,12 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.3.1 — Stable Gallery Cards + Expandable Preview
+- **Custom Card Gallery** — Replaced Gradio Gallery rendering with a custom HTML card grid for predictable desktop/mobile behavior.
+- **Reliable Card Selection** — Clicking a card now consistently loads character data and tags.
+- **Large Expandable Preview** — Side preview now includes an in-image hint (`Click to expand`) and opens a large modal/lightbox when clicked.
+- **Safer Pagination Control** — Results-per-page is configurable in Settings with a stable range (`5..30`, hard cap at `30`).
+
 ### v0.3.0 — Visual Search Gallery Mode
 - **Visual Browser** — Added a brand new "Gallery View" tab to the search results! You can now toggle between seeing results as a compact List or a visual Grid showing thumbnails of all characters simultaneously. Powered by safe, fast CDN links (no Danbooru rate-limits!).
 
@@ -81,11 +87,16 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Full internal DB persistency using local files to avoid conflicts.
 - Local Base64 Image Caching in `data/covers/` directory to prevent bandwidth usage and timeouts.
 
-### v0.3.0 — Custom User Series & Collections *(planned)*
+### v0.3.1 — Visual Search Stabilization *(complete)* ✅
+- Replaced unstable Gradio gallery layout with custom HTML card grid.
+- Added card-click selection bridge with consistent behavior across desktop/mobile.
+- Added large modal preview (`Click to expand`) from side preview.
+
+### v0.4.0 — Custom User Series & Collections *(planned)*
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
-- **Danbooru Artist & Style Browser** — Explore artists and styles directly.
-  - *Note: e621 tags/character support might also be added in the future if requested by the community!*
+- Danbooru artist/style browser for discovery workflows.
+- Optional e621 support can be evaluated based on community demand.
 
 ---
 
@@ -101,6 +112,9 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### 🖼️ Character Info & Preview
 - View high-quality character thumbnails instantly.
+- Stable visual card grid in **Gallery View** with responsive layout (desktop and mobile).
+- Click any card to load character details and prompt tags.
+- Side preview supports **Click to expand** and opens a large modal image.
 - Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category (Copyright, Character, General, Artist, Meta) ⭐
 - Automatically sorts appended web-tags following optimal generation standards (NovelAI style formatting).
 - Clean, translation-ready interface integrating straight into A1111/Forge standard inputs.
@@ -112,7 +126,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### ⚙️ Configuration
 - Fully integrated with the native WebUI settings menu (Settings -> Options -> SD Character Finder)
-- Configure results per page, Danbooru API credentials, and default behaviors
+- Configure results per page (`5..30`), Danbooru API credentials, and default behaviors
 - Fast, lightweight, and completely localized
 
 ---
@@ -137,8 +151,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 2. Type a character name or tag (e.g., miku, saber, blue hair), or pick a series from the **Series Dropdown** (e.g., Arknights).
 3. Click **🔍 Search**.
 4. Click on any character in the results table to see their preview card and tags.
-5. Expand **Extra tags** if you want to pull more specific prompt descriptors directly from the web.
-6. Click **➡️ Send to Generate** or **➕ Add to txt2img** to instantly fill your prompt!
+5. In **Gallery View**, click a visual card to select it instantly.
+6. Click the side preview image (`Click to expand`) to open a larger modal view.
+7. Expand **Extra tags** if you want to pull more specific prompt descriptors directly from the web.
+8. Click **➡️ Send to Generate** or **➕ Add to txt2img** to instantly fill your prompt!
 
 ---
 
