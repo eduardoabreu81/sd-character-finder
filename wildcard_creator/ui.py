@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
+import html
 from pathlib import Path
 
 import gradio as gr
@@ -28,14 +29,12 @@ def get_gallery_kws() -> dict:
     """Helper to maintain compat with Gradio 3 and Gradio 4 galleries."""
     if int(str(_GR_VERSION).split(".")[0]) >= 4:
         return {
-            "columns": [3, 4, 4, 5],
-            "rows": [2],
-            "height": 400,
+            "columns": [2, 3, 3, 5, 6],
             "allow_preview": False,
-            "object_fit": "contain"
+            "object_fit": "cover"
         }
     return {
-        "grid": 4, # 4 columns
+        "grid": 6,
         "object_fit": "contain"
     }
 
@@ -231,12 +230,12 @@ def _build_characters_content():
                 wrap=True,
             )
         with gr.Tab("Gallery View", id="tab_gallery"):
-            char_gallery = gr.Gallery(
+            char_gallery = gr.HTML(
+                value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>",
                 label="Results",
-                show_label=False,
-                elem_id="sdcf_char_gallery",
-                **get_gallery_kws()
+                elem_id="sdcf_char_gallery_html",
             )
+            gallery_click_idx = gr.Textbox(value="-1", visible=True, elem_id="sdcf_gallery_click_idx")
     char_results_state = gr.State([])  # full result list (with tags/image_url)
 
     gr.Markdown("---\n*Click a row above to load the character card.*")
@@ -277,10 +276,11 @@ def _build_characters_content():
                 )
                 btn_export_wildcard_txt = gr.Button("💾 Save TXT wildcard")
             wildcard_dir_map_state = gr.State(_wildcard_dir_map)
-        with gr.Column(scale=1, min_width=260):
+        with gr.Column(scale=1, min_width=360):
             char_image = gr.HTML(
-                value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>",
-                label="Preview"
+                value="<div class='sdcf-preview-empty'>No preview</div>",
+                label="Preview",
+                elem_id="sdcf_char_preview",
             )
             gr.Markdown("### Extra Tags (Danbooru)", elem_classes=["sdcf-small-header"])
             with gr.Row():
@@ -309,7 +309,12 @@ def _build_characters_content():
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
-        limit = get_shared_opt("sdcf_search_limit", 10)
+        raw_limit = get_shared_opt("sdcf_search_limit", 30)
+        try:
+            limit = int(raw_limit)
+        except Exception:
+            limit = 30
+        limit = max(1, min(limit, 30))
         
         try:
             offset = (page - 1) * limit
@@ -323,6 +328,7 @@ def _build_characters_content():
             table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
             
             import concurrent.futures
+            import base64
             import requests
             
             repo_root = Path(__file__).resolve().parent.parent
@@ -346,7 +352,11 @@ def _build_characters_content():
                         pass
                 
                 if cov_path.exists():
-                    return (str(cov_path.resolve()).replace("\\", "/"), name)
+                    try:
+                        img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
+                        return (f"data:image/jpeg;base64,{img_b64}", name)
+                    except Exception:
+                        return (url, name)
                 return (url, name)
 
             gallery = []
@@ -355,14 +365,45 @@ def _build_characters_content():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(results))) as executor:
                     gallery = list(executor.map(fetch_one, results))  # Execute downloads
 
+            cards_html: list[str] = []
+            for idx, (img_src, name) in enumerate(gallery):
+                safe_img = html.escape(str(img_src or ""), quote=True)
+                safe_name = html.escape(str(name or ""))
+                onclick_js = (
+                    "const app=(window.gradioApp?window.gradioApp():document);"
+                    "const input=app.querySelector('#sdcf_gallery_click_idx textarea, #sdcf_gallery_click_idx input');"
+                    "if(!input){return false;}"
+                    f"input.value='{idx}';"
+                    "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                    "input.dispatchEvent(new Event('change',{bubbles:true}));"
+                    "return false;"
+                )
+                safe_onclick = html.escape(onclick_js, quote=True)
+                cards_html.append(
+                    f"""
+                    <button class='civmodelcard' onclick="{safe_onclick}">
+                        <figure>
+                            <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
+                            <figcaption>{safe_name}</figcaption>
+                        </figure>
+                    </button>
+                    """
+                )
+
+            gallery_html = (
+                "<div id='sdcf_char_gallery_html'><div class='civmodellist'>"
+                + "".join(cards_html)
+                + "</div></div>"
+            )
+
             total_pages = max(1, (total + limit - 1) // limit)
             page_text = f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages} ({total} results)</div>"
 
-            return table, gallery, results, page, total_pages, gr.update(value=page_text)
+            return table, gr.update(value=gallery_html), results, page, total_pages, gr.update(value=page_text)
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return [], [], [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
+            return [], gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"), [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
 
     def search_first_page(query, series, tag_status):
         return do_search(query, series, tag_status, 1)
@@ -381,12 +422,12 @@ def _build_characters_content():
             gr.update(value="All"),
             gr.update(value="All"),
             gr.update(value=[]),
-            gr.update(value=[]),
+            gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),
             [],
             1,
             1,
             gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),
-            gr.update(value="<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"),
+            gr.update(value="<div class='sdcf-preview-empty'>No preview</div>"),
             gr.update(value=""),
             gr.update(value=""),
             gr.update(value=""),
@@ -404,57 +445,58 @@ def _build_characters_content():
             gr.update(value=""),
         )
 
-    def on_row_select(results_state, evt: gr.SelectData):
-        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
-        if not results_state or row_idx >= len(results_state):
-            return None, "", "", "", "", None, ""
+    def _build_preview_html(src: str | None, title: str) -> str:
+        if not src:
+            return "<div class='sdcf-preview-empty'>No preview</div>"
+
+        safe_src = html.escape(src, quote=True)
+        safe_title = html.escape(title or "Preview")
+        return f"""
+<div class='sdcf-preview-wrap'>
+    <div class='sdcf-preview-hint'>Click to expand</div>
+    <img
+        src='{safe_src}'
+        alt='{safe_title}'
+        class='sdcf-preview-image'
+        onclick="const m=document.getElementById('sdcf-preview-modal');const i=document.getElementById('sdcf-preview-modal-img');if(m&&i){{i.src=this.src;m.style.display='flex';}}"
+    />
+</div>
+<div id='sdcf-preview-modal' class='sdcf-preview-modal' onclick="if(event.target===this){{this.style.display='none';}}">
+    <button class='sdcf-preview-close' onclick="document.getElementById('sdcf-preview-modal').style.display='none';return false;">✕</button>
+    <img id='sdcf-preview-modal-img' alt='Expanded preview' class='sdcf-preview-modal-img' />
+</div>
+"""
+
+    def _select_by_index(results_state, row_idx):
+        if not results_state or row_idx < 0 or row_idx >= len(results_state):
+            return "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, ""
         char = results_state[row_idx]
         canonical_tag = (char.get("danbooru_tag") or "").strip()
         # DB tags are mandatory — always use them as the prompt base.
         # canonical_tag is only a fallback when tags is empty.
         prompt_value = (char.get("tags") or canonical_tag or "").strip()
         
-        # Build HTML for image preview to avoid Gradio server-side caching pool timeouts
         img_url = char.get("image_url")
         char_id = char.get("id")
+        image_value = None
         if img_url:
-            src_val = img_url
+            image_value = img_url
             if char_id:
                 try:
                     import base64
-                    import threading
-                    import requests
-                    from pathlib import Path
-                    
                     repo_root = Path(__file__).resolve().parent.parent
                     covers_dir = repo_root / "data" / "covers"
                     cov_path = covers_dir / f"{char_id}.jpg"
-                    
                     if cov_path.exists():
-                        img_data = base64.b64encode(cov_path.read_bytes()).decode('utf-8')
-                        src_val = f"data:image/jpeg;base64,{img_data}"
-                    else:
-                        def _dl(url, path):
-                            if path.exists(): return
-                            try:
-                                headers = {"User-Agent": "SDCharacterFinder/1.0"}
-                                resp = requests.get(url, headers=headers, timeout=10)
-                                if resp.status_code == 200:
-                                    path.parent.mkdir(parents=True, exist_ok=True)
-                                    path.write_bytes(resp.content)
-                            except:
-                                pass
-                        threading.Thread(target=_dl, args=(img_url, cov_path), daemon=True).start()
+                        image_value = f"data:image/jpeg;base64,{base64.b64encode(cov_path.read_bytes()).decode('ascii')}"
                 except Exception:
                     pass
 
-            img_html = f"<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; overflow: hidden;'><img src='{src_val}' style='max-height: 100%; max-width: 100%; object-fit: contain;'></div>"
-        else:
-            img_html = "<div style='height: 280px; display: flex; align-items: center; justify-content: center; background: var(--background-fill-secondary); border-radius: 8px; color: var(--body-text-color-subdued);'>No Image</div>"
+        preview_html = _build_preview_html(image_value, char.get("name") or "Preview")
 
 
         return (
-            img_html,
+            preview_html,
             char["name"],
             char.get("series") or "",
             canonical_tag,
@@ -462,6 +504,17 @@ def _build_characters_content():
             char.get("id"),
             _normalize_wildcard_name(char["name"]),
         )
+
+    def on_row_select(results_state, evt: gr.SelectData):
+        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
+        return _select_by_index(results_state, row_idx)
+
+    def on_gallery_click(idx_text, results_state):
+        try:
+            row_idx = int(float(idx_text))
+        except Exception:
+            row_idx = -1
+        return _select_by_index(results_state, row_idx)
 
 
     def save_manual_danbooru_tag(selected_id, manual_tag):
@@ -572,9 +625,9 @@ def _build_characters_content():
         inputs=[char_results_state],
         outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
     )
-    char_gallery.select(
-        on_row_select,
-        inputs=[char_results_state],
+    gallery_click_idx.change(
+        on_gallery_click,
+        inputs=[gallery_click_idx, char_results_state],
         outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
     )
     btn_char_save_tag.click(
@@ -856,7 +909,10 @@ def build_ui() -> gr.Blocks:
     Build the full Gradio UI (attach to SD WebUI via script_callbacks).
     Content renders directly inside Blocks — the WebUI wraps it in a tab via on_ui_tabs tuple.
     """
-    with gr.Blocks(analytics_enabled=False) as ui:
+    import pathlib; csspath = pathlib.Path("style.css"); css_content = csspath.read_text(encoding="utf-8") if csspath.exists() else ""
+    with gr.Blocks(analytics_enabled=False, elem_id="sdcf_main_blocks") as ui:
+        if css_content:
+            gr.HTML(f"<style>{css_content}</style>")
         _build_characters_content()
     return ui
 

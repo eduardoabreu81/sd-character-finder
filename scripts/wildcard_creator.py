@@ -65,8 +65,10 @@ try:
         shared.opts.add_option(
             "sdcf_search_limit",
             shared.OptionInfo(
-                100,
-                "Character search results limit",
+                30,
+                "Character results per page (max 30)",
+                component=gr.Slider,
+                component_args={"minimum": 5, "maximum": 30, "step": 1},
                 section=section,
             ),
         )

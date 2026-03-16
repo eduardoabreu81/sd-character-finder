@@ -1,0 +1,150 @@
+#sdcf_char_gallery_html {
+    padding: 8px 4px;
+}
+
+#sdcf_char_preview .sdcf-preview-wrap {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--background-fill-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#sdcf_char_preview .sdcf-preview-hint {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 2;
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px 8px;
+    border-radius: 999px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    pointer-events: none;
+}
+
+#sdcf_char_preview .sdcf-preview-image {
+    width: 100%;
+    height: 420px;
+    object-fit: contain;
+    cursor: zoom-in;
+    display: block;
+}
+
+#sdcf_char_preview .sdcf-preview-empty {
+    min-height: 420px;
+    border-radius: 12px;
+    background: var(--background-fill-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--body-text-color-subdued);
+}
+
+.sdcf-preview-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.sdcf-preview-modal-img {
+    max-width: 95vw;
+    max-height: 92vh;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.sdcf-preview-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+#sdcf_gallery_click_idx {
+    position: absolute !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+#sdcf_char_gallery_html .civmodellist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+#sdcf_char_gallery_html .civmodelcard {
+    display: block;
+    width: 100%;
+    border: solid 2px transparent;
+    border-radius: 12px;
+    background: var(--background-fill-primary);
+    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.25);
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+#sdcf_char_gallery_html .civmodelcard:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 0 2px 2px rgba(255, 255, 255, 0.45);
+}
+
+#sdcf_char_gallery_html .civmodelcard figure {
+    margin: 0;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+}
+
+#sdcf_char_gallery_html .civmodelcard img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+
+#sdcf_char_gallery_html .civmodelcard figcaption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    padding: 20px 8px 8px;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    word-break: break-word;
+}
+
+@media (max-width: 900px) {
+    #sdcf_char_gallery_html .civmodellist {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+}
