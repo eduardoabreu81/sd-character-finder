@@ -314,12 +314,12 @@ def _build_characters_content():
             thumb_size = int(raw_thumb_size)
         except Exception:
             thumb_size = 160
-        thumb_size = max(110, min(thumb_size, 260))
+        thumb_size = max(100, min(thumb_size, 350))
         try:
             gallery_columns = int(raw_gallery_columns)
         except Exception:
             gallery_columns = 5
-        gallery_columns = max(2, min(gallery_columns, 8))
+        gallery_columns = max(2, min(gallery_columns, 12))
         mobile_columns = min(gallery_columns, 3)
         
         try:

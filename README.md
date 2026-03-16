@@ -32,6 +32,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.3.2 — Gallery Customization & Auto-Switch
+- **Dynamic Gallery Layout** — Control text size/thumbnail size and gallery cards per row directly from the WebUI Settings tab (Options -> SD Character Finder) to perfectly fit your monitor.
+- **Auto-Switch Tabs** — Clicking "Send to Generate" or "Add to txt2img" will automatically switch your WebUI focus directly to the `txt2img` tab for a faster workflow!
+
 ### v0.3.1 — Stable Gallery Cards + Expandable Preview
 - **Custom Card Gallery** — Replaced Gradio Gallery rendering with a custom HTML card grid for predictable desktop/mobile behavior.
 - **Reliable Card Selection** — Clicking a card now consistently loads character data and tags.
@@ -92,6 +96,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Added card-click selection bridge with consistent behavior across desktop/mobile.
 - Added large modal preview (`Click to expand`) from side preview.
 
+### v0.3.2 — Gallery Customization & Auto-Switch *(complete)* ✅
+- Exposed thumbnail size and cards-per-row options in WebUI Settings.
+- Added automatic tab switching to `txt2img` when sending or appending tags.
+
 ### v0.4.0 — Custom User Series & Collections *(planned)*
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
@@ -120,13 +128,13 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Clean, translation-ready interface integrating straight into A1111/Forge standard inputs.
 
 ### 🚀 One-Click Prompting
-- **Send to Generate** — Instantly replaces your current 	xt2img prompt with the character's signature tags
+- **Send to Generate** — Instantly replaces your current `txt2img` prompt with the character's signature tags and **automatically switches you to the tab**.
 - **Add to txt2img** — Intelligently appends the character tags to your *existing* prompt ⭐
 - **Smart Deduplication** — Automatically removes duplicate words when sending tags to your prompt
 
 ### ⚙️ Configuration
 - Fully integrated with the native WebUI settings menu (Settings -> Options -> SD Character Finder)
-- Configure results per page (`5..30`), Danbooru API credentials, and default behaviors
+- Configure results per page (`5..30`), **thumbnail sizes, cards per row**, Danbooru API credentials, and default behaviors
 - Fast, lightweight, and completely localized
 
 ---

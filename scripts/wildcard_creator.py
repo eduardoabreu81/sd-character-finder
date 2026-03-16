@@ -78,7 +78,7 @@ try:
                 160,
                 "Gallery thumbnail size (px)",
                 component=gr.Slider,
-                component_args={"minimum": 110, "maximum": 260, "step": 10},
+                component_args={"minimum": 100, "maximum": 350, "step": 10},
                 section=section,
             ),
         )
@@ -88,7 +88,7 @@ try:
                 5,
                 "Gallery cards per row",
                 component=gr.Slider,
-                component_args={"minimum": 2, "maximum": 8, "step": 1},
+                component_args={"minimum": 2, "maximum": 12, "step": 1},
                 section=section,
             ),
         )
