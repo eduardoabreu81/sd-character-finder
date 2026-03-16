@@ -3,6 +3,7 @@
 # ============================================
 .github/copilot-instructions.md
 AGENTS.local.md
+docs/
 docs/PROJECT_LOG.md
 .specstory/
 
