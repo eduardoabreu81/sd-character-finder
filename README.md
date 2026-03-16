@@ -32,12 +32,6 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.3.1 — Stable Card Gallery + Expandable Preview
-- **Custom Card Gallery (no Gradio Gallery quirks)** — Replaced the internal Gradio gallery renderer with a custom HTML card grid for stable desktop/mobile behavior.
-- **Clickable Cards** — Selecting a card now loads full character details reliably.
-- **Large Preview Lightbox** — Click the side preview image to open a large modal view (`Click to expand`).
-- **Configurable Results per Page** — New Settings slider (`5..30`) for character results per page (hard-capped at 30 for UI stability).
-
 ### v0.3.0 — Visual Search Gallery Mode
 - **Visual Browser** — Added a brand new "Gallery View" tab to the search results! You can now toggle between seeing results as a compact List or a visual Grid showing thumbnails of all characters simultaneously. Powered by safe, fast CDN links (no Danbooru rate-limits!).
 
@@ -107,7 +101,6 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### 🖼️ Character Info & Preview
 - View high-quality character thumbnails instantly.
-- Click the side preview image to open a larger modal view.
 - Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category (Copyright, Character, General, Artist, Meta) ⭐
 - Automatically sorts appended web-tags following optimal generation standards (NovelAI style formatting).
 - Clean, translation-ready interface integrating straight into A1111/Forge standard inputs.
@@ -119,7 +112,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ### ⚙️ Configuration
 - Fully integrated with the native WebUI settings menu (Settings -> Options -> SD Character Finder)
-- Configure results per page (`5..30`), Danbooru API credentials, and default behaviors
+- Configure results per page, Danbooru API credentials, and default behaviors
 - Fast, lightweight, and completely localized
 
 ---
