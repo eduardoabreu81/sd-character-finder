@@ -28,15 +28,8 @@ _GR_VERSION = getattr(gr, "__version__", "3.0.0")
 def get_gallery_kws() -> dict:
     """Helper to maintain compat with Gradio 3 and Gradio 4 galleries."""
     if int(str(_GR_VERSION).split(".")[0]) >= 4:
-        return {
-            "columns": [2, 3, 3, 5, 6],
-            "allow_preview": False,
-            "object_fit": "cover"
-        }
-    return {
-        "grid": 6,
-        "object_fit": "contain"
-    }
+        return {}
+    return {}
 
 def get_js_kw(js_script: str) -> dict:
     """Helper to maintain compat with Gradio 3 (_js) and Gradio 4 (js)."""
@@ -310,11 +303,24 @@ def _build_characters_content():
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
         raw_limit = get_shared_opt("sdcf_search_limit", 30)
+        raw_thumb_size = get_shared_opt("sdcf_gallery_thumb_size", 160)
+        raw_gallery_columns = get_shared_opt("sdcf_gallery_columns", 5)
         try:
             limit = int(raw_limit)
         except Exception:
             limit = 30
         limit = max(1, min(limit, 30))
+        try:
+            thumb_size = int(raw_thumb_size)
+        except Exception:
+            thumb_size = 160
+        thumb_size = max(110, min(thumb_size, 260))
+        try:
+            gallery_columns = int(raw_gallery_columns)
+        except Exception:
+            gallery_columns = 5
+        gallery_columns = max(2, min(gallery_columns, 8))
+        mobile_columns = min(gallery_columns, 3)
         
         try:
             offset = (page - 1) * limit
@@ -391,7 +397,7 @@ def _build_characters_content():
                 )
 
             gallery_html = (
-                "<div id='sdcf_char_gallery_html'><div class='civmodellist'>"
+                f"<div id='sdcf_char_gallery_html' style='--sdcf-gallery-cols:{gallery_columns};--sdcf-mobile-cols:{mobile_columns};--sdcf-thumb-size:{thumb_size}px'><div class='civmodellist'>"
                 + "".join(cards_html)
                 + "</div></div>"
             )
@@ -646,10 +652,27 @@ def _build_characters_content():
         inputs=[char_tags_out],
         outputs=[char_send_status],
         **get_js_kw("""(tags) => {
+            const switchToTab = (target) => {
+                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const targetKey = normalized(target);
+                const app = gradioApp();
+                const candidates = app.querySelectorAll('button, [role="tab"]');
+                for (const candidate of candidates) {
+                    const text = normalized(candidate.textContent);
+                    const id = normalized(candidate.id || '');
+                    const controls = normalized(candidate.getAttribute('aria-controls') || '');
+                    if (text === targetKey || id.includes(targetKey) || controls.includes(targetKey)) {
+                        candidate.click();
+                        return;
+                    }
+                }
+            };
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
             if (promptEl && tags) {
                 promptEl.value = tags;
                 promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+                promptEl.dispatchEvent(new Event('change', {bubbles: true}));
+                switchToTab('txt2img');
             }
             return [tags];
         }""")
@@ -659,6 +682,21 @@ def _build_characters_content():
         inputs=[char_tags_out],
         outputs=[char_send_status],
         **get_js_kw("""(tags) => {
+            const switchToTab = (target) => {
+                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const targetKey = normalized(target);
+                const app = gradioApp();
+                const candidates = app.querySelectorAll('button, [role="tab"]');
+                for (const candidate of candidates) {
+                    const text = normalized(candidate.textContent);
+                    const id = normalized(candidate.id || '');
+                    const controls = normalized(candidate.getAttribute('aria-controls') || '');
+                    if (text === targetKey || id.includes(targetKey) || controls.includes(targetKey)) {
+                        candidate.click();
+                        return;
+                    }
+                }
+            };
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
             if (!promptEl || !tags) return [tags];
 
@@ -677,6 +715,8 @@ def _build_characters_content():
 
             promptEl.value = existing.join(', ');
             promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+            promptEl.dispatchEvent(new Event('change', {bubbles: true}));
+            switchToTab('txt2img');
             return [tags];
         }""")
     )

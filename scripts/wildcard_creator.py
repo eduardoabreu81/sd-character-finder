@@ -73,6 +73,26 @@ try:
             ),
         )
         shared.opts.add_option(
+            "sdcf_gallery_thumb_size",
+            shared.OptionInfo(
+                160,
+                "Gallery thumbnail size (px)",
+                component=gr.Slider,
+                component_args={"minimum": 110, "maximum": 260, "step": 10},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_gallery_columns",
+            shared.OptionInfo(
+                5,
+                "Gallery cards per row",
+                component=gr.Slider,
+                component_args={"minimum": 2, "maximum": 8, "step": 1},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
             "sdcf_live_n_posts",
             shared.OptionInfo(
                 120,

@@ -87,7 +87,7 @@
 
 #sdcf_char_gallery_html .civmodellist {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(var(--sdcf-gallery-cols, 5), minmax(0, 1fr));
     gap: 12px;
     width: 100%;
 }
@@ -95,6 +95,8 @@
 #sdcf_char_gallery_html .civmodelcard {
     display: block;
     width: 100%;
+    max-width: var(--sdcf-thumb-size, 160px);
+    justify-self: center;
     border: solid 2px transparent;
     border-radius: 12px;
     background: var(--background-fill-primary);
@@ -144,7 +146,7 @@
 
 @media (max-width: 900px) {
     #sdcf_char_gallery_html .civmodellist {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(var(--sdcf-mobile-cols, 3), minmax(0, 1fr));
         gap: 8px;
     }
 }
