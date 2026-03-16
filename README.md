@@ -32,6 +32,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.2.3 — Gradio 3 Backward Compatibility
+
+- Fixed an issue causing crashes on Forge Classic due to unsupported js keyword arguments by enforcing _js when invoked under older Gradio runtimes.
+
 ### v0.2.2 — Forge Classic Startup Fix (Part 2)
 - **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic) where global UI parsing failed during boot.
 

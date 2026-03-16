@@ -30,7 +30,19 @@
 
 ## Linha do tempo de mudanças
 
-### [2026-03-15] Hotfix Complementar de Settings no Forge Classic (v0.2.2)
+### [2026-03-15] Compatibilidade Gradio 3 (v0.2.3)
+
+**O que foi feito:**
+- Corrigido um crash (TypeError: EventListenerMethod.__call__() got an unexpected keyword argument 'js') no Forge Classic/Gradio 3 ao clicar nos botões que injetam JavaScript no cliente.
+- Implementado um wrapper dinâmico get_js_kw que seleciona entre a chave _js (Gradio < 4) e js (Gradio >= 4).
+
+**Arquivos alterados:**
+- wildcard_creator/ui.py — Adição do auxiliar get_js_kw e substituição nas chamadas .click(..., js=...).
+
+**Impactos e pontos de atenção:**
+- Total compatibilidade restaurada com interfaces nativas que rodam versões antigas do Gradio.
+
+### [2026-03-15] Hotfix Complementar de Settings no Forge Classic (v0.2.2) de Settings no Forge Classic (v0.2.2)
 
 **O que foi feito:**
 - Encontrada e corrigida uma segunda variável loat não tratada (sdcf_scraper_rate_limit) que ainda causava crash sequencial no carregamento das opções do Forge Classic.

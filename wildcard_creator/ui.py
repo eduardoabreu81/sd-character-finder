@@ -23,6 +23,12 @@ from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
 
 
+_GR_VERSION = getattr(gr, "__version__", "3.0.0")
+def get_js_kw(js_script: str) -> dict:
+    """Helper to maintain compat with Gradio 3 (_js) and Gradio 4 (js)."""
+    return {"js": js_script} if int(str(_GR_VERSION).split(".")[0]) >= 4 else {"_js": js_script}
+
+
 def _get_default_danbooru_auth() -> tuple[str, str]:
     """Read Danbooru credentials from WebUI Settings when available."""
     try:
@@ -510,31 +516,31 @@ def _build_characters_content():
         save_manual_danbooru_tag,
         inputs=[char_selected_id, char_danbooru_tag_out],
         outputs=[char_send_status, char_tags_out],
-        js="""(id, tag) => {
+        **get_js_kw("""(id, tag) => {
             if(!confirm('Save to database? This will become the default tag for this character.')) {
                 throw new Error('Cancelled by user');
             }
             return [id, tag];
-        }"""
+        }""")
     )
     btn_char_send.click(
         fn=do_send_to_generate,
         inputs=[char_tags_out],
         outputs=[char_send_status],
-        js="""(tags) => {
+        **get_js_kw("""(tags) => {
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
             if (promptEl && tags) {
                 promptEl.value = tags;
                 promptEl.dispatchEvent(new Event('input', {bubbles: true}));
             }
             return [tags];
-        }"""
+        }""")
     )
     btn_char_add.click(
         fn=do_add_to_generate,
         inputs=[char_tags_out],
         outputs=[char_send_status],
-        js="""(tags) => {
+        **get_js_kw("""(tags) => {
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
             if (!promptEl || !tags) return [tags];
 
@@ -554,13 +560,13 @@ def _build_characters_content():
             promptEl.value = existing.join(', ');
             promptEl.dispatchEvent(new Event('input', {bubbles: true}));
             return [tags];
-        }"""
+        }""")
     )
     btn_char_copy.click(
         fn=do_copy_tags,
         inputs=[char_tags_out],
         outputs=[char_send_status],
-        js="""(tags) => {
+        **get_js_kw("""(tags) => {
             if (!tags) return [tags];
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(tags);
@@ -576,7 +582,7 @@ def _build_characters_content():
                 document.body.removeChild(ta);
             }
             return [tags];
-        }"""
+        }""")
     )
     btn_export_wildcard_txt.click(
         fn=do_export_wildcard_txt,
