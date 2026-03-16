@@ -322,12 +322,47 @@ def _build_characters_content():
             )
             table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
             
+            import concurrent.futures
+            import requests
+            
+            repo_root = Path(__file__).resolve().parent.parent
+            covers_dir = repo_root / "data" / "covers"
+            covers_dir.mkdir(parents=True, exist_ok=True)
+            
+            def fetch_one(r):
+                url = r.get("image_url")
+                char_id = r.get("id")
+                name = r.get("name", "")
+                if not url or not char_id:
+                    return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name)
+                
+                cov_path = covers_dir / f"{char_id}.jpg"
+                if not cov_path.exists():
+                    try:
+                        resp = requests.get(url, headers={"User-Agent": "SDCharacterFinder/1.0"}, timeout=3)
+                        if resp.status_code == 200:
+                            cov_path.write_bytes(resp.content)
+                    except Exception:
+                        pass
+                
+                if cov_path.exists():
+                    return (str(cov_path.resolve()).replace("\\", "/"), name)
+                return (url, name)
+
+            gallery = []
+            if results:
+                # Disable parallelism if it behaves weird on some OS, else uncomment:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(results))) as executor:
+                    gallery = list(executor.map(fetch_one, results))  # Execute downloads
+
             total_pages = max(1, (total + limit - 1) // limit)
             page_text = f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages} ({total} results)</div>"
-            
-            return table, results, page, total_pages, gr.update(value=page_text)
-        except Exception:
-            return [], [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
+
+            return table, gallery, results, page, total_pages, gr.update(value=page_text)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return [], [], [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
 
     def search_first_page(query, series, tag_status):
         return do_search(query, series, tag_status, 1)
