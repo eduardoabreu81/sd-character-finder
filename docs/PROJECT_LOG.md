@@ -34,8 +34,8 @@
 
 **O que foi feito:**
 - Atendendo a pedidos da comunidade, implementado um novo modo de navegação visual ("Gallery View") que permite ver os thumbnails dos personagens diretamente nos resultados de busca, lado a lado com a visualização em lista tradicional.
-- A Gallery aproveita as URLs do servidor Downloadmost pré-cacheadas na DB nativa, não consumindo requisições extras/rate-limits da API do Danbooru.
-- Corrigida e confirmada compatibilidade cross-version via kwargs dinâmicos no elemento gr.Gallery (Gradio 3 e 4+).
+- A Galeria intercepta as URLs e executa um cache progressivo no HD do usuário (data/covers/), permitindo operação off-line vitalícia total para os personagens já pesquisados.
+- Downloads executados via Multi-threading (Thread Pool) para não causar delays na interface durante a renderização da grade.
 
 **Arquivos alterados:**
 - wildcard_creator/ui.py — Adicionados componentes gr.Tabs(), gr.Gallery() e updates de array nos handlers de pesquisa e reset.
