@@ -30,6 +30,19 @@
 
 ## Linha do tempo de mudanças
 
+### [2026-03-15] Novo Visual Search via Gallery (v0.3.0)
+
+**O que foi feito:**
+- Atendendo a pedidos da comunidade, implementado um novo modo de navegação visual ("Gallery View") que permite ver os thumbnails dos personagens diretamente nos resultados de busca, lado a lado com a visualização em lista tradicional.
+- A Gallery aproveita as URLs do servidor Downloadmost pré-cacheadas na DB nativa, não consumindo requisições extras/rate-limits da API do Danbooru.
+- Corrigida e confirmada compatibilidade cross-version via kwargs dinâmicos no elemento gr.Gallery (Gradio 3 e 4+).
+
+**Arquivos alterados:**
+- wildcard_creator/ui.py — Adicionados componentes gr.Tabs(), gr.Gallery() e updates de array nos handlers de pesquisa e reset.
+
+**Impactos e pontos de atenção:**
+- Aumento de conforto visual e UX. A lógica de eventos (on_row_select) atua da mesma forma independente se o usuário clicou na tabela ou na galeria.
+
 ### [2026-03-15] Compatibilidade Gradio 3 (v0.2.3)
 
 **O que foi feito:**

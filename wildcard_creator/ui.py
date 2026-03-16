@@ -24,6 +24,21 @@ from wildcard_creator.utils.strings import normalize_wildcard_name
 
 
 _GR_VERSION = getattr(gr, "__version__", "3.0.0")
+def get_gallery_kws() -> dict:
+    """Helper to maintain compat with Gradio 3 and Gradio 4 galleries."""
+    if int(str(_GR_VERSION).split(".")[0]) >= 4:
+        return {
+            "columns": [3, 4, 4, 5],
+            "rows": [2],
+            "height": 400,
+            "allow_preview": False,
+            "object_fit": "contain"
+        }
+    return {
+        "grid": 4, # 4 columns
+        "object_fit": "contain"
+    }
+
 def get_js_kw(js_script: str) -> dict:
     """Helper to maintain compat with Gradio 3 (_js) and Gradio 4 (js)."""
     return {"js": js_script} if int(str(_GR_VERSION).split(".")[0]) >= 4 else {"_js": js_script}
@@ -206,13 +221,22 @@ def _build_characters_content():
     total_pages_state = gr.State(1)
 
     # Results table
-    char_results = gr.Dataframe(
-        headers=["name", "series", "rank"],
-        datatype=["str", "str", "number"],
-        label="Results",
-        interactive=False,
-        wrap=True,
-    )
+    with gr.Tabs():
+        with gr.Tab("List View", id="tab_list"):
+            char_results = gr.Dataframe(
+                headers=["name", "series", "rank"],
+                datatype=["str", "str", "number"],
+                label="Results",
+                interactive=False,
+                wrap=True,
+            )
+        with gr.Tab("Gallery View", id="tab_gallery"):
+            char_gallery = gr.Gallery(
+                label="Results",
+                show_label=False,
+                elem_id="sdcf_char_gallery",
+                **get_gallery_kws()
+            )
     char_results_state = gr.State([])  # full result list (with tags/image_url)
 
     gr.Markdown("---\n*Click a row above to load the character card.*")
@@ -321,6 +345,7 @@ def _build_characters_content():
             gr.update(value=""),
             gr.update(value="All"),
             gr.update(value="All"),
+            gr.update(value=[]),
             gr.update(value=[]),
             [],
             1,
@@ -490,24 +515,29 @@ def _build_characters_content():
     btn_char_search.click(
         search_first_page,
         inputs=[char_search, char_series, tag_status_filter],
-        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_search.submit(
         search_first_page,
         inputs=[char_search, char_series, tag_status_filter],
-        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     btn_prev_page.click(
         prev_page_action,
         inputs=[char_search, char_series, tag_status_filter, current_page_state],
-        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     btn_next_page.click(
         next_page_action,
         inputs=[char_search, char_series, tag_status_filter, current_page_state, total_pages_state],
-        outputs=[char_results, char_results_state, current_page_state, total_pages_state, page_indicator],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_results.select(
+        on_row_select,
+        inputs=[char_results_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
+    )
+    char_gallery.select(
         on_row_select,
         inputs=[char_results_state],
         outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
@@ -731,6 +761,7 @@ def _build_characters_content():
             char_series,
             tag_status_filter,
             char_results,
+            char_gallery,
             char_results_state,
             current_page_state,
             total_pages_state,
