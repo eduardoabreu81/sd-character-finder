@@ -12,12 +12,16 @@ Entry points:
 
 from __future__ import annotations
 
+import base64
+import concurrent.futures
+from collections import OrderedDict
 import logging
 import re
 import html
 from pathlib import Path
 
 import gradio as gr
+import requests
 
 from wildcard_creator.character_db import get_character_db
 from wildcard_creator.danbooru import DanbooruDB
@@ -25,11 +29,6 @@ from wildcard_creator.utils.strings import normalize_wildcard_name
 
 
 _GR_VERSION = getattr(gr, "__version__", "3.0.0")
-def get_gallery_kws() -> dict:
-    """Helper to maintain compat with Gradio 3 and Gradio 4 galleries."""
-    if int(str(_GR_VERSION).split(".")[0]) >= 4:
-        return {}
-    return {}
 
 def get_js_kw(js_script: str) -> dict:
     """Helper to maintain compat with Gradio 3 (_js) and Gradio 4 (js)."""
@@ -200,6 +199,14 @@ def _build_characters_content():
             btn_char_reset = gr.Button("✖ Clear")
 
     with gr.Row():
+        source_filter = gr.Radio(
+            label="Source",
+            choices=["both", "danbooru", "e621"],
+            value="both",
+            interactive=True,
+        )
+
+    with gr.Row():
         with gr.Column(scale=4):
             pass # spacer
         with gr.Column(scale=1, min_width=100):
@@ -216,8 +223,8 @@ def _build_characters_content():
     with gr.Tabs():
         with gr.Tab("List View", id="tab_list"):
             char_results = gr.Dataframe(
-                headers=["name", "series", "rank"],
-                datatype=["str", "str", "number"],
+                headers=["name", "series", "source", "rank"],
+                datatype=["str", "str", "str", "number"],
                 label="Results",
                 interactive=False,
                 wrap=True,
@@ -230,6 +237,11 @@ def _build_characters_content():
             )
             gallery_click_idx = gr.Textbox(value="-1", visible=True, elem_id="sdcf_gallery_click_idx")
     char_results_state = gr.State([])  # full result list (with tags/image_url)
+    recent_chars_state = gr.State([])   # list of {name, series, id, tags, danbooru_tag, image_url}
+
+    with gr.Accordion("🕒 Recently Viewed", open=False):
+        recent_html = gr.HTML(value="<p style='color:#888;font-size:0.85em;padding:4px'>No characters viewed yet.</p>")
+        recent_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_recent_select_idx")
 
     gr.Markdown("---\n*Click a row above to load the character card.*")
 
@@ -264,8 +276,8 @@ def _build_characters_content():
                     label="Target wildcards folder",
                     choices=_wildcard_dirs,
                     value=_wildcard_dirs[0] if _wildcard_dirs else None,
-                    interactive=False,
-                    visible=False,
+                    interactive=len(_wildcard_dirs) > 1,
+                    visible=len(_wildcard_dirs) > 1,
                 )
                 btn_export_wildcard_txt = gr.Button("💾 Save TXT wildcard")
             wildcard_dir_map_state = gr.State(_wildcard_dir_map)
@@ -298,10 +310,30 @@ def _build_characters_content():
             pass
         return default
 
-    def do_search(query, series, tag_status, page):
+    add_deduplicate_state = gr.State(bool(get_shared_opt("sdcf_add_deduplicate", True)))
+
+    http_session = requests.Session()
+    http_session.headers.update({"User-Agent": "SDCharacterFinder/1.0"})
+    cover_data_uri_cache: OrderedDict[int, str] = OrderedDict()
+    COVER_DATA_URI_CACHE_MAX = 500
+
+    def _cache_get_data_uri(char_id: int) -> str | None:
+        val = cover_data_uri_cache.get(char_id)
+        if val is not None:
+            cover_data_uri_cache.move_to_end(char_id)
+        return val
+
+    def _cache_set_data_uri(char_id: int, data_uri: str) -> None:
+        cover_data_uri_cache[char_id] = data_uri
+        cover_data_uri_cache.move_to_end(char_id)
+        while len(cover_data_uri_cache) > COVER_DATA_URI_CACHE_MAX:
+            cover_data_uri_cache.popitem(last=False)
+
+    def do_search(query, series, tag_status, source, page):
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
+        source = (source or "both").strip() or "both"
         raw_limit = get_shared_opt("sdcf_search_limit", 30)
         raw_thumb_size = get_shared_opt("sdcf_gallery_thumb_size", 160)
         raw_gallery_columns = get_shared_opt("sdcf_gallery_columns", 5)
@@ -328,14 +360,11 @@ def _build_characters_content():
                 query,
                 series_filter=series if series != "All" else None,
                 tag_status_filter=tag_status,
+                source_filter=source,
                 limit=limit,
                 offset=offset,
             )
-            table = [[r["name"], r["series"] or "", r["rank"]] for r in results]
-            
-            import concurrent.futures
-            import base64
-            import requests
+            table = [[r["name"], r["series"] or "", r.get("source") or "danbooru", r["rank"]] for r in results]
             
             repo_root = Path(__file__).resolve().parent.parent
             covers_dir = repo_root / "data" / "covers"
@@ -345,13 +374,18 @@ def _build_characters_content():
                 url = r.get("image_url")
                 char_id = r.get("id")
                 name = r.get("name", "")
+                src_val = r.get("source", "danbooru")
                 if not url or not char_id:
-                    return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name)
+                    return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name, src_val)
+
+                cached_data_uri = _cache_get_data_uri(int(char_id))
+                if cached_data_uri:
+                    return (cached_data_uri, name, src_val)
                 
                 cov_path = covers_dir / f"{char_id}.jpg"
                 if not cov_path.exists():
                     try:
-                        resp = requests.get(url, headers={"User-Agent": "SDCharacterFinder/1.0"}, timeout=3)
+                        resp = http_session.get(url, timeout=3)
                         if resp.status_code == 200:
                             cov_path.write_bytes(resp.content)
                     except Exception:
@@ -360,19 +394,20 @@ def _build_characters_content():
                 if cov_path.exists():
                     try:
                         img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
-                        return (f"data:image/jpeg;base64,{img_b64}", name)
+                        data_uri = f"data:image/jpeg;base64,{img_b64}"
+                        _cache_set_data_uri(int(char_id), data_uri)
+                        return (data_uri, name, src_val)
                     except Exception:
-                        return (url, name)
-                return (url, name)
+                        return (url, name, src_val)
+                return (url, name, src_val)
 
             gallery = []
             if results:
-                # Disable parallelism if it behaves weird on some OS, else uncomment:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(results))) as executor:
-                    gallery = list(executor.map(fetch_one, results))  # Execute downloads
+                    gallery = list(executor.map(fetch_one, results))
 
             cards_html: list[str] = []
-            for idx, (img_src, name) in enumerate(gallery):
+            for idx, (img_src, name, source) in enumerate(gallery):
                 safe_img = html.escape(str(img_src or ""), quote=True)
                 safe_name = html.escape(str(name or ""))
                 onclick_js = (
@@ -389,6 +424,7 @@ def _build_characters_content():
                     f"""
                     <button class='civmodelcard' onclick="{safe_onclick}">
                         <figure>
+                            <div class='sdcf-badge sdcf-badge-{source}'>{source}</div>
                             <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                             <figcaption>{safe_name}</figcaption>
                         </figure>
@@ -411,16 +447,16 @@ def _build_characters_content():
             traceback.print_exc()
             return [], gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"), [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
 
-    def search_first_page(query, series, tag_status):
-        return do_search(query, series, tag_status, 1)
+    def search_first_page(query, series, tag_status, source):
+        return do_search(query, series, tag_status, source, 1)
 
-    def prev_page_action(query, series, tag_status, page):
+    def prev_page_action(query, series, tag_status, source, page):
         new_page = max(1, page - 1)
-        return do_search(query, series, tag_status, new_page)
+        return do_search(query, series, tag_status, source, new_page)
 
-    def next_page_action(query, series, tag_status, page, total_pages):
+    def next_page_action(query, series, tag_status, source, page, total_pages):
         new_page = min(total_pages, page + 1)
-        return do_search(query, series, tag_status, new_page)
+        return do_search(query, series, tag_status, source, new_page)
 
     def do_reset_search():
         return (
@@ -511,16 +547,84 @@ def _build_characters_content():
             _normalize_wildcard_name(char["name"]),
         )
 
-    def on_row_select(results_state, evt: gr.SelectData):
-        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
-        return _select_by_index(results_state, row_idx)
+    # --- Recently viewed helpers ---
 
-    def on_gallery_click(idx_text, results_state):
+    def _push_recent(char: dict, current_recents: list) -> list:
+        """Prepend char to recent list, deduplicate by id, keep last 10."""
+        char_id = char.get("id")
+        updated = [c for c in current_recents if c.get("id") != char_id]
+        updated.insert(0, {
+            "id": char_id,
+            "name": char.get("name", ""),
+            "series": char.get("series") or "",
+            "tags": char.get("tags") or "",
+            "danbooru_tag": char.get("danbooru_tag") or "",
+            "image_url": char.get("image_url") or "",
+            "source": char.get("source", "danbooru"),
+        })
+        return updated[:10]
+
+    def _render_recent_html(recents: list) -> str:
+        if not recents:
+            return "<p style='color:#888;font-size:0.85em;padding:4px'>No characters viewed yet.</p>"
+        items = []
+        for idx, c in enumerate(recents):
+            safe_name = html.escape(c.get("name") or "")
+            safe_series = html.escape(c.get("series") or "")
+            source = c.get("source", "danbooru")
+            onclick_js = (
+                "const app=(window.gradioApp?window.gradioApp():document);"
+                "const input=app.querySelector('#sdcf_recent_select_idx textarea, #sdcf_recent_select_idx input');"
+                "if(!input){return false;}"
+                f"input.value='{idx}';"
+                "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                "input.dispatchEvent(new Event('change',{bubbles:true}));"
+                "return false;"
+            )
+            safe_onclick = html.escape(onclick_js, quote=True)
+            series_label = f" <span style='color:#888;font-size:0.8em'>({safe_series})</span>" if safe_series else ""
+            items.append(
+                f"<button class='sdcf-recent-btn' onclick=\"{safe_onclick}\">"
+                f"<span class='sdcf-badge sdcf-badge-{source}'>{source}</span>"
+                f"<span class='sdcf-recent-name'>{safe_name}</span>{series_label}"
+                f"</button>"
+            )
+        return "<div class='sdcf-recent-list'>" + "".join(items) + "</div>"
+
+    def on_row_select(results_state, recent_chars, evt: gr.SelectData):
+        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
+        card_outputs = _select_by_index(results_state, row_idx)
+        if results_state and 0 <= row_idx < len(results_state):
+            updated_recents = _push_recent(results_state[row_idx], recent_chars)
+        else:
+            updated_recents = recent_chars
+        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
+
+    def on_gallery_click(idx_text, results_state, recent_chars):
         try:
             row_idx = int(float(idx_text))
         except Exception:
             row_idx = -1
-        return _select_by_index(results_state, row_idx)
+        card_outputs = _select_by_index(results_state, row_idx)
+        if results_state and 0 <= row_idx < len(results_state):
+            updated_recents = _push_recent(results_state[row_idx], recent_chars)
+        else:
+            updated_recents = recent_chars
+        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
+
+    def on_recent_click(idx_text, recent_chars):
+        """Select a character from the recently viewed panel."""
+        try:
+            row_idx = int(float(idx_text))
+        except Exception:
+            row_idx = -1
+        card_outputs = _select_by_index(recent_chars, row_idx)
+        # Re-push to front when re-selected
+        if recent_chars and 0 <= row_idx < len(recent_chars):
+            updated_recents = _push_recent(recent_chars[row_idx], recent_chars)
+        else:
+            updated_recents = recent_chars
+        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
 
 
     def save_manual_danbooru_tag(selected_id, manual_tag):
@@ -570,9 +674,11 @@ def _build_characters_content():
 
         return boys + girls + characters + series + others
 
-    def do_add_to_generate(tags):
+    def do_add_to_generate(tags, deduplicate_enabled):
         if not tags:
             return gr.update(value="⚠️ No tags to add")
+        if deduplicate_enabled:
+            return gr.update(value="✅ Added to txt2img (dedupe on)")
         return gr.update(value="✅ Added to txt2img")
 
     def do_export_wildcard_txt(name: str, tags: str, target_dir: str, dir_map: dict[str, str]):
@@ -608,33 +714,38 @@ def _build_characters_content():
 
     btn_char_search.click(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter],
+        inputs=[char_search, char_series, tag_status_filter, source_filter],
         outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_search.submit(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter],
+        inputs=[char_search, char_series, tag_status_filter, source_filter],
         outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     btn_prev_page.click(
         prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, current_page_state],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, current_page_state],
         outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     btn_next_page.click(
         next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, current_page_state, total_pages_state],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, current_page_state, total_pages_state],
         outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
     )
     char_results.select(
         on_row_select,
-        inputs=[char_results_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
+        inputs=[char_results_state, recent_chars_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
     )
     gallery_click_idx.change(
         on_gallery_click,
-        inputs=[gallery_click_idx, char_results_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name],
+        inputs=[gallery_click_idx, char_results_state, recent_chars_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
+    )
+    recent_select_idx.change(
+        on_recent_click,
+        inputs=[recent_select_idx, recent_chars_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
     )
     btn_char_save_tag.click(
         save_manual_danbooru_tag,
@@ -679,9 +790,9 @@ def _build_characters_content():
     )
     btn_char_add.click(
         fn=do_add_to_generate,
-        inputs=[char_tags_out],
+        inputs=[char_tags_out, add_deduplicate_state],
         outputs=[char_send_status],
-        **get_js_kw("""(tags) => {
+        **get_js_kw("""(tags, deduplicateEnabled) => {
             const switchToTab = (target) => {
                 const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
                 const targetKey = normalized(target);
@@ -699,6 +810,17 @@ def _build_characters_content():
             };
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
             if (!promptEl || !tags) return [tags];
+
+            const dedupeOn = !(deduplicateEnabled === false || deduplicateEnabled === 'false' || deduplicateEnabled === 0 || deduplicateEnabled === '0');
+
+            if (!dedupeOn) {
+                const current = (promptEl.value || '').trim();
+                promptEl.value = current ? `${current}, ${tags}` : tags;
+                promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+                promptEl.dispatchEvent(new Event('change', {bubbles: true}));
+                switchToTab('txt2img');
+                return [tags];
+            }
 
             const parse = (s) => (s || '').split(',').map(x => x.trim()).filter(Boolean);
             const norm = (s) => (s || '').toLowerCase().replace(/_/g, ' ');
@@ -961,27 +1083,63 @@ def build_standalone_ui() -> gr.Blocks:
     """
     Build a standalone Gradio app for local development (no SD WebUI).
     Launch with: build_standalone_ui().launch(server_port=7861)
+
+    On first run (or if DB is incomplete), automatically scrapes:
+      - Danbooru characters (~20k, source='danbooru')
+      - e621 characters   (~3k,  source='e621')
+    Both scrapers are resumable: they pick up from the last saved rank.
+    user_overrides.json continues to work for both sources (keyed by character ID).
     """
-    
     import threading
-    def _check_and_scrape():
+
+    scripts_dir_path = str(Path(__file__).parent.parent / "scripts")
+
+    def _ensure_sys_path():
+        import sys
+        if scripts_dir_path not in sys.path:
+            import sys as _s
+            _s.path.insert(0, scripts_dir_path)
+
+    def _check_and_scrape_danbooru():
         from wildcard_creator.character_db import get_character_db
         try:
             db = get_character_db()
             if db.count() < 20000:
-                import sys
-                from pathlib import Path
-                scripts_dir = str(Path(__file__).parent.parent / "scripts")
-                if scripts_dir not in sys.path:
-                    sys.path.insert(0, scripts_dir)
+                _ensure_sys_path()
                 from scrape_characters import scrape
-                print("[SD Character Finder] Auto-scraping database in background...")
+                print("[SD Character Finder] Auto-scraping Danbooru in background...")
                 scrape(pages=0, resume=True)
-                print("[SD Character Finder] Background scraping complete.")
+                print("[SD Character Finder] Danbooru scraping complete.")
         except Exception as e:
-            print(f"[SD Character Finder] Auto-scrape failed: {e}")
+            print(f"[SD Character Finder] Danbooru auto-scrape failed: {e}")
 
-    threading.Thread(target=_check_and_scrape, daemon=True).start()
+    def _check_and_scrape_e621():
+        from wildcard_creator.character_db import get_character_db
+        try:
+            db = get_character_db()
+            import sqlite3
+            conn = sqlite3.connect(str(db._path))
+            try:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM characters WHERE source = 'e621'"
+                ).fetchone()
+                e621_count = row[0] if row else 0
+            except Exception:
+                e621_count = 0
+            finally:
+                conn.close()
+
+            if e621_count < 2000:
+                _ensure_sys_path()
+                from scrape_e621 import scrape
+                print("[SD Character Finder] Auto-scraping e621 in background...")
+                scrape(pages=0, resume=True)
+                print("[SD Character Finder] e621 scraping complete.")
+        except Exception as e:
+            print(f"[SD Character Finder] e621 auto-scrape failed: {e}")
+
+    threading.Thread(target=_check_and_scrape_danbooru, daemon=True).start()
+    threading.Thread(target=_check_and_scrape_e621, daemon=True).start()
 
     return build_ui()
 

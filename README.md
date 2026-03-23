@@ -14,7 +14,7 @@
 
 > **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Say no more!** 🦸‍♂️
 
-Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **20,000+ Danbooru characters** without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
+Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **23,000+ characters** (Danbooru and e621) without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
 
 ---
 
@@ -32,9 +32,32 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.4.1 — Reliability, Dedupe Control & Startup Sync
+- **Deduplication Toggle in Settings** — New WebUI option to enable or disable tag deduplication when using `Add to txt2img`, giving full control for prompt-building workflows.
+- **Startup Source Sync** — Background startup checks now keep Danbooru and e621 scraping behavior aligned with the unified database flow.
+- **Database Stability Improvements** — SQLite now uses safer runtime pragmas and busy-timeout behavior for better resilience under concurrent UI/background operations.
+- **Gallery Fetch Optimizations** — Reused HTTP session and in-memory thumbnail data URI cache reduce repeated I/O during browsing.
+
+### v0.4.0 — Unified Database, e621 Support & UX Boosts
+- **e621 Integration** — The internal database now supports and includes over 3,000 e621 characters alongside Danbooru. The UI features a source toggle (Danbooru / e621 / Both) and color-coded badges indicating the origin of each character.
+- **Recently Viewed Panel** — A convenient quick-access history panel now tracks your last 10 viewed characters so you can easily jump back and forth without losing your spot.
+- **Advanced Multi-Term Search** — Search with precision! Multiple keywords now use `AND` logic (e.g., searching `miku vocaloid` guarantees both terms exist in the tags).
+- **Background Auto-Scraper** — If the database gets deleted or is incomplete, the app now uses background threads on startup to seamlessly fetch and restore both Danbooru and e621 data without locking your UI.
+
 ### v0.3.2 — Gallery Customization & Auto-Switch
 - **Dynamic Gallery Layout** — Control text size/thumbnail size and gallery cards per row directly from the WebUI Settings tab (Options -> SD Character Finder) to perfectly fit your monitor.
 - **Auto-Switch Tabs** — Clicking "Send to Generate" or "Add to txt2img" will automatically switch your WebUI focus directly to the `txt2img` tab for a faster workflow!
+
+---
+
+## 📖 Changelog
+
+### v0.4.1 — Reliability, Dedupe Control & Startup Sync
+- Added `Add to txt2img: Deduplicate incoming tags` option to native WebUI Settings.
+- `Add to txt2img` now supports both modes: deduplicated append and raw append.
+- Improved startup auto-scrape consistency for both Danbooru and e621 sources.
+- Hardened SQLite runtime behavior (WAL, busy timeout, synchronous normal).
+- Improved gallery performance by reusing requests session and caching data URIs in memory.
 
 ### v0.3.1 — Stable Gallery Cards + Expandable Preview
 - **Custom Card Gallery** — Replaced Gradio Gallery rendering with a custom HTML card grid for predictable desktop/mobile behavior.
@@ -46,18 +69,13 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - **Visual Browser** — Added a brand new "Gallery View" tab to the search results! You can now toggle between seeing results as a compact List or a visual Grid showing thumbnails of all characters simultaneously. Powered by safe, fast CDN links (no Danbooru rate-limits!).
 
 ### v0.2.3 — Gradio 3 Backward Compatibility
-
 - Fixed an issue causing crashes on Forge Classic due to unsupported js keyword arguments by enforcing _js when invoked under older Gradio runtimes.
 
 ### v0.2.2 — Forge Classic Startup Fix (Part 2)
 - **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic) where global UI parsing failed during boot.
 
----
-
-## 📖 Changelog
-
 ### v0.2.1 — Forge Classic Startup Fix (Part 1)
-- **Settings Parser Fix** — Explicitly mapped loat config values to Gradio Slider components to prevent startup crashes on older or parallel forks (e.g. Forge Classic).
+- **Settings Parser Fix** — Explicitly mapped `float` config values to Gradio Slider components to prevent startup crashes on older or parallel forks.
 
 ### v0.2.0 — Beautiful Layout, Categories & Logic Override
 - **Sleek UI Remaster** — Fully remade the interface taking advantage of horizontal layout capabilities. The character attributes and thumbnail now sit cleanly on the left while results populate on your right.
@@ -100,11 +118,20 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Exposed thumbnail size and cards-per-row options in WebUI Settings.
 - Added automatic tab switching to `txt2img` when sending or appending tags.
 
-### v0.4.0 — Custom User Series & Collections *(planned)*
+### v0.4.0 — e621 Support & Search UX *(complete)* ✅
+- Optional e621 support (Unified Database with >3000 characters & Source Filter).
+- Recently Viewed history panel for quick character hopping.
+- Multi-term `AND` search logic.
+
+### v0.4.1 — Reliability, Dedupe Control & Startup Sync *(complete)* ✅
+- Added optional deduplication toggle for `Add to txt2img`.
+- Improved startup source synchronization for Danbooru and e621 scraping.
+- Added SQLite runtime resilience and gallery fetch/cache performance improvements.
+
+### v0.5.0 — Custom User Series & Collections *(planned)*
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
 - Danbooru artist/style browser for discovery workflows.
-- Optional e621 support can be evaluated based on community demand.
 
 ---
 
@@ -113,14 +140,16 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 > ⭐ = Core Highlights
 
 ### 🔍 Browse & Search
-- Browse **20,000+ characters** directly inside the WebUI — no tab switching to Danbooru ⭐
+- Browse **23,000+ characters** (20,000+ Danbooru and 3,000+ e621) directly inside the WebUI — no tab switching! ⭐
 - Search by character name, tag, or browse alphabetically by series/franchise
+- Use multiple keywords for precise filtering (e.g., `miku vocaloid` ensures both terms exist)
 - High-performance offline SQLite database ensures instant search results without internet dependence ⭐
 - Pagination system keeps the UI snappy even when returning thousands of results
 
 ### 🖼️ Character Info & Preview
-- View high-quality character thumbnails instantly.
+- View high-quality character thumbnails instantly (with color-coded Source Badges).
 - Stable visual card grid in **Gallery View** with responsive layout (desktop and mobile).
+- **Recently Viewed** panel tracks your last 10 clicked characters so you can quickly jump back to them.
 - Click any card to load character details and prompt tags.
 - Side preview supports **Click to expand** and opens a large modal image.
 - Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category (Copyright, Character, General, Artist, Meta) ⭐
@@ -130,11 +159,12 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 ### 🚀 One-Click Prompting
 - **Send to Generate** — Instantly replaces your current `txt2img` prompt with the character's signature tags and **automatically switches you to the tab**.
 - **Add to txt2img** — Intelligently appends the character tags to your *existing* prompt ⭐
-- **Smart Deduplication** — Automatically removes duplicate words when sending tags to your prompt
+- **Smart Deduplication** — Automatically removes duplicate words when enabled in Settings
+- **Manual Duplicate Mode** — Disable deduplication in Settings to force raw append behavior
 
 ### ⚙️ Configuration
 - Fully integrated with the native WebUI settings menu (Settings -> Options -> SD Character Finder)
-- Configure results per page (`5..30`), **thumbnail sizes, cards per row**, Danbooru API credentials, and default behaviors
+- Configure results per page (`5..30`), **thumbnail sizes, cards per row**, deduplication behavior for `Add to txt2img`, Danbooru API credentials, and default behaviors
 - Fast, lightweight, and completely localized
 
 ---

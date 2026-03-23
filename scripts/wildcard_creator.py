@@ -24,16 +24,28 @@ try:
         def _check_and_scrape():
             try:
                 db = get_character_db()
-                if db.count() < 20000:
-                    import sys
-                    from pathlib import Path
-                    scripts_dir = str(Path(__file__).parent)
-                    if scripts_dir not in sys.path:
-                        sys.path.insert(0, scripts_dir)
-                    from scrape_characters import scrape
-                    print("[SD Character Finder] Auto-scraping database in background...")
-                    scrape(pages=0, resume=True)
-                    print("[SD Character Finder] Background scraping complete.")
+                total_count = db.count()
+                danbooru_count = db.count_by_source("danbooru")
+                e621_count = db.count_by_source("e621")
+
+                import sys
+                from pathlib import Path
+
+                scripts_dir = str(Path(__file__).parent)
+                if scripts_dir not in sys.path:
+                    sys.path.insert(0, scripts_dir)
+
+                if total_count < 20000 or danbooru_count < 18000:
+                    from scrape_characters import scrape as scrape_danbooru
+                    print("[SD Character Finder] Auto-scraping Danbooru in background...")
+                    scrape_danbooru(pages=0, resume=True)
+                    print("[SD Character Finder] Danbooru scraping complete.")
+
+                if e621_count < 2000:
+                    from scrape_e621 import scrape as scrape_e621
+                    print("[SD Character Finder] Auto-scraping e621 in background...")
+                    scrape_e621(pages=0, resume=True)
+                    print("[SD Character Finder] e621 scraping complete.")
             except Exception as e:
                 print(f"[SD Character Finder] Auto-scrape failed: {e}")
 
@@ -89,6 +101,14 @@ try:
                 "Gallery cards per row",
                 component=gr.Slider,
                 component_args={"minimum": 2, "maximum": 12, "step": 1},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_add_deduplicate",
+            shared.OptionInfo(
+                True,
+                "Add to txt2img: Deduplicate incoming tags",
                 section=section,
             ),
         )

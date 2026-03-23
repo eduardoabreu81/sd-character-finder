@@ -14,7 +14,9 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -35,21 +37,38 @@ class CharacterDB:
     def __init__(self, db_path: Path = _DEFAULT_DB):
         self._path = db_path
         self._conn: Optional[sqlite3.Connection] = None
+        self._write_lock = threading.Lock()
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
+            self._conn = sqlite3.connect(str(self._path), check_same_thread=False, timeout=15.0)
             self._conn.row_factory = sqlite3.Row
+            try:
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA busy_timeout=15000")
+                self._conn.execute("PRAGMA synchronous=NORMAL")
+            except sqlite3.OperationalError:
+                pass
             self._migrate()
         return self._conn
 
     def _migrate(self) -> None:
         """Add new columns to existing DBs without breaking older installs."""
-        try:
-            self._conn.execute("ALTER TABLE characters ADD COLUMN danbooru_tag TEXT")
+        with self._write_lock:
+            for ddl in [
+                "ALTER TABLE characters ADD COLUMN danbooru_tag TEXT",
+                "ALTER TABLE characters ADD COLUMN source TEXT DEFAULT 'danbooru'",
+            ]:
+                try:
+                    self._conn.execute(ddl)
+                    self._conn.commit()
+                except sqlite3.OperationalError:
+                    pass  # column already exists
+            # Backfill: existing rows with NULL source -> 'danbooru'
+            self._conn.execute(
+                "UPDATE characters SET source = 'danbooru' WHERE source IS NULL"
+            )
             self._conn.commit()
-        except sqlite3.OperationalError:
-            pass  # column already exists
         self.apply_overrides()
 
     def apply_overrides(self):
@@ -60,9 +79,10 @@ class CharacterDB:
             if overrides_path.exists():
                 overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
                 if overrides:
-                    for cid, tag in overrides.items():
-                        self._conn.execute("UPDATE characters SET danbooru_tag = ? WHERE id = ?", (tag, int(cid)))
-                    self._conn.commit()
+                    with self._write_lock:
+                        for cid, tag in overrides.items():
+                            self._conn.execute("UPDATE characters SET danbooru_tag = ? WHERE id = ?", (tag, int(cid)))
+                        self._conn.commit()
         except Exception as e:
             logger.error(f"apply_overrides failed: {e}")
 
@@ -85,20 +105,32 @@ class CharacterDB:
             logger.error(f"count failed: {e}", exc_info=True)
             return 0
 
+    def count_by_source(self, source: str) -> int:
+        """Count rows for a specific source value (e.g. danbooru/e621)."""
+        try:
+            row = self._get_conn().execute(
+                "SELECT COUNT(*) FROM characters WHERE source = ?",
+                (source,),
+            ).fetchone()
+            return row[0] if row else 0
+        except Exception as e:
+            logger.error(f"count_by_source failed: source={source!r}, error={e}", exc_info=True)
+            return 0
+
     def search(
         self,
         query: str,
         series_filter: Optional[str] = None,
         tag_status_filter: str = "All",
+        source_filter: str = "both",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict], int]:
         """
         Full-text search on name, tags and danbooru_tag.
-        Optionally filter by exact series.
-        Optionally filter by danbooru_tag status.
+        Optionally filter by exact series, tag status, and source (danbooru/e621/both).
         Returns a tuple of (list of dicts, total match count).
-        Dicts have keys: id, name, series, tags, image_url, rank.
+        Dicts have keys: id, name, series, tags, image_url, rank, danbooru_tag, source.
         """
         query = (query or "").strip()
         normalized_series = (series_filter or "").strip()
@@ -106,9 +138,12 @@ class CharacterDB:
         clauses: list[str] = []
 
         if query:
-            clauses.append("(name LIKE ? OR tags LIKE ? OR danbooru_tag LIKE ?)")
-            like = f"%{query}%"
-            params += [like, like, like]
+            # Split by comma or whitespace for multi-term AND search
+            terms = [t.strip() for t in re.split(r"[,\s]+", query) if t.strip()]
+            for term in terms:
+                like = f"%{term}%"
+                clauses.append("(name LIKE ? OR tags LIKE ? OR danbooru_tag LIKE ?)")
+                params += [like, like, like]
 
         if normalized_series and normalized_series != "All":
             clauses.append("series = ? COLLATE NOCASE")
@@ -119,12 +154,16 @@ class CharacterDB:
         elif tag_status_filter == "Has Danbooru Tag":
             clauses.append("(danbooru_tag IS NOT NULL AND danbooru_tag != '')")
 
+        if source_filter and source_filter != "both":
+            clauses.append("source = ?")
+            params.append(source_filter)
+
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         
         sql_count = f"SELECT COUNT(*) FROM characters {where}"
         
         sql = f"""
-            SELECT id, name, series, tags, image_url, rank, danbooru_tag
+            SELECT id, name, series, tags, image_url, rank, danbooru_tag, source
             FROM characters
             {where}
             ORDER BY rank ASC
@@ -158,11 +197,12 @@ class CharacterDB:
     def save_danbooru_tag(self, char_id: int, danbooru_tag: str) -> bool:
         """Persist the canonical Danbooru tag for a character (used by resolve script)."""
         try:
-            self._get_conn().execute(
-                "UPDATE characters SET danbooru_tag = ? WHERE id = ?",
-                (danbooru_tag, char_id),
-            )
-            self._get_conn().commit()
+            with self._write_lock:
+                self._get_conn().execute(
+                    "UPDATE characters SET danbooru_tag = ? WHERE id = ?",
+                    (danbooru_tag, char_id),
+                )
+                self._get_conn().commit()
             return True
         except Exception as e:
             logger.error(f"save_danbooru_tag failed: char_id={char_id}, tag={danbooru_tag!r}, error={e}", exc_info=True)
