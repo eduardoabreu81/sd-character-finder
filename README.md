@@ -38,15 +38,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - **Database Stability Improvements** — SQLite now uses safer runtime pragmas and busy-timeout behavior for better resilience under concurrent UI/background operations.
 - **Gallery Fetch Optimizations** — Reused HTTP session and in-memory thumbnail data URI cache reduce repeated I/O during browsing.
 
-### v0.4.0 — Unified Database, e621 Support & UX Boosts
-- **e621 Integration** — The internal database now supports and includes over 3,000 e621 characters alongside Danbooru. The UI features a source toggle (Danbooru / e621 / Both) and color-coded badges indicating the origin of each character.
-- **Recently Viewed Panel** — A convenient quick-access history panel now tracks your last 10 viewed characters so you can easily jump back and forth without losing your spot.
-- **Advanced Multi-Term Search** — Search with precision! Multiple keywords now use `AND` logic (e.g., searching `miku vocaloid` guarantees both terms exist in the tags).
-- **Background Auto-Scraper** — If the database gets deleted or is incomplete, the app now uses background threads on startup to seamlessly fetch and restore both Danbooru and e621 data without locking your UI.
-
-### v0.3.2 — Gallery Customization & Auto-Switch
-- **Dynamic Gallery Layout** — Control text size/thumbnail size and gallery cards per row directly from the WebUI Settings tab (Options -> SD Character Finder) to perfectly fit your monitor.
-- **Auto-Switch Tabs** — Clicking "Send to Generate" or "Add to txt2img" will automatically switch your WebUI focus directly to the `txt2img` tab for a faster workflow!
+> Full release history is available in the Changelog section below.
 
 ---
 
@@ -58,6 +50,17 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Improved startup auto-scrape consistency for both Danbooru and e621 sources.
 - Hardened SQLite runtime behavior (WAL, busy timeout, synchronous normal).
 - Improved gallery performance by reusing requests session and caching data URIs in memory.
+
+### v0.4.0 — Unified Database, e621 Support & UX Boosts
+- **e621 Integration** — Unified database now includes 3,000+ e621 characters alongside Danbooru.
+- **Source Filter + Badges** — Added Danbooru/e621/both filtering and visual source badges.
+- **Recently Viewed Panel** — Added quick-access history for the most recently opened characters.
+- **Advanced Multi-Term Search** — Search now applies AND logic for multiple keywords.
+- **Background Auto-Scraper** — Startup recovery flow for missing/incomplete datasets.
+
+### v0.3.2 — Gallery Customization & Auto-Switch
+- Added WebUI settings for gallery thumbnail size and cards per row.
+- Added automatic tab switch to `txt2img` when using Send/Add actions.
 
 ### v0.3.1 — Stable Gallery Cards + Expandable Preview
 - **Custom Card Gallery** — Replaced Gradio Gallery rendering with a custom HTML card grid for predictable desktop/mobile behavior.
