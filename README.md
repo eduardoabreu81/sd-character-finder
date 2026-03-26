@@ -37,7 +37,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - **Recent History Tab** — Re-find exactly who you were looking at earlier with a unified "Recent Searches" dataframe tab.
 - **Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and visual artifacts.
 - **Themed Scrollbars** — Custom webkit scrollbars that automatically sync with the WebUI's Light or Dark mode.
-- **Removed Background Scraper** — Scraping missing databases now happens 100% manually via explicitly running the scripts, avoiding runaway processing loops on cloud and remote hosted instances.
+- **Pre-packaged Database** — All 23,000+ characters are now natively shipped and synced via Git. This eliminates the need for background scraping on startup, making the extension instantly ready and lightweight for cloud environments.
 
 > Full release history is available in the Changelog section below.
 
