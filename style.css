@@ -1,4 +1,4 @@
-#sdcf_char_gallery_html {
+.sdcf-char-gallery {
     padding: 8px 4px;
 }
 
@@ -85,14 +85,14 @@
     pointer-events: none !important;
 }
 
-#sdcf_char_gallery_html .civmodellist {
+.sdcf-char-gallery .civmodellist {
     display: grid;
     grid-template-columns: repeat(var(--sdcf-gallery-cols, 5), minmax(0, 1fr));
     gap: 12px;
     width: 100%;
 }
 
-#sdcf_char_gallery_html .civmodelcard {
+.sdcf-char-gallery .civmodelcard {
     display: block;
     width: 100%;
     max-width: var(--sdcf-thumb-size, 160px);
@@ -108,19 +108,19 @@
     overflow: hidden;
 }
 
-#sdcf_char_gallery_html .civmodelcard:hover {
+.sdcf-char-gallery .civmodelcard:hover {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 0 2px 2px rgba(255, 255, 255, 0.45);
 }
 
-#sdcf_char_gallery_html .civmodelcard figure {
+.sdcf-char-gallery .civmodelcard figure {
     margin: 0;
     position: relative;
     width: 100%;
     aspect-ratio: 3 / 4;
 }
 
-#sdcf_char_gallery_html .civmodelcard img {
+.sdcf-char-gallery .civmodelcard img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -128,7 +128,7 @@
     display: block;
 }
 
-#sdcf_char_gallery_html .civmodelcard figcaption {
+.sdcf-char-gallery .civmodelcard figcaption {
     position: absolute;
     left: 0;
     right: 0;
@@ -145,7 +145,7 @@
 }
 
 @media (max-width: 900px) {
-    #sdcf_char_gallery_html .civmodellist {
+    .sdcf-char-gallery .civmodellist {
         grid-template-columns: repeat(var(--sdcf-mobile-cols, 3), minmax(0, 1fr));
         gap: 8px;
     }
@@ -213,11 +213,246 @@
     background: #22c55e;
 }
 
+.sdcf-badge-favorite {
+    background: #ec4899;
+}
+
 /* Position badge inside gallery cards */
-#sdcf_char_gallery_html .civmodelcard figure .sdcf-badge {
+.sdcf-char-gallery .civmodelcard figure .sdcf-badge {
     position: absolute;
     top: 6px;
     left: 6px;
     z-index: 2;
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.sdcf-badge-fav {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    font-size: 16px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+    pointer-events: none;
+}
+
+.sdcf-char-gallery .civmodelcard figure .sdcf-badge-fav {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+}
+
+.sdcf-char-gallery .civmodelcard figure .sdcf-badge-favorite {
+    position: absolute;
+    top: 28px;
+    left: 6px;
+    right: auto;
+    z-index: 2;
+}
+
+#sdcf_char_preview .sdcf-preview-favorite {
+    position: absolute;
+    top: 34px;
+    left: 10px;
+    z-index: 3;
+}
+
+#sdcf_char_preview .sdcf-preview-source {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 3;
+}
+
+.sdcf-hidden-trigger {
+    display: none !important;
+}
+
+/* Defensive: hide number spin buttons if AG Grid renders numeric cell inputs */
+#sdcf_main_blocks input[type='number']::-webkit-outer-spin-button,
+#sdcf_main_blocks input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#sdcf_main_blocks input[type='number'] {
+    -moz-appearance: textfield;
+}
+
+/* AG Grid: hide range/multi-selection UI (handles/arrows/highlight) in list tables */
+#sdcf_main_blocks .ag-range-handle,
+#sdcf_main_blocks .ag-fill-handle,
+#sdcf_main_blocks .ag-selection-handle,
+#sdcf_main_blocks .ag-cell-range-handle,
+#sdcf_main_blocks .ag-cell-range-handle-container,
+#sdcf_main_blocks .ag-cell-range-single-cell,
+#sdcf_main_blocks .ag-cell-range-selected,
+#sdcf_main_blocks .ag-cell-range-selected-1,
+#sdcf_main_blocks .ag-cell-range-selected-2,
+#sdcf_main_blocks .ag-cell-range-selected-3,
+#sdcf_main_blocks .ag-cell-range-selected-4 {
+    background: transparent !important;
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+#sdcf_main_blocks .ag-cell-focus,
+#sdcf_main_blocks .ag-cell-no-focus {
+    border: none !important;
+    outline: none !important;
+}
+
+/* Hide AG Grid range-selection frame (orange block outline) */
+#sdcf_main_blocks .ag-cell-range-top,
+#sdcf_main_blocks .ag-cell-range-bottom,
+#sdcf_main_blocks .ag-cell-range-left,
+#sdcf_main_blocks .ag-cell-range-right {
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+}
+
+#sdcf_main_blocks .ag-cell-range-selected,
+#sdcf_main_blocks .ag-cell-range-selected-1,
+#sdcf_main_blocks .ag-cell-range-selected-2,
+#sdcf_main_blocks .ag-cell-range-selected-3,
+#sdcf_main_blocks .ag-cell-range-selected-4 {
+    border-color: transparent !important;
+    background-color: transparent !important;
+}
+
+#sdcf_main_blocks .ag-root-wrapper,
+#sdcf_main_blocks .ag-root,
+#sdcf_main_blocks [class*='ag-theme'] {
+    --ag-range-selection-border-color: transparent;
+    --ag-range-selection-background-color: transparent;
+    --ag-range-selection-border-style: none;
+    --ag-range-selection-border-width: 0px;
+    --ag-cell-focus-border-color: transparent;
+    --ag-borders-critical: transparent;
+}
+
+/* Kill any remaining range/fill handles and pseudo overlays */
+#sdcf_main_blocks .ag-root [class*='range-handle'],
+#sdcf_main_blocks .ag-root [class*='fill-handle'],
+#sdcf_main_blocks .ag-root [class*='selection-handle'] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+#sdcf_main_blocks .ag-root .ag-cell-range-selected::before,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected::after,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-1::before,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-1::after,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-2::before,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-2::after,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-3::before,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-3::after,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-4::before,
+#sdcf_main_blocks .ag-root .ag-cell-range-selected-4::after,
+#sdcf_main_blocks .ag-root .ag-cell-focus::before,
+#sdcf_main_blocks .ag-root .ag-cell-focus::after {
+    content: none !important;
+    display: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Readonly grid cells: remove textarea/input editor affordances (resize handles/arrows) */
+#sdcf_main_blocks .ag-cell textarea,
+#sdcf_main_blocks .ag-cell input,
+#sdcf_main_blocks .ag-cell .ag-input-field-input {
+    resize: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    pointer-events: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+}
+/* Gradio 4 / 5 Dataframe cell overrides (Forge e A1111 mais recentes) */
+#sdcf_main_blocks .drag-handle, 
+#sdcf_main_blocks .resize-handle, 
+#sdcf_main_blocks .selection-button, 
+#sdcf_main_blocks .selection-button-row, 
+#sdcf_main_blocks .selection-button-column, 
+#sdcf_main_blocks .border_focus, 
+#sdcf_main_blocks .focus { 
+    display: none !important; 
+    opacity: 0 !important; 
+    visibility: hidden !important; 
+}
+
+#sdcf_main_blocks .cell-wrap:focus,
+#sdcf_main_blocks .cell-wrap:focus-within,
+#sdcf_main_blocks .cell-wrap.focus,
+#sdcf_main_blocks td:focus {
+    outline: none !important; 
+    box-shadow: none !important; 
+}
+
+#sdcf_main_blocks td,
+#sdcf_main_blocks th,
+#sdcf_main_blocks .cell-wrap {
+    user-select: none !important; 
+    -webkit-user-select: none !important; 
+}
+/* Custom Scrollbars para acompanhar o Tema Dark/Light */
+#sdcf_main_blocks *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+#sdcf_main_blocks *::-webkit-scrollbar-track {
+    background: var(--background-fill-secondary);
+    border-radius: 4px;
+}
+
+#sdcf_main_blocks *::-webkit-scrollbar-thumb {
+    background-color: var(--border-color-primary);
+    border-radius: 6px;
+    border: 2px solid var(--background-fill-secondary); /* Efeito de margem interna */
+}
+
+#sdcf_main_blocks *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-accent);
+}
+
+#sdcf_main_blocks * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color-primary) var(--background-fill-secondary);
+}
+/* Gradio 4 Virtual Scroller Extreme Lockdown */
+#sdcf_main_blocks div[data-testid='dataframe'] {
+    height: 65vh !important;
+    max-height: 65vh !important;
+    min-height: 65vh !important;
+    overflow: hidden !important;
+    contain: strict !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#sdcf_main_blocks div[data-testid='dataframe'] > div {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#sdcf_main_blocks div[data-testid='dataframe'] .table-wrap,
+#sdcf_main_blocks div[data-testid='dataframe'] .wrap {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    contain: size !important;
 }

@@ -123,6 +123,7 @@ class CharacterDB:
         series_filter: Optional[str] = None,
         tag_status_filter: str = "All",
         source_filter: str = "both",
+        favorites_list: Optional[list[int]] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict], int]:
@@ -157,6 +158,13 @@ class CharacterDB:
         if source_filter and source_filter != "both":
             clauses.append("source = ?")
             params.append(source_filter)
+
+        if favorites_list is not None:
+            if not favorites_list:
+                return [], 0
+            placeholders = ",".join("?" * len(favorites_list))
+            clauses.append(f"id IN ({placeholders})")
+            params.extend(favorites_list)
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         
