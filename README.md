@@ -37,7 +37,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - **Recent History Tab** — Re-find exactly who you were looking at earlier with a unified "Recent Searches" dataframe tab.
 - **Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and visual artifacts.
 - **Themed Scrollbars** — Custom webkit scrollbars that automatically sync with the WebUI's Light or Dark mode.
-- **Removed Background Scraper** — Scraping missing databases now happens 100% manually via explicitly running the scripts, avoiding runaway processing loops on hosted instances like RunPod.
+- **Removed Background Scraper** — Scraping missing databases now happens 100% manually via explicitly running the scripts, avoiding runaway processing loops on cloud and remote hosted instances.
 
 > Full release history is available in the Changelog section below.
 
@@ -53,7 +53,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Custom `-webkit-scrollbar` UI overrides integrated with WebUI's core variable themes.
 
 ### v0.4.2 — Background Scraping Removed
-- Extracted automated scraping triggers on extension load. Fixed RunPod freezing loops natively.
+- Extracted automated scraping triggers on extension load. Fixed startup freezing loops dynamically.
 
 ### v0.4.1 — Reliability, Dedupe Control & Startup Sync
 - Added `Add to txt2img: Deduplicate incoming tags` option to native WebUI Settings.
