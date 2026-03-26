@@ -32,17 +32,28 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.4.1 — Reliability, Dedupe Control & Startup Sync
-- **Deduplication Toggle in Settings** — New WebUI option to enable or disable tag deduplication when using `Add to txt2img`, giving full control for prompt-building workflows.
-- **Startup Source Sync** — Background startup checks now keep Danbooru and e621 scraping behavior aligned with the unified database flow.
-- **Database Stability Improvements** — SQLite now uses safer runtime pragmas and busy-timeout behavior for better resilience under concurrent UI/background operations.
-- **Gallery Fetch Optimizations** — Reused HTTP session and in-memory thumbnail data URI cache reduce repeated I/O during browsing.
+### v0.5.0 — Favorites, History & Gradio 4 Polish
+- **Favorites System** — New dedicated "Favorites" tab and instant "Add to Favorites" button to permanently save and track your top-tier characters locally.
+- **Recent History Tab** — Re-find exactly who you were looking at earlier with a unified "Recent Searches" dataframe tab.
+- **Gradio 4 (Forge Neo) Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and broken Svelte elements that appeared in new versions of Gradio.
+- **Themed Scrollbars** — Custom webkit scrollbars that automatically sync with the WebUI's Light or Dark mode.
+- **Removed Background Scraper** — Scraping missing databases now happens 100% manually via explicitly running the scripts, avoiding runaway processing loops on hosted instances like RunPod.
 
 > Full release history is available in the Changelog section below.
 
 ---
 
 ## 📖 Changelog
+
+### v0.5.0 — Favorites, History & Gradio 4 Polish
+- Added visual and database-backed "Favorites" marking logic (`data/favorites.json`).
+- Added full "Recent Searches" and "Favorites" isolated tabs.
+- Custom Svelte DOM styling to patch Gradio 4 Dataframe artifacts (hidden drag rows, clean outlines).
+- Completely removed startup automatic scraping from UI entrypoints. `data/characters.db` serves as authority unless updated actively by git/scripts.
+- Custom `-webkit-scrollbar` UI overrides integrated with WebUI's core variable themes.
+
+### v0.4.2 — Background Scraping Removed
+- Extracted automated scraping triggers on extension load. Fixed RunPod freezing loops natively.
 
 ### v0.4.1 — Reliability, Dedupe Control & Startup Sync
 - Added `Add to txt2img: Deduplicate incoming tags` option to native WebUI Settings.
@@ -131,9 +142,14 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Improved startup source synchronization for Danbooru and e621 scraping.
 - Added SQLite runtime resilience and gallery fetch/cache performance improvements.
 
-### v0.5.0 — Custom User Series & Collections *(planned)*
+### v0.5.0 — Custom User Series & Collections *(complete)* ✅
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
+- Extracted automation behaviors to improve user control.
+
+### v0.6.0 — Community Expansion & Advanced Tags *(planned)*
+- Save custom tags sets and export individual backup files.
+- Refined Tag Weights configuration from inside the UI.
 - Danbooru artist/style browser for discovery workflows.
 
 ---
@@ -146,6 +162,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Browse **23,000+ characters** (20,000+ Danbooru and 3,000+ e621) directly inside the WebUI — no tab switching! ⭐
 - Search by character name, tag, or browse alphabetically by series/franchise
 - Use multiple keywords for precise filtering (e.g., `miku vocaloid` ensures both terms exist)
+- Track your session with **Recent searches** and **Favorites** Tabs directly synced local-first. ⭐
 - High-performance offline SQLite database ensures instant search results without internet dependence ⭐
 - Pagination system keeps the UI snappy even when returning thousands of results
 
