@@ -32,10 +32,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.5.0 — Favorites, History & Gradio 4 Polish
+### v0.5.0 — Favorites, History & UI Polish
 - **Favorites System** — New dedicated "Favorites" tab and instant "Add to Favorites" button to permanently save and track your top-tier characters locally.
 - **Recent History Tab** — Re-find exactly who you were looking at earlier with a unified "Recent Searches" dataframe tab.
-- **Gradio 4 (Forge Neo) Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and broken Svelte elements that appeared in new versions of Gradio.
+- **Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and visual artifacts.
 - **Themed Scrollbars** — Custom webkit scrollbars that automatically sync with the WebUI's Light or Dark mode.
 - **Removed Background Scraper** — Scraping missing databases now happens 100% manually via explicitly running the scripts, avoiding runaway processing loops on hosted instances like RunPod.
 
@@ -45,7 +45,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
-### v0.5.0 — Favorites, History & Gradio 4 Polish
+### v0.5.0 — Favorites, History & UI Polish
 - Added visual and database-backed "Favorites" marking logic (`data/favorites.json`).
 - Added full "Recent Searches" and "Favorites" isolated tabs.
 - Custom Svelte DOM styling to patch Gradio 4 Dataframe artifacts (hidden drag rows, clean outlines).
