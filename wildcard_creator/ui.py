@@ -26,6 +26,8 @@ import requests
 from wildcard_creator.character_db import get_character_db
 from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
+from wildcard_creator.favorites import get_favorites_db
+from wildcard_creator.search_history import get_search_history_db
 
 
 _GR_VERSION = getattr(gr, "__version__", "3.0.0")
@@ -172,6 +174,127 @@ def _build_characters_content():
         "Search by name or tag, filter by series, then send to Generate."
     )
 
+    def _load_favorites_initial() -> list[dict]:
+        fav_ids: list[int] = []
+        fav_file = Path(__file__).resolve().parent.parent / "data" / "favorites.json"
+        try:
+            if fav_file.exists():
+                import json
+                raw = json.loads(fav_file.read_text("utf-8"))
+                if isinstance(raw, list):
+                    fav_ids = [int(v) for v in raw if str(v).isdigit()]
+        except Exception:
+            fav_ids = []
+
+        if not fav_ids:
+            try:
+                fav_ids = sorted(get_favorites_db().get_all())
+            except Exception:
+                fav_ids = []
+
+        if not fav_ids:
+            return []
+
+        fav_list, _ = cdb.search("", favorites_list=fav_ids, limit=len(fav_ids))
+        return fav_list
+
+    def _render_initial_favorites_gallery(results_list: list[dict]) -> str:
+        if not results_list:
+            return "<div class='sdcf-char-gallery'><div class='civmodellist'><p style='color:#888;font-size:0.85em;padding:16px'>No characters to display.</p></div></div>"
+
+        cards_html: list[str] = []
+        for idx, item in enumerate(results_list):
+            img_src = item.get("image_url") or "https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview"
+            name = item.get("name", "")
+            source = item.get("source", "danbooru")
+
+            safe_img = html.escape(str(img_src or ""), quote=True)
+            safe_name = html.escape(str(name or ""))
+            safe_source = html.escape(str(source or "danbooru"))
+            onclick_js = (
+                "const app=(window.gradioApp?window.gradioApp():document);"
+                "const input=app.querySelector('#sdcf_fav_select_idx textarea, #sdcf_fav_select_idx input');"
+                "if(!input){return false;}"
+                f"input.value='{idx}';"
+                "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                "input.dispatchEvent(new Event('change',{bubbles:true}));"
+                "return false;"
+            )
+            safe_onclick = html.escape(onclick_js, quote=True)
+
+            cards_html.append(
+                f"""
+                <button class='civmodelcard' onclick="{safe_onclick}">
+                    <figure>
+                        <div class='sdcf-badge sdcf-badge-favorite'>favorite</div>
+                        <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
+                        <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
+                        <figcaption>{safe_name}</figcaption>
+                    </figure>
+                </button>
+                """
+            )
+
+        return "<div class='sdcf-char-gallery'><div class='civmodellist'>" + "".join(cards_html) + "</div></div>"
+
+    _initial_favorites = _load_favorites_initial()
+    _initial_favorites_df = [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in _initial_favorites]
+    _initial_favorites_gallery = _render_initial_favorites_gallery(_initial_favorites)
+
+    def _load_recent_initial() -> list[dict]:
+        recent_file = Path(__file__).resolve().parent.parent / "data" / "recent_viewed.json"
+        try:
+            if recent_file.exists():
+                import json
+                raw = json.loads(recent_file.read_text("utf-8"))
+                if isinstance(raw, list):
+                    return [item for item in raw if isinstance(item, dict)]
+        except Exception:
+            pass
+        return []
+
+    def _render_initial_recent_gallery(results_list: list[dict]) -> str:
+        if not results_list:
+            return "<div class='sdcf-char-gallery'><div class='civmodellist'><p style='color:#888;font-size:0.85em;padding:16px'>No characters to display.</p></div></div>"
+
+        cards_html: list[str] = []
+        for idx, item in enumerate(results_list):
+            img_src = item.get("image_url") or "https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview"
+            name = item.get("name", "")
+            source = item.get("source", "danbooru")
+
+            safe_img = html.escape(str(img_src or ""), quote=True)
+            safe_name = html.escape(str(name or ""))
+            safe_source = html.escape(str(source or "danbooru"))
+            onclick_js = (
+                "const app=(window.gradioApp?window.gradioApp():document);"
+                "const input=app.querySelector('#sdcf_recent_select_idx textarea, #sdcf_recent_select_idx input');"
+                "if(!input){return false;}"
+                f"input.value='{idx}';"
+                "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                "input.dispatchEvent(new Event('change',{bubbles:true}));"
+                "return false;"
+            )
+            safe_onclick = html.escape(onclick_js, quote=True)
+
+            cards_html.append(
+                f"""
+                <button class='civmodelcard' onclick="{safe_onclick}">
+                    <figure>
+                        <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
+                        <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
+                        <figcaption>{safe_name}</figcaption>
+                    </figure>
+                </button>
+                """
+            )
+
+        return "<div class='sdcf-char-gallery'><div class='civmodellist'>" + "".join(cards_html) + "</div></div>"
+
+    _initial_recent = _load_recent_initial()
+    _initial_recent_df = [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in _initial_recent]
+    _initial_recent_gallery = _render_initial_recent_gallery(_initial_recent)
+
     with gr.Row():
         with gr.Column(scale=2):
             char_search = gr.Textbox(
@@ -183,20 +306,22 @@ def _build_characters_content():
             char_series = gr.Dropdown(
                 label="Series",
                 choices=_series_choices,
-                value="All",
+                value=None,
                 interactive=True,
             )
         with gr.Column(scale=1):
             tag_status_filter = gr.Dropdown(
                 label="Danbooru tag",
                 choices=["All", "Missing Danbooru Tag", "Has Danbooru Tag"],
-                value="All",
+                value=None,
                 interactive=True,
             )
         with gr.Column(scale=1, min_width=100):
             btn_char_search = gr.Button("🔍 Search", variant="primary")
         with gr.Column(scale=1, min_width=100):
-            btn_char_reset = gr.Button("✖ Clear")
+            btn_char_clear_search = gr.Button("✖ Clear Search")
+        with gr.Column(scale=1, min_width=100):
+            btn_char_reset = gr.Button("✖ Clear All")
 
     with gr.Row():
         source_filter = gr.Radio(
@@ -205,6 +330,14 @@ def _build_characters_content():
             value="both",
             interactive=True,
         )
+        favorites_only = gr.Checkbox(label="❤️ Favorites Only", value=False, interactive=True)
+        recent_searches = gr.Dropdown(
+            label="Recent Searches",
+            choices=get_search_history_db().get_all(),
+            value=None,
+            interactive=True,
+            min_width=200,
+        )
 
     with gr.Row():
         with gr.Column(scale=4):
@@ -212,6 +345,8 @@ def _build_characters_content():
         with gr.Column(scale=1, min_width=100):
             btn_prev_page = gr.Button("◀ Prev", interactive=True)
         with gr.Column(scale=1, min_width=120):
+            with gr.Row():
+                page_jump_top = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
             page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
         with gr.Column(scale=1, min_width=100):
             btn_next_page = gr.Button("Next ▶", interactive=True)
@@ -219,29 +354,83 @@ def _build_characters_content():
     current_page_state = gr.State(1)
     total_pages_state = gr.State(1)
 
-    # Results table
+    # Results Area
     with gr.Tabs():
-        with gr.Tab("List View", id="tab_list"):
-            char_results = gr.Dataframe(
-                headers=["name", "series", "source", "rank"],
-                datatype=["str", "str", "str", "number"],
-                label="Results",
-                interactive=False,
-                wrap=True,
-            )
-        with gr.Tab("Gallery View", id="tab_gallery"):
-            char_gallery = gr.HTML(
-                value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>",
-                label="Results",
-                elem_id="sdcf_char_gallery_html",
-            )
-            gallery_click_idx = gr.Textbox(value="-1", visible=True, elem_id="sdcf_gallery_click_idx")
-    char_results_state = gr.State([])  # full result list (with tags/image_url)
-    recent_chars_state = gr.State([])   # list of {name, series, id, tags, danbooru_tag, image_url}
+        with gr.Tab("🔍 Search Results", id="tab_search"):
+            with gr.Tabs():
+                with gr.Tab("List View", id="tab_list"):
+                    char_results = gr.Dataframe(
+                        headers=["name", "series", "source", "rank"],
+                        datatype=["str", "str", "str", "number"],
+                        label="Results",
+                        interactive=False,
+                        wrap=False,
+                        line_breaks=False,
+                        height=600,
+                        row_count=(30, "fixed"),
+                    )
+                with gr.Tab("Gallery View", id="tab_gallery"):
+                    char_gallery = gr.HTML(
+                        value="<div id='sdcf_char_gallery_html' class='sdcf-char-gallery'><div class='civmodellist'></div></div>",
+                        label="Results",
+                        elem_id="sdcf_char_gallery_html",
+                    )
+                    gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_gallery_click_idx")
+                    
+            with gr.Row():
+                with gr.Column(scale=4):
+                    pass # spacer
+                with gr.Column(scale=1, min_width=100):
+                    btn_prev_page_bot = gr.Button("◀ Prev", interactive=True)
+                with gr.Column(scale=1, min_width=120):
+                    with gr.Row():
+                        page_jump_bot = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
+                    page_indicator_bot = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+                with gr.Column(scale=1, min_width=100):
+                    btn_next_page_bot = gr.Button("Next ▶", interactive=True)
 
-    with gr.Accordion("🕒 Recently Viewed", open=False):
-        recent_html = gr.HTML(value="<p style='color:#888;font-size:0.85em;padding:4px'>No characters viewed yet.</p>")
-        recent_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_recent_select_idx")
+        with gr.Tab("🕒 Recently Viewed", id="tab_recent"):
+            with gr.Row():
+                recent_save_session = gr.Checkbox(label="Save between sessions", value=True)
+                btn_clear_recent = gr.Button("🗑️ Clear History", size="sm")
+            with gr.Tabs():
+                with gr.Tab("List View", id="tab_recent_list"):
+                    recent_results_df = gr.Dataframe(
+                        headers=["name", "series", "source", "rank"],
+                        datatype=["str", "str", "str", "number"],
+                        value=_initial_recent_df,
+                        interactive=False,
+                        wrap=False,
+                        line_breaks=False,
+                        height=600,
+                        row_count=(30, "fixed"),
+                    )
+                with gr.Tab("Gallery View", id="tab_recent_gallery"):
+                    recent_html = gr.HTML(value=_initial_recent_gallery)
+            recent_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_recent_select_idx")
+
+        with gr.Tab("❤️ Favorites", id="tab_favorites"):
+            # Hidden trigger used for automatic initial load and internal refreshes.
+            btn_refresh_favs = gr.Button("↻ Refresh Favorites", visible=True, elem_id="sdcf_fav_refresh_btn", elem_classes=["sdcf-hidden-trigger"])
+            with gr.Tabs():
+                with gr.Tab("List View", id="tab_fav_list"):
+                    fav_results_df = gr.Dataframe(
+                        headers=["name", "series", "source", "rank"],
+                        datatype=["str", "str", "str", "number"],
+                        value=_initial_favorites_df,
+                        interactive=False,
+                        wrap=False,
+                        line_breaks=False,
+                        height=600,
+                        row_count=(30, "fixed"),
+                    )
+                with gr.Tab("Gallery View", id="tab_fav_gallery"):
+                    fav_html = gr.HTML(value=_initial_favorites_gallery)
+            fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_fav_select_idx")
+
+    char_results_state = gr.State([])  # full result list (with tags/image_url)
+    recent_chars_state = gr.State(_initial_recent)   # list of {name, series, id, tags, danbooru_tag, image_url}
+    fav_chars_state = gr.State(_initial_favorites)      # list for favorites
 
     gr.Markdown("---\n*Click a row above to load the character card.*")
 
@@ -263,8 +452,9 @@ def _build_characters_content():
             with gr.Row():
                 btn_char_copy = gr.Button("📋 Copy Tags", size="lg")
                 btn_char_save_tag = gr.Button("💾 Save Danbooru Tag", size="lg")
+                btn_favorite_toggle = gr.Button("🤍 Favorite", size="lg")
             char_selected_id = gr.State(None)
-            char_send_status = gr.Textbox(visible=False)
+            char_send_status = gr.Textbox(visible=True, interactive=False, label="Status")
 
             with gr.Row():
                 wildcard_name = gr.Textbox(
@@ -329,7 +519,7 @@ def _build_characters_content():
         while len(cover_data_uri_cache) > COVER_DATA_URI_CACHE_MAX:
             cover_data_uri_cache.popitem(last=False)
 
-    def do_search(query, series, tag_status, source, page):
+    def do_search(query, series, tag_status, source, favorites_only, page):
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
@@ -355,146 +545,212 @@ def _build_characters_content():
         mobile_columns = min(gallery_columns, 3)
         
         try:
+            favs = list(get_favorites_db().get_all()) if favorites_only else None
             offset = (page - 1) * limit
             results, total = cdb.search(
                 query,
                 series_filter=series if series != "All" else None,
                 tag_status_filter=tag_status,
                 source_filter=source,
+                favorites_list=favs,
                 limit=limit,
                 offset=offset,
             )
-            table = [[r["name"], r["series"] or "", r.get("source") or "danbooru", r["rank"]] for r in results]
+            table = _render_list_df(results)
+            gallery_html = _render_gallery_html(results, "sdcf_gallery_click_idx")
             
-            repo_root = Path(__file__).resolve().parent.parent
-            covers_dir = repo_root / "data" / "covers"
-            covers_dir.mkdir(parents=True, exist_ok=True)
-            
-            def fetch_one(r):
-                url = r.get("image_url")
-                char_id = r.get("id")
-                name = r.get("name", "")
-                src_val = r.get("source", "danbooru")
-                if not url or not char_id:
-                    return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name, src_val)
-
-                cached_data_uri = _cache_get_data_uri(int(char_id))
-                if cached_data_uri:
-                    return (cached_data_uri, name, src_val)
-                
-                cov_path = covers_dir / f"{char_id}.jpg"
-                if not cov_path.exists():
-                    try:
-                        resp = http_session.get(url, timeout=3)
-                        if resp.status_code == 200:
-                            cov_path.write_bytes(resp.content)
-                    except Exception:
-                        pass
-                
-                if cov_path.exists():
-                    try:
-                        img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
-                        data_uri = f"data:image/jpeg;base64,{img_b64}"
-                        _cache_set_data_uri(int(char_id), data_uri)
-                        return (data_uri, name, src_val)
-                    except Exception:
-                        return (url, name, src_val)
-                return (url, name, src_val)
-
-            gallery = []
-            if results:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(results))) as executor:
-                    gallery = list(executor.map(fetch_one, results))
-
-            cards_html: list[str] = []
-            for idx, (img_src, name, source) in enumerate(gallery):
-                safe_img = html.escape(str(img_src or ""), quote=True)
-                safe_name = html.escape(str(name or ""))
-                onclick_js = (
-                    "const app=(window.gradioApp?window.gradioApp():document);"
-                    "const input=app.querySelector('#sdcf_gallery_click_idx textarea, #sdcf_gallery_click_idx input');"
-                    "if(!input){return false;}"
-                    f"input.value='{idx}';"
-                    "input.dispatchEvent(new Event('input',{bubbles:true}));"
-                    "input.dispatchEvent(new Event('change',{bubbles:true}));"
-                    "return false;"
-                )
-                safe_onclick = html.escape(onclick_js, quote=True)
-                cards_html.append(
-                    f"""
-                    <button class='civmodelcard' onclick="{safe_onclick}">
-                        <figure>
-                            <div class='sdcf-badge sdcf-badge-{source}'>{source}</div>
-                            <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
-                            <figcaption>{safe_name}</figcaption>
-                        </figure>
-                    </button>
-                    """
-                )
-
-            gallery_html = (
-                f"<div id='sdcf_char_gallery_html' style='--sdcf-gallery-cols:{gallery_columns};--sdcf-mobile-cols:{mobile_columns};--sdcf-thumb-size:{thumb_size}px'><div class='civmodellist'>"
-                + "".join(cards_html)
-                + "</div></div>"
-            )
-
             total_pages = max(1, (total + limit - 1) // limit)
             page_text = f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages} ({total} results)</div>"
 
-            return table, gr.update(value=gallery_html), results, page, total_pages, gr.update(value=page_text)
+            if query:
+                get_search_history_db().add(query)
+
+            return table, gr.update(value=gallery_html), results, page, total_pages, gr.update(value=page_text), page, page, gr.update(value=page_text), gr.update(choices=get_search_history_db().get_all())
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return [], gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"), [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
+            return [], gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"), [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"), 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"), gr.update()
 
-    def search_first_page(query, series, tag_status, source):
-        return do_search(query, series, tag_status, source, 1)
+    def jump_page_action(query, series, tag_status, source, favorites_only, page, total_pages):
+        try:
+            new_page = int(float(page))
+        except Exception:
+            new_page = 1
+        new_page = max(1, min(total_pages, new_page))
+        return do_search(query, series, tag_status, source, favorites_only, new_page)
 
-    def prev_page_action(query, series, tag_status, source, page):
+    def load_recent_search(recent_val, series, tag_status, source, favorites_only):
+        query = recent_val or ""
+        res = do_search(query, series, tag_status, source, favorites_only, 1)
+        return (gr.update(value=query),) + res
+
+    def search_first_page(query, series, tag_status, source, favorites_only):
+        return do_search(query, series, tag_status, source, favorites_only, 1)
+
+    def prev_page_action(query, series, tag_status, source, favorites_only, page):
         new_page = max(1, page - 1)
-        return do_search(query, series, tag_status, source, new_page)
+        return do_search(query, series, tag_status, source, favorites_only, new_page)
 
-    def next_page_action(query, series, tag_status, source, page, total_pages):
+    def next_page_action(query, series, tag_status, source, favorites_only, page, total_pages):
         new_page = min(total_pages, page + 1)
-        return do_search(query, series, tag_status, source, new_page)
+        return do_search(query, series, tag_status, source, favorites_only, new_page)
+
+    def do_clear_search():
+        return (
+            gr.update(value=""),
+            gr.update(value=None),
+            gr.update(value=None),
+            gr.update(value="both"),
+            gr.update(value=False),
+            gr.update(value=None),
+        )
 
     def do_reset_search():
         return (
-            gr.update(value=""),
-            gr.update(value="All"),
-            gr.update(value="All"),
-            gr.update(value=[]),
-            gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),
-            [],
-            1,
-            1,
-            gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),
-            gr.update(value="<div class='sdcf-preview-empty'>No preview</div>"),
-            gr.update(value=""),
-            gr.update(value=""),
-            gr.update(value=""),
-            gr.update(value=""),
-            None,
-            gr.update(value=""),
-            gr.update(value=""),
-            gr.update(value=""),
-            gr.update(choices=[], value=[], visible=False),
-            gr.update(choices=[], value=[], visible=False),
-            gr.update(choices=[], value=[], visible=False),
-            gr.update(choices=[], value=[], visible=False),
-            gr.update(choices=[], value=[], visible=False),
-            {},
-            gr.update(value=""),
+            gr.update(value=""),          # char_search
+            gr.update(value=None),         # char_series
+            gr.update(value=None),         # tag_status_filter
+            gr.update(value="both"),       # source_filter
+            gr.update(value=False),        # favorites_only
+            gr.update(value=[]),           # char_results
+            gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),  # char_gallery
+            [],                            # char_results_state
+            1,                             # current_page_state
+            1,                             # total_pages_state
+            gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),  # page_indicator
+            1,                             # page_jump_top
+            1,                             # page_jump_bot
+            gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),  # page_indicator_bot
+            gr.update(value=None),         # recent_searches
+            gr.update(value="<div class='sdcf-preview-empty'>No preview</div>"),  # char_image
+            gr.update(value=""),           # char_name_out
+            gr.update(value=""),           # char_series_out
+            gr.update(value=""),           # char_danbooru_tag_out
+            gr.update(value=""),           # char_tags_out
+            None,                          # char_selected_id
+            gr.update(value="🤍 Favorite"), # btn_favorite_toggle
+            gr.update(value=""),           # char_send_status
+            gr.update(value=""),           # wildcard_name
+            gr.update(choices=[], value=[], visible=False),  # extra_tag_character
+            gr.update(choices=[], value=[], visible=False),  # extra_tag_copyright
+            gr.update(choices=[], value=[], visible=False),  # extra_tag_general
+            gr.update(choices=[], value=[], visible=False),  # extra_tag_artist
+            gr.update(choices=[], value=[], visible=False),  # extra_tag_meta
+            {},                            # extra_tags_meta
         )
 
-    def _build_preview_html(src: str | None, title: str) -> str:
+    def _render_list_df(results_list: list) -> list:
+        return [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in results_list]
+
+    def _render_gallery_html(results_list: list, target_idx_elem_id="sdcf_gallery_click_idx") -> str:
+        if not results_list:
+            return "<div class='sdcf-char-gallery'><div class='civmodellist'><p style='color:#888;font-size:0.85em;padding:16px'>No characters to display.</p></div></div>"
+
+        raw_thumb_size = get_shared_opt("sdcf_gallery_thumb_size", 160)
+        raw_gallery_columns = get_shared_opt("sdcf_gallery_columns", 5)
+        try: thumb_size = int(raw_thumb_size)
+        except Exception: thumb_size = 160
+        thumb_size = max(100, min(thumb_size, 350))
+        
+        try: gallery_columns = int(raw_gallery_columns)
+        except Exception: gallery_columns = 5
+        gallery_columns = max(2, min(gallery_columns, 12))
+        mobile_columns = min(gallery_columns, 3)
+
+        repo_root = Path(__file__).resolve().parent.parent
+        covers_dir = repo_root / "data" / "covers"
+        covers_dir.mkdir(parents=True, exist_ok=True)
+        
+        def fetch_one(r):
+            url = r.get("image_url")
+            char_id = r.get("id")
+            name = r.get("name", "")
+            src_val = r.get("source", "danbooru")
+            if not url or not char_id:
+                return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name, src_val)
+
+            cached_data_uri = _cache_get_data_uri(int(char_id))
+            if cached_data_uri:
+                return (cached_data_uri, name, src_val)
+            
+            cov_path = covers_dir / f"{char_id}.jpg"
+            if not cov_path.exists():
+                try:
+                    resp = http_session.get(url, timeout=3)
+                    if resp.status_code == 200:
+                        cov_path.write_bytes(resp.content)
+                except Exception:
+                    pass
+            
+            if cov_path.exists():
+                try:
+                    img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
+                    data_uri = f"data:image/jpeg;base64,{img_b64}"
+                    _cache_set_data_uri(int(char_id), data_uri)
+                    return (data_uri, name, src_val)
+                except Exception:
+                    return (url, name, src_val)
+            return (url, name, src_val)
+
+        gallery = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(results_list))) as executor:
+            gallery = list(executor.map(fetch_one, results_list))
+
+        cards_html: list[str] = []
+        try: fav_set = get_favorites_db().get_all()
+        except Exception: fav_set = set()
+
+        for idx, (img_src, name, source) in enumerate(gallery):
+            char_id = results_list[idx].get("id")
+            fav_html = "<div class='sdcf-badge sdcf-badge-favorite'>favorite</div>" if char_id and int(char_id) in fav_set else ""
+            
+            safe_img = html.escape(str(img_src or ""), quote=True)
+            safe_name = html.escape(str(name or ""))
+            onclick_js = (
+                "const app=(window.gradioApp?window.gradioApp():document);"
+                f"const input=app.querySelector('#{target_idx_elem_id} textarea, #{target_idx_elem_id} input');"
+                "if(!input){return false;}"
+                f"input.value='{idx}';"
+                "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                "input.dispatchEvent(new Event('change',{bubbles:true}));"
+                "return false;"
+            )
+            safe_onclick = html.escape(onclick_js, quote=True)
+            cards_html.append(
+                f"""
+                <button class='civmodelcard' onclick="{safe_onclick}">
+                    <figure>
+                        {fav_html}
+                        <div class='sdcf-badge sdcf-badge-{source}'>{source}</div>
+                        <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
+                        <figcaption>{safe_name}</figcaption>
+                    </figure>
+                </button>
+                """
+            )
+
+        return (
+            f"<div id='{target_idx_elem_id}_html' class='sdcf-char-gallery' style='--sdcf-gallery-cols:{gallery_columns};--sdcf-mobile-cols:{mobile_columns};--sdcf-thumb-size:{thumb_size}px'><div class='civmodellist'>"
+            + "".join(cards_html)
+            + "</div></div>"
+        )
+
+    def _build_preview_html(src: str | None, title: str, is_favorite: bool = False, source: str = "danbooru") -> str:
         if not src:
             return "<div class='sdcf-preview-empty'>No preview</div>"
 
         safe_src = html.escape(src, quote=True)
         safe_title = html.escape(title or "Preview")
+        source_value = (source or "danbooru").strip().lower()
+        if source_value not in {"danbooru", "e621"}:
+            source_value = "danbooru"
+        safe_source = html.escape(source_value)
+        fav_preview_badge = "<div class='sdcf-badge sdcf-badge-favorite sdcf-preview-favorite'>favorite</div>" if is_favorite else ""
+        src_preview_badge = f"<div class='sdcf-badge sdcf-badge-{safe_source} sdcf-preview-source'>{safe_source}</div>"
         return f"""
 <div class='sdcf-preview-wrap'>
+    {fav_preview_badge}
+    {src_preview_badge}
     <div class='sdcf-preview-hint'>Click to expand</div>
     <img
         src='{safe_src}'
@@ -502,16 +758,24 @@ def _build_characters_content():
         class='sdcf-preview-image'
         onclick="const m=document.getElementById('sdcf-preview-modal');const i=document.getElementById('sdcf-preview-modal-img');if(m&&i){{i.src=this.src;m.style.display='flex';}}"
     />
-</div>
 <div id='sdcf-preview-modal' class='sdcf-preview-modal' onclick="if(event.target===this){{this.style.display='none';}}">
     <button class='sdcf-preview-close' onclick="document.getElementById('sdcf-preview-modal').style.display='none';return false;">✕</button>
     <img id='sdcf-preview-modal-img' alt='Expanded preview' class='sdcf-preview-modal-img' />
 </div>
+</div>
 """
+
+    def _favorite_button_label(char_id) -> str:
+        try:
+            if char_id and get_favorites_db().is_favorite(int(char_id)):
+                return "💔 Unfavorite"
+        except Exception:
+            pass
+        return "🤍 Favorite"
 
     def _select_by_index(results_state, row_idx):
         if not results_state or row_idx < 0 or row_idx >= len(results_state):
-            return "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, ""
+            return "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, "", "🤍 Favorite"
         char = results_state[row_idx]
         canonical_tag = (char.get("danbooru_tag") or "").strip()
         # DB tags are mandatory — always use them as the prompt base.
@@ -534,7 +798,19 @@ def _build_characters_content():
                 except Exception:
                     pass
 
-        preview_html = _build_preview_html(image_value, char.get("name") or "Preview")
+        is_favorite = False
+        try:
+            if char_id:
+                is_favorite = get_favorites_db().is_favorite(int(char_id))
+        except Exception:
+            is_favorite = False
+
+        preview_html = _build_preview_html(
+            image_value,
+            char.get("name") or "Preview",
+            is_favorite=is_favorite,
+            source=char.get("source", "danbooru"),
+        )
 
 
         return (
@@ -545,12 +821,24 @@ def _build_characters_content():
             prompt_value,
             char.get("id"),
             _normalize_wildcard_name(char["name"]),
+            _favorite_button_label(char.get("id")),
         )
 
     # --- Recently viewed helpers ---
 
-    def _push_recent(char: dict, current_recents: list) -> list:
-        """Prepend char to recent list, deduplicate by id, keep last 10."""
+    def _save_recent_history(recents, do_save):
+        if not do_save:
+            return
+        try:
+            import json
+            recent_file = Path(__file__).resolve().parent.parent / "data" / "recent_viewed.json"
+            recent_file.parent.mkdir(parents=True, exist_ok=True)
+            recent_file.write_text(json.dumps(recents), "utf-8")
+        except Exception:
+            pass
+
+    def _push_recent(char: dict, current_recents: list, do_save: bool = True) -> list:
+        """Prepend char to recent list, deduplicate by id, keep last 20."""
         char_id = char.get("id")
         updated = [c for c in current_recents if c.get("id") != char_id]
         updated.insert(0, {
@@ -562,57 +850,32 @@ def _build_characters_content():
             "image_url": char.get("image_url") or "",
             "source": char.get("source", "danbooru"),
         })
-        return updated[:10]
+        final_list = updated[:20]
+        _save_recent_history(final_list, do_save)
+        return final_list
 
-    def _render_recent_html(recents: list) -> str:
-        if not recents:
-            return "<p style='color:#888;font-size:0.85em;padding:4px'>No characters viewed yet.</p>"
-        items = []
-        for idx, c in enumerate(recents):
-            safe_name = html.escape(c.get("name") or "")
-            safe_series = html.escape(c.get("series") or "")
-            source = c.get("source", "danbooru")
-            onclick_js = (
-                "const app=(window.gradioApp?window.gradioApp():document);"
-                "const input=app.querySelector('#sdcf_recent_select_idx textarea, #sdcf_recent_select_idx input');"
-                "if(!input){return false;}"
-                f"input.value='{idx}';"
-                "input.dispatchEvent(new Event('input',{bubbles:true}));"
-                "input.dispatchEvent(new Event('change',{bubbles:true}));"
-                "return false;"
-            )
-            safe_onclick = html.escape(onclick_js, quote=True)
-            series_label = f" <span style='color:#888;font-size:0.8em'>({safe_series})</span>" if safe_series else ""
-            items.append(
-                f"<button class='sdcf-recent-btn' onclick=\"{safe_onclick}\">"
-                f"<span class='sdcf-badge sdcf-badge-{source}'>{source}</span>"
-                f"<span class='sdcf-recent-name'>{safe_name}</span>{series_label}"
-                f"</button>"
-            )
-        return "<div class='sdcf-recent-list'>" + "".join(items) + "</div>"
-
-    def on_row_select(results_state, recent_chars, evt: gr.SelectData):
+    def on_row_select(results_state, recent_chars, do_save, evt: gr.SelectData):
         row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
         card_outputs = _select_by_index(results_state, row_idx)
         if results_state and 0 <= row_idx < len(results_state):
-            updated_recents = _push_recent(results_state[row_idx], recent_chars)
+            updated_recents = _push_recent(results_state[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
+        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
 
-    def on_gallery_click(idx_text, results_state, recent_chars):
+    def on_gallery_click(idx_text, results_state, recent_chars, do_save):
         try:
             row_idx = int(float(idx_text))
         except Exception:
             row_idx = -1
         card_outputs = _select_by_index(results_state, row_idx)
         if results_state and 0 <= row_idx < len(results_state):
-            updated_recents = _push_recent(results_state[row_idx], recent_chars)
+            updated_recents = _push_recent(results_state[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
+        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
 
-    def on_recent_click(idx_text, recent_chars):
+    def on_recent_click(idx_text, recent_chars, do_save):
         """Select a character from the recently viewed panel."""
         try:
             row_idx = int(float(idx_text))
@@ -621,10 +884,10 @@ def _build_characters_content():
         card_outputs = _select_by_index(recent_chars, row_idx)
         # Re-push to front when re-selected
         if recent_chars and 0 <= row_idx < len(recent_chars):
-            updated_recents = _push_recent(recent_chars[row_idx], recent_chars)
+            updated_recents = _push_recent(recent_chars[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_recent_html(updated_recents))
+        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
 
 
     def save_manual_danbooru_tag(selected_id, manual_tag):
@@ -714,39 +977,144 @@ def _build_characters_content():
 
     btn_char_search.click(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        **get_js_kw("""(query, series, tag_status, source, favorites_only) => {
+            const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+            const targetKey = normalized('search results');
+            const app = (window.gradioApp ? window.gradioApp() : document);
+            const candidates = app.querySelectorAll('button, [role="tab"]');
+            for (const candidate of candidates) {
+                const text = normalized(candidate.textContent);
+                const id = normalized(candidate.id || '');
+                const controls = normalized(candidate.getAttribute('aria-controls') || '');
+                if (text === targetKey || id.includes('tab_search') || controls.includes('tab_search')) {
+                    candidate.click();
+                    break;
+                }
+            }
+            return [query, series, tag_status, source, favorites_only];
+        }""")
+    )
+    recent_searches.change(
+        load_recent_search,
+        inputs=[recent_searches, char_series, tag_status_filter, source_filter, favorites_only],
+        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
     )
     char_search.submit(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
     )
     btn_prev_page.click(
         prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, current_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
     )
     btn_next_page.click(
         next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, current_page_state, total_pages_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+    )
+    btn_prev_page_bot.click(
+        prev_page_action,
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+    )
+    btn_next_page_bot.click(
+        next_page_action,
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+    )
+    page_jump_top.submit(
+        jump_page_action,
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_top, total_pages_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+    )
+    page_jump_bot.submit(
+        jump_page_action,
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_bot, total_pages_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+    )
+    btn_char_clear_search.click(
+        do_clear_search,
+        outputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_searches],
     )
     char_results.select(
         on_row_select,
-        inputs=[char_results_state, recent_chars_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
+        inputs=[char_results_state, recent_chars_state, recent_save_session],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
     )
     gallery_click_idx.change(
         on_gallery_click,
-        inputs=[gallery_click_idx, char_results_state, recent_chars_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
+        inputs=[gallery_click_idx, char_results_state, recent_chars_state, recent_save_session],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
     )
     recent_select_idx.change(
         on_recent_click,
-        inputs=[recent_select_idx, recent_chars_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, recent_chars_state, recent_html],
+        inputs=[recent_select_idx, recent_chars_state, recent_save_session],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
     )
+
+    def clear_recent_viewed():
+        empty = []
+        try:
+            recent_file = Path(__file__).resolve().parent.parent / "data" / "recent_viewed.json"
+            if recent_file.exists():
+                recent_file.unlink()
+        except:
+            pass
+        return empty, _render_list_df(empty), _render_gallery_html(empty, "sdcf_recent_select_idx")
+
+    btn_clear_recent.click(
+        clear_recent_viewed,
+        outputs=[recent_chars_state, recent_results_df, recent_html]
+    )
+
+    def do_refresh_favs():
+        fav_ids: list[int] = []
+        fav_file = Path(__file__).resolve().parent.parent / "data" / "favorites.json"
+        try:
+            if fav_file.exists():
+                import json
+                raw = json.loads(fav_file.read_text("utf-8"))
+                if isinstance(raw, list):
+                    fav_ids = [int(v) for v in raw if str(v).isdigit()]
+        except Exception:
+            fav_ids = []
+
+        # Fallback to in-memory helper in case file read fails unexpectedly.
+        if not fav_ids:
+            try:
+                from wildcard_creator.favorites import get_favorites_db
+                fav_ids = sorted(get_favorites_db().get_all())
+            except Exception:
+                fav_ids = []
+
+        if not fav_ids:
+            empty = []
+            return empty, _render_list_df(empty), _render_gallery_html(empty, "sdcf_fav_select_idx")
+
+        # Load the favorite characters from DB using search with favorites_list filter
+        fav_list, _ = cdb.search("", favorites_list=fav_ids, limit=len(fav_ids))
+        return fav_list, _render_list_df(fav_list), _render_gallery_html(fav_list, "sdcf_fav_select_idx")
+
+    btn_refresh_favs.click(
+        do_refresh_favs,
+        outputs=[fav_chars_state, fav_results_df, fav_html]
+    )
+
+    fav_results_df.select(
+        on_row_select,
+        inputs=[fav_chars_state, recent_chars_state, recent_save_session],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+    )
+    fav_select_idx.change(
+        on_gallery_click,
+        inputs=[fav_select_idx, fav_chars_state, recent_chars_state, recent_save_session],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+    )
+
     btn_char_save_tag.click(
         save_manual_danbooru_tag,
         inputs=[char_selected_id, char_danbooru_tag_out],
@@ -757,6 +1125,67 @@ def _build_characters_content():
             }
             return [id, tag];
         }""")
+    )
+
+    def _find_char_by_id_in_states(char_id, *states):
+        for state in states:
+            if not state:
+                continue
+            for item in state:
+                try:
+                    if int(item.get("id")) == int(char_id):
+                        return item
+                except Exception:
+                    continue
+        return None
+
+    def toggle_favorite(char_id, search_state, recent_state, fav_state):
+        if not char_id:
+            return gr.update(value="⚠️ Select a character first"), gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+        try:
+            from wildcard_creator.favorites import get_favorites_db
+            db = get_favorites_db()
+            is_fav = db.toggle(int(char_id))
+
+            selected = _find_char_by_id_in_states(char_id, search_state, recent_state, fav_state)
+            preview_html = gr.update()
+            if selected:
+                preview_html = gr.update(
+                    value=_build_preview_html(
+                        selected.get("image_url"),
+                        selected.get("name") or "Preview",
+                        is_favorite=is_fav,
+                        source=selected.get("source", "danbooru"),
+                    )
+                )
+
+            updated_fav_state, updated_fav_df, updated_fav_html = do_refresh_favs()
+
+            if is_fav:
+                return (
+                    gr.update(value="✅ Added to favorites"),
+                    preview_html,
+                    gr.update(value="💔 Unfavorite"),
+                    updated_fav_state,
+                    updated_fav_df,
+                    updated_fav_html,
+                )
+            else:
+                return (
+                    gr.update(value="✅ Removed from favorites"),
+                    preview_html,
+                    gr.update(value="🤍 Favorite"),
+                    updated_fav_state,
+                    updated_fav_df,
+                    updated_fav_html,
+                )
+        except Exception as e:
+            return gr.update(value=f"❌ Failed to toggle favorite: {e}"), gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+
+    btn_favorite_toggle.click(
+        toggle_favorite,
+        inputs=[char_selected_id, char_results_state, recent_chars_state, fav_chars_state],
+        outputs=[char_send_status, char_image, btn_favorite_toggle, fav_chars_state, fav_results_df, fav_html],
     )
     btn_char_send.click(
         fn=do_send_to_generate,
@@ -1010,28 +1439,33 @@ def _build_characters_content():
             char_search,
             char_series,
             tag_status_filter,
+            source_filter,
+            favorites_only,
             char_results,
             char_gallery,
             char_results_state,
             current_page_state,
             total_pages_state,
             page_indicator,
+            page_jump_top,
+            page_jump_bot,
+            page_indicator_bot,
+            recent_searches,
             char_image,
             char_name_out,
             char_series_out,
             char_danbooru_tag_out,
             char_tags_out,
             char_selected_id,
+            btn_favorite_toggle,
             char_send_status,
             wildcard_name,
-            char_send_status,
             extra_tag_character,
             extra_tag_copyright,
             extra_tag_general,
             extra_tag_artist,
             extra_tag_meta,
             extra_tags_meta,
-            char_send_status,
         ],
     )
 
@@ -1063,6 +1497,33 @@ def _build_characters_content():
         outputs=[char_tags_out, char_send_status],
     )
 
+    gr.HTML('<button class="sdcf-jump-top" onclick="window.scrollTo({top: 0, behavior: \'smooth\'})" title="Jump to Top">⬆</button>')
+    gr.HTML(
+        """
+<script>
+(() => {
+    const clickAutoFavoritesRefresh = () => {
+        const app = (window.gradioApp ? window.gradioApp() : document);
+        const btn = app.querySelector('#sdcf_fav_refresh_btn button, #sdcf_fav_refresh_btn');
+        if (btn) {
+            btn.click();
+            return true;
+        }
+        return false;
+    };
+
+    let tries = 0;
+    const maxTries = 20;
+    const timer = setInterval(() => {
+        tries += 1;
+        if (clickAutoFavoritesRefresh() || tries >= maxTries) {
+            clearInterval(timer);
+        }
+    }, 200);
+})();
+</script>
+        """
+    )
 
 # ---------------------------------------------------------------------------
 
@@ -1083,64 +1544,7 @@ def build_standalone_ui() -> gr.Blocks:
     """
     Build a standalone Gradio app for local development (no SD WebUI).
     Launch with: build_standalone_ui().launch(server_port=7861)
-
-    On first run (or if DB is incomplete), automatically scrapes:
-      - Danbooru characters (~20k, source='danbooru')
-      - e621 characters   (~3k,  source='e621')
-    Both scrapers are resumable: they pick up from the last saved rank.
-    user_overrides.json continues to work for both sources (keyed by character ID).
     """
-    import threading
-
-    scripts_dir_path = str(Path(__file__).parent.parent / "scripts")
-
-    def _ensure_sys_path():
-        import sys
-        if scripts_dir_path not in sys.path:
-            import sys as _s
-            _s.path.insert(0, scripts_dir_path)
-
-    def _check_and_scrape_danbooru():
-        from wildcard_creator.character_db import get_character_db
-        try:
-            db = get_character_db()
-            if db.count() < 20000:
-                _ensure_sys_path()
-                from scrape_characters import scrape
-                print("[SD Character Finder] Auto-scraping Danbooru in background...")
-                scrape(pages=0, resume=True)
-                print("[SD Character Finder] Danbooru scraping complete.")
-        except Exception as e:
-            print(f"[SD Character Finder] Danbooru auto-scrape failed: {e}")
-
-    def _check_and_scrape_e621():
-        from wildcard_creator.character_db import get_character_db
-        try:
-            db = get_character_db()
-            import sqlite3
-            conn = sqlite3.connect(str(db._path))
-            try:
-                row = conn.execute(
-                    "SELECT COUNT(*) FROM characters WHERE source = 'e621'"
-                ).fetchone()
-                e621_count = row[0] if row else 0
-            except Exception:
-                e621_count = 0
-            finally:
-                conn.close()
-
-            if e621_count < 2000:
-                _ensure_sys_path()
-                from scrape_e621 import scrape
-                print("[SD Character Finder] Auto-scraping e621 in background...")
-                scrape(pages=0, resume=True)
-                print("[SD Character Finder] e621 scraping complete.")
-        except Exception as e:
-            print(f"[SD Character Finder] e621 auto-scrape failed: {e}")
-
-    threading.Thread(target=_check_and_scrape_danbooru, daemon=True).start()
-    threading.Thread(target=_check_and_scrape_e621, daemon=True).start()
-
     return build_ui()
 
 
