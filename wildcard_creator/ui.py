@@ -301,27 +301,30 @@ def _build_characters_content():
                 label="Search",
                 placeholder="e.g. miku, saber, blue hair…",
                 lines=1,
+                elem_id="sdcf_char_search"
             )
         with gr.Column(scale=1):
             char_series = gr.Dropdown(
                 label="Series",
                 choices=_series_choices,
-                value=None,
+                value="All",
                 interactive=True,
+                elem_id="sdcf_char_series"
             )
         with gr.Column(scale=1):
             tag_status_filter = gr.Dropdown(
                 label="Danbooru tag",
                 choices=["All", "Missing Danbooru Tag", "Has Danbooru Tag"],
-                value=None,
+                value="All",
                 interactive=True,
+                elem_id="sdcf_tag_status_filter"
             )
         with gr.Column(scale=1, min_width=100):
-            btn_char_search = gr.Button("🔍 Search", variant="primary")
+            btn_char_search = gr.Button("🔍 Search", variant="primary", elem_id="sdcf_btn_search")
         with gr.Column(scale=1, min_width=100):
-            btn_char_clear_search = gr.Button("✖ Clear Search")
+            btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
         with gr.Column(scale=1, min_width=100):
-            btn_char_reset = gr.Button("✖ Clear All")
+            btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
 
     with gr.Row():
         source_filter = gr.Radio(
@@ -329,16 +332,22 @@ def _build_characters_content():
             choices=["both", "danbooru", "e621"],
             value="both",
             interactive=True,
+            elem_id="sdcf_source_filter"
         )
-        favorites_only = gr.Checkbox(label="❤️ Favorites Only", value=False, interactive=True)
+        favorites_only = gr.Checkbox(label="❤️ Favorites Only", value=False, interactive=True, elem_id="sdcf_favorites_only_chk")
         recent_searches = gr.Dropdown(
             label="Recent Searches",
             choices=get_search_history_db().get_all(),
             value=None,
             interactive=True,
             min_width=200,
+            elem_id="sdcf_recent_searches"
         )
 
+    current_page_state = gr.State(1)
+    total_pages_state = gr.State(1)
+
+    # Global Pagination (Top)
     with gr.Row():
         with gr.Column(scale=4):
             pass # spacer
@@ -350,9 +359,6 @@ def _build_characters_content():
             page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
         with gr.Column(scale=1, min_width=100):
             btn_next_page = gr.Button("Next ▶", interactive=True)
-
-    current_page_state = gr.State(1)
-    total_pages_state = gr.State(1)
 
     # Results Area
     with gr.Tabs():
@@ -376,18 +382,6 @@ def _build_characters_content():
                         elem_id="sdcf_char_gallery_html",
                     )
                     gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_gallery_click_idx")
-                    
-            with gr.Row():
-                with gr.Column(scale=4):
-                    pass # spacer
-                with gr.Column(scale=1, min_width=100):
-                    btn_prev_page_bot = gr.Button("◀ Prev", interactive=True)
-                with gr.Column(scale=1, min_width=120):
-                    with gr.Row():
-                        page_jump_bot = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
-                    page_indicator_bot = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
-                with gr.Column(scale=1, min_width=100):
-                    btn_next_page_bot = gr.Button("Next ▶", interactive=True)
 
         with gr.Tab("🕒 Recently Viewed", id="tab_recent"):
             with gr.Row():
@@ -427,6 +421,19 @@ def _build_characters_content():
                 with gr.Tab("Gallery View", id="tab_fav_gallery"):
                     fav_html = gr.HTML(value=_initial_favorites_gallery)
             fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_fav_select_idx")
+
+    # Global Pagination (Bottom)
+    with gr.Row():
+        with gr.Column(scale=4):
+            pass # spacer
+        with gr.Column(scale=1, min_width=100):
+            btn_prev_page_bot = gr.Button("◀ Prev", interactive=True)
+        with gr.Column(scale=1, min_width=120):
+            with gr.Row():
+                page_jump_bot = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
+            page_indicator_bot = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+        with gr.Column(scale=1, min_width=100):
+            btn_next_page_bot = gr.Button("Next ▶", interactive=True)
 
     char_results_state = gr.State([])  # full result list (with tags/image_url)
     recent_chars_state = gr.State(_initial_recent)   # list of {name, series, id, tags, danbooru_tag, image_url}
@@ -598,8 +605,8 @@ def _build_characters_content():
     def do_clear_search():
         return (
             gr.update(value=""),
-            gr.update(value=None),
-            gr.update(value=None),
+            gr.update(value="All"),
+            gr.update(value="All"),
             gr.update(value="both"),
             gr.update(value=False),
             gr.update(value=None),
@@ -608,8 +615,8 @@ def _build_characters_content():
     def do_reset_search():
         return (
             gr.update(value=""),          # char_search
-            gr.update(value=None),         # char_series
-            gr.update(value=None),         # tag_status_filter
+            gr.update(value="All"),        # char_series
+            gr.update(value="All"),        # tag_status_filter
             gr.update(value="both"),       # source_filter
             gr.update(value=False),        # favorites_only
             gr.update(value=[]),           # char_results
