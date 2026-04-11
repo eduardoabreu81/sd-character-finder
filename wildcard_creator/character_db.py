@@ -41,10 +41,19 @@ class CharacterDB:
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:
+            # Prevents 'database disk image is malformed' on git pull updates by discarding orphaned WAL files
+            try:
+                wal = self._path.with_name(self._path.name + "-wal")
+                shm = self._path.with_name(self._path.name + "-shm")
+                if wal.exists(): wal.unlink()
+                if shm.exists(): shm.unlink()
+            except Exception:
+                pass
+            
             self._conn = sqlite3.connect(str(self._path), check_same_thread=False, timeout=15.0)
             self._conn.row_factory = sqlite3.Row
             try:
-                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA journal_mode=DELETE")
                 self._conn.execute("PRAGMA busy_timeout=15000")
                 self._conn.execute("PRAGMA synchronous=NORMAL")
             except sqlite3.OperationalError:
