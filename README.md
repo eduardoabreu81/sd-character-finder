@@ -45,6 +45,10 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
+### v0.5.3 — Hotfix: Startup Crash & Database Lock
+- **Startup Crash Fix** — Fixed a `NameError` crash that prevented the Gradio extension from initializing on remote WebUI instances (like RunPod) after the recent pagination updates.
+- **Database Lock Fix** — Disabled WAL mode and added an automatic cleanup routine for orphaned `.db-wal` and `.db-shm` files. This permanently prevents the `database disk image is malformed` error that occurred when updating the extension via `git pull` on remote servers.
+
 ### v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
 - **DB Series Rescue** — Automatically fixed 709 popular characters (including Konosuba, JoJo, Re:Zero) that were missing their franchise metadata entirely by extracting and standardizing their 2nd copyright tag.
 - **Recently Viewed Extended** — Increased history retention limit from 20 to 100 characters and added independent, fully functional pagination controls exclusively inside the "Recently Viewed" tab.

@@ -17,7 +17,7 @@
 - Favorites and search history persistence
 - Wildcard export for sd-dynamic-prompts
 
-**Current Version:** v0.5.2
+**Current Version:** v0.5.3
 
 ---
 

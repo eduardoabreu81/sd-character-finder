@@ -1,5 +1,20 @@
 # PROJECT_LOG
 
+### [2026-04-11] v0.5.3 — Hotfix: Startup Crash & Database Lock
+
+**O que foi feito:**
+- Removidas as referências órfãs a `page_indicator` e `page_jump_top` nas listas de output do Gradio 4 que levavam a crash imediato `NameError` ao inicializar a UI após a atualização da paginação.
+- Modificado o código do `character_db.py` para desligar o journal mode padrão do SQLite (de WAL para DELETE) ao inicializar, e incluído algoritmo de deleção forçada dos arquivos `-wal` e `-shm`. Isso evita conflitos de estado no RunPod quando usuários fazem downloads de updates via `git pull` (já que esses arquivos .wal não eram transacionados pelo Git e corrompiam a base em uso remoto).
+
+**Arquivos alterados:**
+- `wildcard_creator/ui.py`
+- `wildcard_creator/character_db.py`
+- `data/characters.db`
+
+**Decisões técnicas:**
+- `journal_mode=DELETE` ao invés de `WAL` lida perfeitamente com um projeto cujo banco é primariamente READ-ONLY na mão do usuário final, enquanto garante portabilidade sem artefatos no diretório do repo.
+- Commitada a base `.db` definitiva após comando explícito de `PRAGMA wal_checkpoint(TRUNCATE);` para encapsular todas as edições pendentes com os metadados de "Konosuba" no monólito binário transportável pelo Git.
+
 ### [2026-04-11] v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
 
 **O que foi feito:**
