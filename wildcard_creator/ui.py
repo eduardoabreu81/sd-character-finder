@@ -347,19 +347,6 @@ def _build_characters_content():
     current_page_state = gr.State(1)
     total_pages_state = gr.State(1)
 
-    # Global Pagination (Top)
-    with gr.Row():
-        with gr.Column(scale=4):
-            pass # spacer
-        with gr.Column(scale=1, min_width=100):
-            btn_prev_page = gr.Button("◀ Prev", interactive=True)
-        with gr.Column(scale=1, min_width=120):
-            with gr.Row():
-                page_jump_top = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
-            page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
-        with gr.Column(scale=1, min_width=100):
-            btn_next_page = gr.Button("Next ▶", interactive=True)
-
     # Results Area
     with gr.Tabs():
         with gr.Tab("🔍 Search Results", id="tab_search"):
@@ -382,8 +369,21 @@ def _build_characters_content():
                         elem_id="sdcf_char_gallery_html",
                     )
                     gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_gallery_click_idx")
+            
+            with gr.Row():
+                with gr.Column(scale=4):
+                    pass # spacer
+                with gr.Column(scale=1, min_width=100):
+                    btn_prev_page_bot = gr.Button("◀ Prev", interactive=True)
+                with gr.Column(scale=1, min_width=120):
+                    with gr.Row():
+                        page_jump_bot = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
+                    page_indicator_bot = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+                with gr.Column(scale=1, min_width=100):
+                    btn_next_page_bot = gr.Button("Next ▶", interactive=True)
 
         with gr.Tab("🕒 Recently Viewed", id="tab_recent"):
+            recent_page_state = gr.State(1)
             with gr.Row():
                 recent_save_session = gr.Checkbox(label="Save between sessions", value=True)
                 btn_clear_recent = gr.Button("🗑️ Clear History", size="sm")
@@ -402,6 +402,15 @@ def _build_characters_content():
                 with gr.Tab("Gallery View", id="tab_recent_gallery"):
                     recent_html = gr.HTML(value=_initial_recent_gallery)
             recent_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_recent_select_idx")
+            with gr.Row():
+                with gr.Column(scale=4):
+                    pass # spacer
+                with gr.Column(scale=1, min_width=100):
+                    btn_prev_recent = gr.Button("◀ Prev", interactive=True)
+                with gr.Column(scale=1, min_width=120):
+                    page_indicator_recent = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+                with gr.Column(scale=1, min_width=100):
+                    btn_next_recent = gr.Button("Next ▶", interactive=True)
 
         with gr.Tab("❤️ Favorites", id="tab_favorites"):
             # Hidden trigger used for automatic initial load and internal refreshes.
@@ -421,19 +430,6 @@ def _build_characters_content():
                 with gr.Tab("Gallery View", id="tab_fav_gallery"):
                     fav_html = gr.HTML(value=_initial_favorites_gallery)
             fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_fav_select_idx")
-
-    # Global Pagination (Bottom)
-    with gr.Row():
-        with gr.Column(scale=4):
-            pass # spacer
-        with gr.Column(scale=1, min_width=100):
-            btn_prev_page_bot = gr.Button("◀ Prev", interactive=True)
-        with gr.Column(scale=1, min_width=120):
-            with gr.Row():
-                page_jump_bot = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
-            page_indicator_bot = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
-        with gr.Column(scale=1, min_width=100):
-            btn_next_page_bot = gr.Button("Next ▶", interactive=True)
 
     char_results_state = gr.State([])  # full result list (with tags/image_url)
     recent_chars_state = gr.State(_initial_recent)   # list of {name, series, id, tags, danbooru_tag, image_url}
@@ -526,7 +522,7 @@ def _build_characters_content():
         while len(cover_data_uri_cache) > COVER_DATA_URI_CACHE_MAX:
             cover_data_uri_cache.popitem(last=False)
 
-    def do_search(query, series, tag_status, source, favorites_only, page):
+    def do_search(query, series, tag_status, source, favorites_only, page, recent_chars, recent_page):
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
@@ -572,35 +568,79 @@ def _build_characters_content():
             if query:
                 get_search_history_db().add(query)
 
-            return table, gr.update(value=gallery_html), results, page, total_pages, gr.update(value=page_text), page, page, gr.update(value=page_text), gr.update(choices=get_search_history_db().get_all())
+            # Auto-select the first result
+            if results:
+                card_outputs = _select_by_index(results, 0)
+                updated_recents = _push_recent(results[0], recent_chars, True)
+            else:
+                card_outputs = _select_by_index([], 0)
+                updated_recents = recent_chars
+
+            recent_table, recent_gallery, recent_indicator, new_recent_page = _render_recent_page(updated_recents, recent_page)
+
+            return (
+                table,
+                gr.update(value=gallery_html),
+                results,
+                page,
+                total_pages,
+                gr.update(value=page_text),
+                page,
+                page,
+                gr.update(value=page_text),
+                gr.update(choices=get_search_history_db().get_all()),
+                *card_outputs,
+                updated_recents,
+                recent_table,
+                recent_gallery,
+                new_recent_page,
+                gr.update(value=recent_indicator)
+            )
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return [], gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"), [], 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"), 1, 1, gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"), gr.update()
+            return (
+                [],
+                gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),
+                [],
+                1,
+                1,
+                gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"),
+                1,
+                1,
+                gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"),
+                gr.update(),
+                "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, "", "🤍 Favorite",
+                recent_chars,
+                _render_list_df(recent_chars[:30]),
+                _render_gallery_html(recent_chars[:30], "sdcf_recent_select_idx"),
+                recent_page,
+                gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
+            )
 
-    def jump_page_action(query, series, tag_status, source, favorites_only, page, total_pages):
+    def jump_page_action(query, series, tag_status, source, favorites_only, page, total_pages, recent_chars, recent_page):
         try:
             new_page = int(float(page))
         except Exception:
             new_page = 1
         new_page = max(1, min(total_pages, new_page))
-        return do_search(query, series, tag_status, source, favorites_only, new_page)
+        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
 
-    def load_recent_search(recent_val, series, tag_status, source, favorites_only):
+    def load_recent_search(recent_val, series, tag_status, source, favorites_only, recent_chars, recent_page):
         query = recent_val or ""
-        res = do_search(query, series, tag_status, source, favorites_only, 1)
+        res = do_search(query, series, tag_status, source, favorites_only, 1, recent_chars, recent_page)
         return (gr.update(value=query),) + res
 
-    def search_first_page(query, series, tag_status, source, favorites_only):
-        return do_search(query, series, tag_status, source, favorites_only, 1)
+    def search_first_page(query, series, tag_status, source, favorites_only, recent_chars, recent_page):
+        return do_search(query, series, tag_status, source, favorites_only, 1, recent_chars, recent_page)
 
-    def prev_page_action(query, series, tag_status, source, favorites_only, page):
+    def prev_page_action(query, series, tag_status, source, favorites_only, page, recent_chars, recent_page):
         new_page = max(1, page - 1)
-        return do_search(query, series, tag_status, source, favorites_only, new_page)
+        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
 
-    def next_page_action(query, series, tag_status, source, favorites_only, page, total_pages):
+    def next_page_action(query, series, tag_status, source, favorites_only, page, total_pages, recent_chars, recent_page):
         new_page = min(total_pages, page + 1)
-        return do_search(query, series, tag_status, source, favorites_only, new_page)
+        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
 
     def do_clear_search():
         return (
@@ -649,7 +689,26 @@ def _build_characters_content():
     def _render_list_df(results_list: list) -> list:
         return [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in results_list]
 
-    def _render_gallery_html(results_list: list, target_idx_elem_id="sdcf_gallery_click_idx") -> str:
+    def _render_recent_page(recent_chars, page):
+        limit = get_shared_opt("sdcf_search_limit", 30)
+        try: limit = int(limit)
+        except Exception: limit = 30
+        limit = max(1, min(limit, 30))
+        
+        total = len(recent_chars)
+        total_pages = max(1, (total + limit - 1) // limit)
+        page = max(1, min(page, total_pages))
+        
+        offset = (page - 1) * limit
+        page_data = recent_chars[offset:offset+limit]
+        
+        table = _render_list_df(page_data)
+        gallery = _render_gallery_html(page_data, "sdcf_recent_select_idx", global_offset=offset)
+        
+        indicator = f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages}</div>"
+        return table, gallery, indicator, page
+
+    def _render_gallery_html(results_list: list, target_idx_elem_id="sdcf_gallery_click_idx", global_offset=0) -> str:
         if not results_list:
             return "<div class='sdcf-char-gallery'><div class='civmodellist'><p style='color:#888;font-size:0.85em;padding:16px'>No characters to display.</p></div></div>"
 
@@ -713,11 +772,12 @@ def _build_characters_content():
             
             safe_img = html.escape(str(img_src or ""), quote=True)
             safe_name = html.escape(str(name or ""))
+            global_idx = global_offset + idx
             onclick_js = (
                 "const app=(window.gradioApp?window.gradioApp():document);"
                 f"const input=app.querySelector('#{target_idx_elem_id} textarea, #{target_idx_elem_id} input');"
                 "if(!input){return false;}"
-                f"input.value='{idx}';"
+                f"input.value='{global_idx}';"
                 "input.dispatchEvent(new Event('input',{bubbles:true}));"
                 "input.dispatchEvent(new Event('change',{bubbles:true}));"
                 "return false;"
@@ -845,7 +905,7 @@ def _build_characters_content():
             pass
 
     def _push_recent(char: dict, current_recents: list, do_save: bool = True) -> list:
-        """Prepend char to recent list, deduplicate by id, keep last 20."""
+        """Prepend char to recent list, deduplicate by id, keep last 100."""
         char_id = char.get("id")
         updated = [c for c in current_recents if c.get("id") != char_id]
         updated.insert(0, {
@@ -857,20 +917,22 @@ def _build_characters_content():
             "image_url": char.get("image_url") or "",
             "source": char.get("source", "danbooru"),
         })
-        final_list = updated[:20]
+        final_list = updated[:100]
         _save_recent_history(final_list, do_save)
         return final_list
 
-    def on_row_select(results_state, recent_chars, do_save, evt: gr.SelectData):
+    def on_row_select(results_state, recent_chars, do_save, recent_page, evt: gr.SelectData):
         row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
         card_outputs = _select_by_index(results_state, row_idx)
         if results_state and 0 <= row_idx < len(results_state):
             updated_recents = _push_recent(results_state[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
+        
+        t, g, i, p = _render_recent_page(updated_recents, recent_page)
+        return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
-    def on_gallery_click(idx_text, results_state, recent_chars, do_save):
+    def on_gallery_click(idx_text, results_state, recent_chars, do_save, recent_page):
         try:
             row_idx = int(float(idx_text))
         except Exception:
@@ -880,9 +942,11 @@ def _build_characters_content():
             updated_recents = _push_recent(results_state[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
+        
+        t, g, i, p = _render_recent_page(updated_recents, recent_page)
+        return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
-    def on_recent_click(idx_text, recent_chars, do_save):
+    def on_recent_click(idx_text, recent_chars, do_save, recent_page):
         """Select a character from the recently viewed panel."""
         try:
             row_idx = int(float(idx_text))
@@ -894,7 +958,9 @@ def _build_characters_content():
             updated_recents = _push_recent(recent_chars[row_idx], recent_chars, do_save)
         else:
             updated_recents = recent_chars
-        return (*card_outputs, updated_recents, _render_list_df(updated_recents), _render_gallery_html(updated_recents, "sdcf_recent_select_idx"))
+            
+        t, g, i, p = _render_recent_page(updated_recents, recent_page)
+        return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
 
     def save_manual_danbooru_tag(selected_id, manual_tag):
@@ -984,9 +1050,9 @@ def _build_characters_content():
 
     btn_char_search.click(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
-        **get_js_kw("""(query, series, tag_status, source, favorites_only) => {
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        **get_js_kw("""(query, series, tag_status, source, favorites_only, recent_chars, recent_page) => {
             const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
             const targetKey = normalized('search results');
             const app = (window.gradioApp ? window.gradioApp() : document);
@@ -1000,48 +1066,48 @@ def _build_characters_content():
                     break;
                 }
             }
-            return [query, series, tag_status, source, favorites_only];
+            return [query, series, tag_status, source, favorites_only, recent_chars, recent_page];
         }""")
     )
     recent_searches.change(
         load_recent_search,
-        inputs=[recent_searches, char_series, tag_status_filter, source_filter, favorites_only],
-        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[recent_searches, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     char_search.submit(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_prev_page.click(
         prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_next_page.click(
         next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_prev_page_bot.click(
         prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_next_page_bot.click(
         next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     page_jump_top.submit(
         jump_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_top, total_pages_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_top, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     page_jump_bot.submit(
         jump_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_bot, total_pages_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_bot, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_char_clear_search.click(
         do_clear_search,
@@ -1049,18 +1115,18 @@ def _build_characters_content():
     )
     char_results.select(
         on_row_select,
-        inputs=[char_results_state, recent_chars_state, recent_save_session],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+        inputs=[char_results_state, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     gallery_click_idx.change(
         on_gallery_click,
-        inputs=[gallery_click_idx, char_results_state, recent_chars_state, recent_save_session],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+        inputs=[gallery_click_idx, char_results_state, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     recent_select_idx.change(
         on_recent_click,
-        inputs=[recent_select_idx, recent_chars_state, recent_save_session],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+        inputs=[recent_select_idx, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
 
     def clear_recent_viewed():
@@ -1071,11 +1137,34 @@ def _build_characters_content():
                 recent_file.unlink()
         except:
             pass
-        return empty, _render_list_df(empty), _render_gallery_html(empty, "sdcf_recent_select_idx")
+        t, g, i, p = _render_recent_page(empty, 1)
+        return empty, t, g, p, gr.update(value=i)
 
     btn_clear_recent.click(
         clear_recent_viewed,
-        outputs=[recent_chars_state, recent_results_df, recent_html]
+        outputs=[recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent]
+    )
+
+    def prev_recent_action(recent_chars, page):
+        new_page = max(1, page - 1)
+        t, g, i, p = _render_recent_page(recent_chars, new_page)
+        return t, g, p, gr.update(value=i)
+
+    def next_recent_action(recent_chars, page):
+        new_page = page + 1
+        t, g, i, p = _render_recent_page(recent_chars, new_page)
+        return t, g, p, gr.update(value=i)
+
+    btn_prev_recent.click(
+        prev_recent_action,
+        inputs=[recent_chars_state, recent_page_state],
+        outputs=[recent_results_df, recent_html, recent_page_state, page_indicator_recent]
+    )
+
+    btn_next_recent.click(
+        next_recent_action,
+        inputs=[recent_chars_state, recent_page_state],
+        outputs=[recent_results_df, recent_html, recent_page_state, page_indicator_recent]
     )
 
     def do_refresh_favs():
@@ -1113,13 +1202,13 @@ def _build_characters_content():
 
     fav_results_df.select(
         on_row_select,
-        inputs=[fav_chars_state, recent_chars_state, recent_save_session],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+        inputs=[fav_chars_state, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     fav_select_idx.change(
         on_gallery_click,
-        inputs=[fav_select_idx, fav_chars_state, recent_chars_state, recent_save_session],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html],
+        inputs=[fav_select_idx, fav_chars_state, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
 
     btn_char_save_tag.click(
