@@ -584,8 +584,6 @@ def _build_characters_content():
                 results,
                 page,
                 total_pages,
-                gr.update(value=page_text),
-                page,
                 page,
                 gr.update(value=page_text),
                 gr.update(choices=get_search_history_db().get_all()),
@@ -604,8 +602,6 @@ def _build_characters_content():
                 gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),
                 [],
                 1,
-                1,
-                gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"),
                 1,
                 1,
                 gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"),
@@ -664,8 +660,6 @@ def _build_characters_content():
             [],                            # char_results_state
             1,                             # current_page_state
             1,                             # total_pages_state
-            gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),  # page_indicator
-            1,                             # page_jump_top
             1,                             # page_jump_bot
             gr.update(value="<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>"),  # page_indicator_bot
             gr.update(value=None),         # recent_searches
@@ -1051,7 +1045,7 @@ def _build_characters_content():
     btn_char_search.click(
         search_first_page,
         inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
         **get_js_kw("""(query, series, tag_status, source, favorites_only, recent_chars, recent_page) => {
             const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
             const targetKey = normalized('search results');
@@ -1072,42 +1066,30 @@ def _build_characters_content():
     recent_searches.change(
         load_recent_search,
         inputs=[recent_searches, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     char_search.submit(
         search_first_page,
         inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
-    btn_prev_page.click(
-        prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
-    )
-    btn_next_page.click(
-        next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
-    )
+    
+    
     btn_prev_page_bot.click(
         prev_page_action,
         inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_next_page_bot.click(
         next_page_action,
         inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
-    page_jump_top.submit(
-        jump_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_top, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
-    )
+    
     page_jump_bot.submit(
         jump_page_action,
         inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_bot, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_indicator, page_jump_top, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_char_clear_search.click(
         do_clear_search,
@@ -1542,8 +1524,6 @@ def _build_characters_content():
             char_results_state,
             current_page_state,
             total_pages_state,
-            page_indicator,
-            page_jump_top,
             page_jump_bot,
             page_indicator_bot,
             recent_searches,
