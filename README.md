@@ -32,14 +32,12 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.5.0 — Favorites, History & UI Polish
-- **Favorites System** — New dedicated "Favorites" tab and instant "Add to Favorites" button to permanently save and track your top-tier characters locally.
-- **Recent History Tab** — Re-find exactly who you were looking at earlier with a unified "Recent Searches" dataframe tab.
-- **Visual Fixes** — Revamped dataframe styling eliminates weird multi-select handles and visual artifacts.
-- **Themed Scrollbars** — Custom webkit scrollbars that automatically sync with the WebUI's Light or Dark mode.
-- **Pre-packaged Database** — All 23,000+ characters are now natively shipped and synced via Git. This eliminates the need for background scraping on startup, making the extension instantly ready and lightweight for all environments.
-
-> Full release history is available in the Changelog section below.
+### v0.5.3 — Database Lock Resiliency & Boot Fixes
+- **Robust Database Core** — Completely eliminated the fatal `database disk image is malformed` error that plagued remote server users (RunPod/Colab) by shifting away from SQLite WAL mode and automatically dropping orphaned journal files.
+- **Crash Free Startup** — UI events correctly handle Gradio variable mapping, allowing the WebUI to start safely.
+- **Auto-Select Search Results** — Submitting a search now automatically selects and loads the preview image and attributes of the first resulting character!
+- **History Pagination** — "Recently Viewed" history now supports retaining 100 characters locally with its own exclusive pagination tracker!
+- **Zero Configuration DB** — You don't need the local scraper scripts anymore, the 23,000+ character DB comes perfectly formatted out of the box right on GitHub!
 
 ---
 
