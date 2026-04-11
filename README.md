@@ -45,6 +45,11 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
+### v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
+- **DB Series Rescue** — Automatically fixed 709 popular characters (including Konosuba, JoJo, Re:Zero) that were missing their franchise metadata entirely by extracting and standardizing their 2nd copyright tag.
+- **Recently Viewed Extended** — Increased history retention limit from 20 to 100 characters and added independent, fully functional pagination controls exclusively inside the "Recently Viewed" tab.
+- **Auto-Select Search Results** — Submitting a search now automatically selects and loads the preview image and attributes of the first resulting character, saving you an extra click.
+
 ### v0.5.1 — Global Pagination & Forge State Saving
 - **Global Pagination** — Pagination controls (top and bottom) are now truly global, existing outside the "Search Results" tab. This allows seamless page navigation across any visible tab (Search, History, etc.) without losing context.
 - **Forge State Saving** — Added permanent `elem_id` hooks to all key inputs (Search, Series, Dropdowns). This allows AUTOMATIC1111/Forge's native "Save UI Defaults" feature to reliably serialize and restore your exact filter state across reboots.
@@ -156,6 +161,11 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Pagination controls are now global across UI tabs.
 - Full support for Forge's "Save UI Defaults" (`elem_id` injection).
 - Search Reset logic correctly resets Series to "All".
+
+### v0.5.2 — History Pagination, Auto-Select & DB Rescue *(complete)* ✅
+- Fixed 709 missing series metadata natively in `characters.db`.
+- Upgraded the "Recently Viewed" tab space up to 100 characters and implemented standalone pagination limits.
+- The UI now automatically selects the first result in searches, showing the preview instantly.
 
 ### v0.6.0 — Community Expansion & Advanced Tags *(planned)*
 - Save custom tags sets and export individual backup files.

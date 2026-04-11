@@ -1,5 +1,28 @@
 # PROJECT_LOG
 
+### [2026-04-11] v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
+
+**O que foi feito:**
+- Script `clean_series_metadata.py` aprimorado para assumir "resgate de série" quando a coluna `series` for nula, absorvendo a string da 2ª tag.
+- `characters.db` limpo. Aproximadamente 709 registros órfãos que estavam fora de qualquer série ganharam sua devida formatação e capitalização de título.
+- Aba "Recently Viewed" agora persiste até 100 itens (limite anterior era 20) e conta com um sistema de paginação independente para sua renderização no Gradio.
+- Resultado de busca agora se auto-seleciona (auto-select do primeiro item, populando imagem e descrições instantaneamente na tela esquerda).
+
+**Arquivos alterados:**
+- `wildcard_creator/ui.py`
+- `scripts/clean_series_metadata.py`
+- `data/characters.db`
+- `README.md`
+- `AGENTS.md`
+
+**Decisões técnicas:**
+- Optado por realizar as mudanças direto no banco via atualização massiva pre-empacotada. Isso evita trabalho custoso de CPU rodando lógica recursiva pros usuários no start.
+- O novo sistema de auto-select imita diretamente um clique por injetar os 8 parâmetros de side-outputs junto aos callbacks do botão "Search" e do Enter.
+- As mudanças incrementais encaixam fluentemente na versão Z do `v0.5.2`.
+
+**Impactos e pontos de atenção:**
+- Como a listagem recente aumentou para 100 com paginação independente, o estado gerado vai ser um array `recent_chars_state` sensivelmente maior em memória de Gradio. Para a escala do React/Python local isso é insignificante.
+
 ### [2026-04-11] v0.5.1 — Global Pagination & Forge State Saving
 
 **O que foi feito:**
