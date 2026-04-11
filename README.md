@@ -45,6 +45,11 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 📖 Changelog
 
+### v0.5.1 — Global Pagination & Forge State Saving
+- **Global Pagination** — Pagination controls (top and bottom) are now truly global, existing outside the "Search Results" tab. This allows seamless page navigation across any visible tab (Search, History, etc.) without losing context.
+- **Forge State Saving** — Added permanent `elem_id` hooks to all key inputs (Search, Series, Dropdowns). This allows AUTOMATIC1111/Forge's native "Save UI Defaults" feature to reliably serialize and restore your exact filter state across reboots.
+- **Search Reset Fixes** — Fixed a bug where clicking "Clear Search" or "Clear All" would break the Series dropdown by setting it to `None`. It now correctly resets back to the `"All"` state.
+
 ### v0.5.0 — Favorites, History & UI Polish
 - Added visual and database-backed "Favorites" marking logic (`data/favorites.json`).
 - Added full "Recent Searches" and "Favorites" isolated tabs.
@@ -146,6 +151,11 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - Save custom character tags globally.
 - Custom Collections & Favorites system to quickly access and filter your top tier characters.
 - Extracted automation behaviors to improve user control.
+
+### v0.5.1 — Global Pagination & Forge State *(complete)* ✅
+- Pagination controls are now global across UI tabs.
+- Full support for Forge's "Save UI Defaults" (`elem_id` injection).
+- Search Reset logic correctly resets Series to "All".
 
 ### v0.6.0 — Community Expansion & Advanced Tags *(planned)*
 - Save custom tags sets and export individual backup files.
