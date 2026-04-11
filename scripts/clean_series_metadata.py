@@ -9,8 +9,14 @@ logger = logging.getLogger('clean_series')
 
 db_path = Path(__file__).parent.parent / 'data' / 'characters.db'
 
-def process_row(name, series):
-    if not series: 
+def process_row(name, series, tags_raw=""):
+    if not series and tags_raw:
+        # Fallback to the 2nd tag as the series (which is standard for Danbooru formatting)
+        tag_parts = [t.strip() for t in tags_raw.split(',')]
+        if len(tag_parts) >= 2:
+            series = tag_parts[1].title()
+
+    if not series:
         return name, series
         
     s_clean = series.replace(chr(92), '')
@@ -63,7 +69,7 @@ def main():
     conn = sqlite3.connect(str(db_path))
     c = conn.cursor()
     
-    c.execute('SELECT id, name, series FROM characters')
+    c.execute('SELECT id, name, series, tags FROM characters')
     rows = c.fetchall()
 
     logger.info(f"Analisando {len(rows)} personagens...")
@@ -71,10 +77,9 @@ def main():
     updates = []
     
     for row in rows:
-        char_id, name, series = row
-        if not series: continue
+        char_id, name, series, tags_raw = row
         
-        new_name, new_series = process_row(name, series)
+        new_name, new_series = process_row(name, series, tags_raw)
         
         # Validar se de fato houve mudança
         if new_series != series or new_name != name:
