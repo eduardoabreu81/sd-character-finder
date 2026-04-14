@@ -940,6 +940,24 @@ def _build_characters_content():
         t, g, i, p = _render_recent_page(updated_recents, recent_page)
         return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
+    def on_recent_row_select(recent_chars, do_save, recent_page, evt: gr.SelectData):
+        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
+        limit = get_shared_opt("sdcf_search_limit", 30)
+        try: limit = int(limit)
+        except Exception: limit = 30
+        limit = max(1, min(limit, 30))
+        offset = (max(1, recent_page) - 1) * limit
+        actual_idx = offset + row_idx
+
+        card_outputs = _select_by_index(recent_chars, actual_idx)
+        if recent_chars and 0 <= actual_idx < len(recent_chars):
+            updated_recents = _push_recent(recent_chars[actual_idx], recent_chars, do_save)
+        else:
+            updated_recents = recent_chars
+
+        t, g, i, p = _render_recent_page(updated_recents, recent_page)
+        return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
+
     def on_recent_click(idx_text, recent_chars, do_save, recent_page):
         """Select a character from the recently viewed panel."""
         try:
@@ -1108,6 +1126,11 @@ def _build_characters_content():
     recent_select_idx.change(
         on_recent_click,
         inputs=[recent_select_idx, recent_chars_state, recent_save_session, recent_page_state],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+    )
+    recent_results_df.select(
+        on_recent_row_select,
+        inputs=[recent_chars_state, recent_save_session, recent_page_state],
         outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
 
