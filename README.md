@@ -32,12 +32,15 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
-### v0.5.3 — Database Lock Resiliency & Boot Fixes
-- **Robust Database Core** — Completely eliminated the fatal `database disk image is malformed` error that plagued remote server users (RunPod/Colab) by shifting away from SQLite WAL mode and automatically dropping orphaned journal files.
-- **Crash Free Startup** — UI events correctly handle Gradio variable mapping, allowing the WebUI to start safely.
-- **Auto-Select Search Results** — Submitting a search now automatically selects and loads the preview image and attributes of the first resulting character!
-- **History Pagination** — "Recently Viewed" history now supports retaining 100 characters locally with its own exclusive pagination tracker!
-- **Zero Configuration DB** — You don't need the local scraper scripts anymore, the 23,000+ character DB comes perfectly formatted out of the box right on GitHub!
+### v0.5.3 — Hotfix: Startup Crash & Database Lock
+- **Database Lock Fix** — Disabled WAL mode and added safe cleanup to permanently prevent the `database disk image is malformed` error when updating via git on platforms like RunPod.
+- **Startup Crash Fix** — Resolved a `NameError` that prevented the UI from booting after recent pagination changes.
+- **Gallery History Click** — Fixed issue where clicking a character in the "Recently Viewed" list wouldn't load their details.
+
+### v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
+- **DB Series Rescue** — Automatically fixed 709 popular characters that were missing their franchise metadata.
+- **Recently Viewed Extended** — Increased history retention limit to 100 characters and added independent pagination.
+- **Auto-Select Search Results** — Submitting a search now automatically selects and loads the preview image of the first result.
 
 ---
 
