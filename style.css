@@ -137,7 +137,7 @@
     font-size: 13px;
     font-weight: 600;
     line-height: 1.2;
-    text-align: center;
+    text-align: center !important;
     padding: 20px 8px 8px;
     background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 100%);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
