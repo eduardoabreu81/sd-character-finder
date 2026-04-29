@@ -90,6 +90,8 @@
     grid-template-columns: repeat(var(--sdcf-gallery-cols, 5), minmax(0, 1fr));
     gap: 12px;
     width: 100%;
+    align-items: start;
+    justify-items: center;
 }
 
 .sdcf-char-gallery .civmodelcard {
@@ -104,13 +106,25 @@
     padding: 0;
     margin: 0;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    position: relative;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    text-align: center;
+    font-family: inherit;
 }
 
 .sdcf-char-gallery .civmodelcard:hover {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 0 2px 2px rgba(255, 255, 255, 0.45);
+}
+
+.sdcf-char-gallery .civmodelcard:focus-visible {
+    border-color: var(--color-accent, #f97316);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.35);
+    outline: none;
 }
 
 .sdcf-char-gallery .civmodelcard figure {
@@ -140,8 +154,10 @@
     text-align: center !important;
     padding: 20px 8px 8px;
     background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 100%);
+    z-index: 3;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     word-break: break-word;
+    pointer-events: none;
 }
 
 @media (max-width: 900px) {

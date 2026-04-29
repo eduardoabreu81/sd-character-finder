@@ -224,14 +224,14 @@ def _build_characters_content():
 
             cards_html.append(
                 f"""
-                <button class='civmodelcard' onclick="{safe_onclick}">
+                <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
                         <div class='sdcf-badge sdcf-badge-favorite'>favorite</div>
                         <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>
-                </button>
+                </div>
                 """
             )
 
@@ -279,13 +279,13 @@ def _build_characters_content():
 
             cards_html.append(
                 f"""
-                <button class='civmodelcard' onclick="{safe_onclick}">
+                <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
                         <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>
-                </button>
+                </div>
                 """
             )
 
@@ -779,14 +779,14 @@ def _build_characters_content():
             safe_onclick = html.escape(onclick_js, quote=True)
             cards_html.append(
                 f"""
-                <button class='civmodelcard' onclick="{safe_onclick}">
+                <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
                         {fav_html}
                         <div class='sdcf-badge sdcf-badge-{source}'>{source}</div>
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>
-                </button>
+                </div>
                 """
             )
 
