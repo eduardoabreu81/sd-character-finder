@@ -33,8 +33,8 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 ## 🆕 What's New
 
 ### v0.6.0 — Artist Style Discovery
-- **🎨 Artist Style Browser** — Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621) with dual-preview cards showing each artist's unique drawing style in two different contexts. One click adds `by artist_name` to your prompt.
-- **Dual-Preview Cards** — Every artist shows two style examples side-by-side — for instance, the same artist's take on *Tifa Lockhart* and *Harry Potter* — so you can instantly see how their drawing technique translates across different subjects before applying it to your prompt.
+- **🎨 MAJOR UPDATE — Artist Style Browser!** Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621). Browse visually, add the artist's tag with one click, and watch the magic happen — your generation's art style transforms instantly.
+- **Dual-Preview Cards** ⭐ — Every artist shows two side-by-side examples (e.g., *Tifa Lockhart* and *Harry Potter* both rendered in that artist's unique style) so you can instantly see how their drawing technique looks applied to different subjects before adding it to your prompt.
 - **Separate Settings** — Artists have their own pagination limit, thumbnail size, and column count settings independent from characters.
 - **Security Improvements** — Fixed potential vulnerabilities in gallery rendering and image downloads.
 
