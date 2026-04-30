@@ -12,7 +12,7 @@
 
 </div>
 
-> **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Say no more!** 🦸‍♂️
+> **Can't remember the exact tag for that specific character? Want to discover a new art style and completely change the look of your generations? Say no more!** 🦸‍♂️
 
 Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse over **23,000+ characters** (Danbooru and e621) and **10,000+ artist styles** without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
 
@@ -34,7 +34,7 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ### v0.6.0 — Artist Style Discovery
 - **🎨 Artist Style Browser** — Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621) with dual-preview cards showing each artist's unique drawing style in two different contexts. One click adds `by artist_name` to your prompt.
-- **Dual-Preview Cards** — Every artist shows two style examples side-by-side so you can visually compare their technique before applying.
+- **Dual-Preview Cards** — Every artist shows two style examples side-by-side — for instance, the same artist's take on *Tifa Lockhart* and *Harry Potter* — so you can instantly see how their drawing technique translates across different subjects before applying it to your prompt.
 - **Separate Settings** — Artists have their own pagination limit, thumbnail size, and column count settings independent from characters.
 - **Security Improvements** — Fixed potential vulnerabilities in gallery rendering and image downloads.
 
