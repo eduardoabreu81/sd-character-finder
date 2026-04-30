@@ -472,3 +472,207 @@
     overflow-x: auto !important;
     contain: size !important;
 }
+
+/* ==========================================================================
+   Artist Tab Styles
+   ========================================================================== */
+
+/* Artist gallery uses fewer columns since each card has 2 images */
+.sdcf-artist-gallery .civmodellist {
+    display: grid;
+    grid-template-columns: repeat(var(--sdcf-artist-cols, 3), minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+    align-items: start;
+    justify-items: center;
+}
+
+@media (max-width: 900px) {
+    .sdcf-artist-gallery .civmodellist {
+        grid-template-columns: repeat(var(--sdcf-artist-mobile-cols, 2), minmax(0, 1fr));
+        gap: 10px;
+    }
+}
+
+/* Artist card — wider to accommodate two images */
+.sdcf-artist-gallery .civmodelcard {
+    display: block;
+    width: 100%;
+    max-width: var(--sdcf-artist-thumb-size, 260px);
+    justify-self: center;
+    border: solid 2px transparent;
+    border-radius: 12px;
+    background: var(--background-fill-primary);
+    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.25);
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    position: relative;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    text-align: center;
+    font-family: inherit;
+}
+
+.sdcf-artist-gallery .civmodelcard:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 0 2px 2px rgba(255, 255, 255, 0.45);
+}
+
+.sdcf-artist-gallery .civmodelcard:focus-visible {
+    border-color: var(--color-accent, #f97316);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.35);
+    outline: none;
+}
+
+/* Artist card figure — contains two images side by side */
+.sdcf-artist-gallery .civmodelcard figure {
+    margin: 0;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 2; /* wider aspect ratio for two images */
+    display: flex;
+    gap: 2px;
+}
+
+/* Each preview image takes half the card */
+.sdcf-artist-gallery .civmodelcard figure img {
+    width: 50%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+
+/* First image rounded on left */
+.sdcf-artist-gallery .civmodelcard figure img:first-child {
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+/* Second image rounded on right */
+.sdcf-artist-gallery .civmodelcard figure img:last-child {
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+/* Artist card caption */
+.sdcf-artist-gallery .civmodelcard figcaption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center !important;
+    padding: 24px 8px 8px;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 100%);
+    z-index: 3;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    word-break: break-word;
+    pointer-events: none;
+}
+
+/* Artist ref count badge */
+.sdcf-artist-gallery .civmodelcard .sdcf-ref-count {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* Artist favorite badge */
+.sdcf-artist-gallery .civmodelcard .sdcf-fav-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font-size: 18px;
+    z-index: 4;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+
+/* Artist source badge */
+.sdcf-artist-gallery .civmodelcard .sdcf-badge {
+    position: absolute;
+    bottom: 32px;
+    left: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* Artist preview panel — dual images */
+#sdcf_artist_preview .sdcf-artist-preview-wrap {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--background-fill-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-images {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-images img {
+    flex: 1;
+    width: 50%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 8px;
+    cursor: zoom-in;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-info {
+    padding: 8px 12px;
+    text-align: center;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--body-text-color);
+    margin-bottom: 4px;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-tag {
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--body-text-color-subdued);
+    background: var(--background-fill-primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+#sdcf_artist_preview .sdcf-artist-preview-refs {
+    font-size: 12px;
+    color: var(--body-text-color-subdued);
+    margin-top: 4px;
+}

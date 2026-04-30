@@ -19,6 +19,8 @@ import logging
 import re
 import html
 from pathlib import Path
+import socket
+from urllib.parse import urlparse
 
 import gradio as gr
 import requests
@@ -28,6 +30,7 @@ from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
 from wildcard_creator.favorites import get_favorites_db
 from wildcard_creator.search_history import get_search_history_db
+from wildcard_creator.artist_tab import build_artist_tab
 
 
 _GR_VERSION = getattr(gr, "__version__", "3.0.0")
@@ -431,6 +434,9 @@ def _build_characters_content():
                     fav_html = gr.HTML(value=_initial_favorites_gallery)
             fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_fav_select_idx")
 
+        with gr.Tab("🎨 Artists", id="tab_artists"):
+            build_artist_tab()
+
     char_results_state = gr.State([])  # full result list (with tags/image_url)
     recent_chars_state = gr.State(_initial_recent)   # list of {name, series, id, tags, danbooru_tag, image_url}
     fav_chars_state = gr.State(_initial_favorites)      # list for favorites
@@ -721,6 +727,46 @@ def _build_characters_content():
         covers_dir = repo_root / "data" / "covers"
         covers_dir.mkdir(parents=True, exist_ok=True)
         
+        def _is_safe_url(url: str) -> bool:
+            """Validate URL against SSRF: allowlisted hosts only, no private IPs."""
+            try:
+                parsed = urlparse(url)
+                if parsed.scheme not in {"http", "https"}:
+                    return False
+                hostname = parsed.hostname
+                if not hostname:
+                    return False
+                # Allowlist of trusted domains
+                allowed_suffixes = (
+                    ".donmai.us",
+                    ".e621.net",
+                    "e621.net",
+                    "downloadmost.com",
+                )
+                if not any(hostname == s or hostname.endswith(s) for s in allowed_suffixes):
+                    return False
+                # Reject private/link-local IPs even if disguised as hostname
+                try:
+                    addr_info = socket.getaddrinfo(hostname, None)
+                    for _, _, _, _, sockaddr in addr_info:
+                        ip = sockaddr[0]
+                        if ip.startswith("127.") or ip.startswith("10.") or ip.startswith("192.168.") or ip.startswith("169.254."):
+                            return False
+                        if ip.startswith("172."):
+                            parts = ip.split(".")
+                            if len(parts) >= 2 and 16 <= int(parts[1]) <= 31:
+                                return False
+                        if ":" in ip:
+                            # IPv6 loopback or link-local
+                            if ip.startswith("::1") or ip.startswith("fe80:") or ip.startswith("fc") or ip.startswith("fd"):
+                                return False
+                except Exception:
+                    # If DNS resolution fails, be permissive only for known CDNs
+                    pass
+                return True
+            except Exception:
+                return False
+
         def fetch_one(r):
             url = r.get("image_url")
             char_id = r.get("id")
@@ -736,9 +782,10 @@ def _build_characters_content():
             cov_path = covers_dir / f"{char_id}.jpg"
             if not cov_path.exists():
                 try:
-                    resp = http_session.get(url, timeout=3)
-                    if resp.status_code == 200:
-                        cov_path.write_bytes(resp.content)
+                    if _is_safe_url(url):
+                        resp = http_session.get(url, timeout=3)
+                        if resp.status_code == 200:
+                            cov_path.write_bytes(resp.content)
                 except Exception:
                     pass
             
@@ -777,12 +824,13 @@ def _build_characters_content():
                 "return false;"
             )
             safe_onclick = html.escape(onclick_js, quote=True)
+            safe_source = html.escape(source or "danbooru")
             cards_html.append(
                 f"""
                 <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
                         {fav_html}
-                        <div class='sdcf-badge sdcf-badge-{source}'>{source}</div>
+                        <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>

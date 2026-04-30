@@ -71,6 +71,26 @@ try:
             ),
         )
         shared.opts.add_option(
+            "sdcf_artist_gallery_thumb_size",
+            shared.OptionInfo(
+                260,
+                "Artist gallery thumbnail size (px)",
+                component=gr.Slider,
+                component_args={"minimum": 150, "maximum": 450, "step": 10},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_artist_gallery_columns",
+            shared.OptionInfo(
+                3,
+                "Artist gallery cards per row",
+                component=gr.Slider,
+                component_args={"minimum": 1, "maximum": 6, "step": 1},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
             "sdcf_add_deduplicate",
             shared.OptionInfo(
                 True,
