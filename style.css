@@ -606,16 +606,18 @@
 /* Artist source badge */
 .sdcf-artist-gallery .civmodelcard .sdcf-badge {
     position: absolute;
-    bottom: 32px;
+    top: 6px;
     left: 6px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 3px 8px;
-    border-radius: 6px;
+    padding: 2px 6px;
+    border-radius: 4px;
     z-index: 4;
     pointer-events: none;
+    line-height: 1;
+    display: inline-block;
 }
 
 /* Artist preview panel — dual images */

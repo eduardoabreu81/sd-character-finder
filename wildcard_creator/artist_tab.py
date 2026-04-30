@@ -184,6 +184,7 @@ def _build_gallery_html(
         onclick_js = (
             f"document.getElementById('sdcf_artist_gallery_click_idx').value='{a_id}';"
             "document.getElementById('sdcf_artist_gallery_click_idx').dispatchEvent(new Event('input',{bubbles:true}));"
+            "document.getElementById('sdcf_artist_gallery_click_idx').dispatchEvent(new Event('change',{bubbles:true}));"
             "return false;"
         )
         safe_onclick = html.escape(onclick_js, quote=True)
@@ -541,3 +542,10 @@ def build_artist_tab():
         "total_pages_state": artist_total_pages_state,
         "results_state": artist_results_state,
     }
+
+
+def build_artist_ui():
+    """Build and return a complete Gradio Blocks for the Artists tab (top-level)."""
+    with gr.Blocks(elem_id="sdcf_main_blocks") as blocks:
+        build_artist_tab()
+    return blocks

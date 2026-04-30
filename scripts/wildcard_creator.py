@@ -17,8 +17,13 @@ try:
 
     def on_ui_tabs():
         from wildcard_creator.ui import build_ui
-        blocks = build_ui()
-        return [(blocks, "Danbooru Characters", "sd_character_finder")]
+        from wildcard_creator.artist_tab import build_artist_ui
+        blocks_characters = build_ui()
+        blocks_artists = build_artist_ui()
+        return [
+            (blocks_characters, "Characters", "sd_character_finder"),
+            (blocks_artists, "Artists", "sd_character_finder_artists"),
+        ]
 
     def on_ui_settings():
         section = ("sd_character_finder", "SD Character Finder")

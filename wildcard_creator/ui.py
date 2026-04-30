@@ -30,7 +30,6 @@ from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
 from wildcard_creator.favorites import get_favorites_db
 from wildcard_creator.search_history import get_search_history_db
-from wildcard_creator.artist_tab import build_artist_tab
 
 
 _GR_VERSION = getattr(gr, "__version__", "3.0.0")
@@ -433,9 +432,6 @@ def _build_characters_content():
                 with gr.Tab("Gallery View", id="tab_fav_gallery"):
                     fav_html = gr.HTML(value=_initial_favorites_gallery)
             fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_fav_select_idx")
-
-        with gr.Tab("🎨 Artists", id="tab_artists"):
-            build_artist_tab()
 
     char_results_state = gr.State([])  # full result list (with tags/image_url)
     recent_chars_state = gr.State(_initial_recent)   # list of {name, series, id, tags, danbooru_tag, image_url}
