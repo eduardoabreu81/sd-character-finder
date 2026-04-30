@@ -32,17 +32,11 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ## 🆕 What's New
 
-### v0.6.0 — Artist Style Discovery & XSS/SSRF Security Fixes
+### v0.6.0 — Artist Style Discovery
 - **🎨 Artist Style Browser** — Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621) with dual-preview cards showing each artist's unique drawing style in two different contexts. One click adds `by artist_name` to your prompt.
-- **Security Fixes** — Fixed XSS vulnerability in gallery rendering and SSRF vulnerability in image downloads.
-- **Dual-Preview Cards** — Every artist shows two style examples side-by-side (e.g., Tifa Lockhart style + Harry Potter style) so you can visually compare their technique before applying.
+- **Dual-Preview Cards** — Every artist shows two style examples side-by-side so you can visually compare their technique before applying.
 - **Separate Settings** — Artists have their own pagination limit, thumbnail size, and column count settings independent from characters.
-- **Tag Escaping** — Parentheses in artist names are automatically escaped for Stable Diffusion prompt compatibility (e.g., `bb_(baalbuddy)` becomes `bb_\(baalbuddy\)`).
-
-### v0.5.3 — Hotfix: Startup Crash & Database Lock
-- **Database Lock Fix** — Disabled WAL mode and added safe cleanup to permanently prevent the `database disk image is malformed` error when updating via git on platforms like RunPod.
-- **Startup Crash Fix** — Resolved a `NameError` that prevented the UI from booting after recent pagination changes.
-- **Gallery History Click** — Fixed issue where clicking a character in the "Recently Viewed" list wouldn't load their details.
+- **Security Improvements** — Fixed potential vulnerabilities in gallery rendering and image downloads.
 
 ---
 
