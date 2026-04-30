@@ -107,20 +107,25 @@ def _is_safe_url(url: str) -> bool:
         return False
 
 
-def _download_cover(url: str, artist_id: int) -> str | None:
-    """Download cover, cache as base64 data URI, return the data URI or original URL."""
+def _download_cover(url: str, artist_id: int, preview_idx: int = 1) -> str | None:
+    """Download cover, cache as base64 data URI, return the data URI or original URL.
+    
+    preview_idx: 1 for preview1 (Tifa style), 2 for preview2 (Harry style)
+    """
     if not url or not artist_id:
         return None
 
-    cached = _cache_get(artist_id)
+    cache_key = (artist_id, preview_idx)
+    cached = _cover_data_uri_cache.get(cache_key)
     if cached:
+        _cover_data_uri_cache.move_to_end(cache_key)
         return cached
 
     repo_root = Path(__file__).resolve().parent.parent
     covers_dir = repo_root / "data" / "artist_covers"
     covers_dir.mkdir(parents=True, exist_ok=True)
 
-    cov_path = covers_dir / f"{artist_id}.jpg"
+    cov_path = covers_dir / f"{artist_id}_{preview_idx}.jpg"
     if not cov_path.exists():
         try:
             if _is_safe_url(url):
@@ -134,7 +139,10 @@ def _download_cover(url: str, artist_id: int) -> str | None:
         try:
             img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
             data_uri = f"data:image/jpeg;base64,{img_b64}"
-            _cache_set(artist_id, data_uri)
+            _cover_data_uri_cache[cache_key] = data_uri
+            _cover_data_uri_cache.move_to_end(cache_key)
+            while len(_cover_data_uri_cache) > COVER_CACHE_MAX:
+                _cover_data_uri_cache.popitem(last=False)
             return data_uri
         except Exception:
             return url
@@ -154,8 +162,8 @@ def _build_gallery_html(
 
     def fetch_covers(artist):
         a_id = artist["id"]
-        img1 = _download_cover(artist.get("image_url_1"), a_id)
-        img2 = _download_cover(artist.get("image_url_2"), a_id)
+        img1 = _download_cover(artist.get("image_url_1"), a_id, preview_idx=1)
+        img2 = _download_cover(artist.get("image_url_2"), a_id, preview_idx=2)
         return (a_id, img1 or "", img2 or "")
 
     covers = {}
@@ -222,8 +230,8 @@ def _build_preview_html(artist: dict | None, is_favorite: bool = False) -> str:
     source = artist.get("source", "danbooru")
     a_id = artist.get("id", 0)
 
-    img1 = _download_cover(artist.get("image_url_1"), a_id) or ""
-    img2 = _download_cover(artist.get("image_url_2"), a_id) or ""
+    img1 = _download_cover(artist.get("image_url_1"), a_id, preview_idx=1) or ""
+    img2 = _download_cover(artist.get("image_url_2"), a_id, preview_idx=2) or ""
 
     safe_name = html.escape(name)
     safe_tag = html.escape(tag)
