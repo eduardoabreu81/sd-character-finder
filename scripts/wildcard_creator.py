@@ -96,6 +96,16 @@ try:
             ),
         )
         shared.opts.add_option(
+            "sdcf_artist_search_limit",
+            shared.OptionInfo(
+                24,
+                "Artist results per page",
+                component=gr.Slider,
+                component_args={"minimum": 6, "maximum": 48, "step": 6},
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
             "sdcf_add_deduplicate",
             shared.OptionInfo(
                 True,

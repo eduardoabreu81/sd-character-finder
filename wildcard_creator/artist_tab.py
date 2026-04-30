@@ -285,7 +285,7 @@ def build_artist_tab():
     """Build and return all Gradio components for the Artists tab."""
 
     # -- Settings defaults --
-    raw_limit = _get_settings_opt("sdcf_search_limit", 30)
+    raw_limit = _get_settings_opt("sdcf_artist_search_limit", 24)
     raw_thumb_size = _get_settings_opt("sdcf_artist_gallery_thumb_size", 260)
     raw_gallery_columns = _get_settings_opt("sdcf_artist_gallery_columns", 3)
     results_per_page = max(5, min(int(raw_limit), 60))
