@@ -190,9 +190,15 @@ def _build_gallery_html(
         fav_html = "<span class='sdcf-fav-badge'>❤️</span>" if is_fav else ""
 
         onclick_js = (
-            f"document.getElementById('sdcf_artist_gallery_click_idx').value='{a_id}';"
-            "document.getElementById('sdcf_artist_gallery_click_idx').dispatchEvent(new Event('input',{bubbles:true}));"
-            "document.getElementById('sdcf_artist_gallery_click_idx').dispatchEvent(new Event('change',{bubbles:true}));"
+            "const app=(window.gradioApp?window.gradioApp():document);"
+            "const input=app.querySelector('#sdcf_artist_gallery_click_idx textarea, #sdcf_artist_gallery_click_idx input');"
+            "if(input){"
+            f"input.value='{a_id}';"
+            "input.dispatchEvent(new Event('input',{bubbles:true}));"
+            "input.dispatchEvent(new Event('change',{bubbles:true}));"
+            "}"
+            "const btn=app.querySelector('#sdcf_artist_hidden_click');"
+            "if(btn){btn.click();}"
             "return false;"
         )
         safe_onclick = html.escape(onclick_js, quote=True)
@@ -305,6 +311,8 @@ def build_artist_tab():
         elem_id="sdcf_artist_gallery_html",
     )
     artist_gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_artist_gallery_click_idx")
+    # Hidden button for reliable click event (Gradio 4 compatible)
+    btn_artist_hidden_click = gr.Button("Select Artist", visible=False, elem_id="sdcf_artist_hidden_click")
 
     # -- Pagination --
     with gr.Row():
@@ -504,6 +512,13 @@ def build_artist_tab():
         inputs=[artist_gallery_click_idx, artist_results_state],
         outputs=[artist_name_out, artist_tag_out, artist_preview, artist_status, artist_selected_id_state, btn_artist_favorite],
     )
+    
+    # Hidden button click (fallback for Gradio 4 compatibility)
+    btn_artist_hidden_click.click(
+        fn=on_artist_select,
+        inputs=[artist_gallery_click_idx, artist_results_state],
+        outputs=[artist_name_out, artist_tag_out, artist_preview, artist_status, artist_selected_id_state, btn_artist_favorite],
+    )
 
     btn_artist_favorite.click(
         fn=toggle_artist_favorite,
@@ -554,6 +569,17 @@ def build_artist_tab():
 
 def build_artist_ui():
     """Build and return a complete Gradio Blocks for the Artists tab (top-level)."""
+    # Load CSS from style.css (same approach as ui.py)
+    css_path = Path(__file__).resolve().parent.parent / "style.css"
+    css_content = ""
+    if css_path.exists():
+        try:
+            css_content = css_path.read_text(encoding="utf-8")
+        except Exception:
+            pass
+    
     with gr.Blocks(elem_id="sdcf_main_blocks") as blocks:
+        if css_content:
+            gr.HTML(f"<style>{css_content}</style>")
         build_artist_tab()
     return blocks
