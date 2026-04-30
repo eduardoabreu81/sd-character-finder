@@ -28,6 +28,18 @@ from wildcard_creator.artist_favorites import get_artist_favorites_db
 
 logger = logging.getLogger(__name__)
 
+
+def _escape_tag_for_sd(tag: str) -> str:
+    """Escape parentheses for Stable Diffusion prompt compatibility.
+    
+    In SD WebUI, parentheses are used for weight emphasis:
+      (word)  -> increases weight
+      \(word\) -> literal text
+    
+    Example: bb_(baalbuddy) -> bb_\(baalbuddy\)
+    """
+    return tag.replace("(", r"\(").replace(")", r"\)")
+
 # ---------------------------------------------------------------------------
 # Config / cache
 # ---------------------------------------------------------------------------
@@ -427,9 +439,10 @@ def build_artist_tab():
         is_fav = fav_db.is_favorite(artist_id)
         preview_html = _build_preview_html(artist, is_favorite=is_fav)
 
+        escaped_tag = _escape_tag_for_sd(artist.get("tag", "") or artist.get("name", ""))
         return [
             gr.update(value=artist.get("display_name", "") or artist.get("name", "")),
-            gr.update(value=artist.get("tag", "") or artist.get("name", "")),
+            gr.update(value=escaped_tag),
             gr.update(value=preview_html),
             gr.update(value=""),
             artist_id,
