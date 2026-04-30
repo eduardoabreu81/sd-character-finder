@@ -14,7 +14,7 @@
 
 > **Can't remember the exact tag for that specific character? Want to generate an image from a series and discover tags you didn't even know existed? Say no more!** 🦸‍♂️
 
-Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI. Browse over **23,000+ characters** (Danbooru and e621) without leaving your UI, search by name, tag, or series, preview their thumbnails, and send their perfect prompt tags straight to `txt2img` with a single click!
+Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse over **23,000+ characters** (Danbooru and e621) and **10,000+ artist styles** without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
 
 ---
 
@@ -32,15 +32,17 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🆕 What's New
 
+### v0.6.0 — Artist Style Discovery & XSS/SSRF Security Fixes
+- **🎨 Artist Style Browser** — Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621) with dual-preview cards showing each artist's unique drawing style in two different contexts. One click adds `by artist_name` to your prompt.
+- **Security Fixes** — Fixed XSS vulnerability in gallery rendering and SSRF vulnerability in image downloads.
+- **Dual-Preview Cards** — Every artist shows two style examples side-by-side (e.g., Tifa Lockhart style + Harry Potter style) so you can visually compare their technique before applying.
+- **Separate Settings** — Artists have their own pagination limit, thumbnail size, and column count settings independent from characters.
+- **Tag Escaping** — Parentheses in artist names are automatically escaped for Stable Diffusion prompt compatibility (e.g., `bb_(baalbuddy)` becomes `bb_\(baalbuddy\)`).
+
 ### v0.5.3 — Hotfix: Startup Crash & Database Lock
 - **Database Lock Fix** — Disabled WAL mode and added safe cleanup to permanently prevent the `database disk image is malformed` error when updating via git on platforms like RunPod.
 - **Startup Crash Fix** — Resolved a `NameError` that prevented the UI from booting after recent pagination changes.
 - **Gallery History Click** — Fixed issue where clicking a character in the "Recently Viewed" list wouldn't load their details.
-
-### v0.5.2 — History Pagination, Auto-Select & DB Series Rescue
-- **DB Series Rescue** — Automatically fixed 709 popular characters that were missing their franchise metadata.
-- **Recently Viewed Extended** — Increased history retention limit to 100 characters and added independent pagination.
-- **Auto-Select Search Results** — Submitting a search now automatically selects and loads the preview image of the first result.
 
 ---
 
@@ -126,57 +128,43 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Completed Milestones
 
-### v0.1.0 — Huge UX Improvements *(complete)* ✅
+### v0.1.0 — Huge UX Improvements ✅
 
-### v0.2.0 — Big Cleanup & Polish *(complete)* ✅
-
-### v0.2.0 — UI Overhaul, Live API & Offline Caching *(complete)* ✅
+### v0.2.0 — UI Overhaul, Live API & Offline Caching ✅
 - Total layout overhaul (Split screen logic, Thumbnail on the left).
 - Better structure separating Danbooru 'Extra tags' dynamically by category (Character, Copyright, General, Artist and Meta).
 - Accurate default tag ordering mimicking NovelAI's preferred weighting style.
 - Full internal DB persistency using local files to avoid conflicts.
 - Local Base64 Image Caching in `data/covers/` directory to prevent bandwidth usage and timeouts.
 
-### v0.3.1 — Visual Search Stabilization *(complete)* ✅
+### v0.3.1 — Visual Search Stabilization ✅
 - Replaced unstable Gradio gallery layout with custom HTML card grid.
 - Added card-click selection bridge with consistent behavior across desktop/mobile.
 - Added large modal preview (`Click to expand`) from side preview.
 
-### v0.3.2 — Gallery Customization & Auto-Switch *(complete)* ✅
+### v0.3.2 — Gallery Customization & Auto-Switch ✅
 - Exposed thumbnail size and cards-per-row options in WebUI Settings.
 - Added automatic tab switching to `txt2img` when sending or appending tags.
 
-### v0.4.0 — e621 Support & Search UX *(complete)* ✅
+### v0.4.0 — e621 Support & Search UX ✅
 - Optional e621 support (Unified Database with >3000 characters & Source Filter).
 - Recently Viewed history panel for quick character hopping.
 - Multi-term `AND` search logic.
 
-### v0.4.1 — Reliability, Dedupe Control & Startup Sync *(complete)* ✅
-- Added optional deduplication toggle for `Add to txt2img`.
-- Improved startup source synchronization for Danbooru and e621 scraping.
-- Added SQLite runtime resilience and gallery fetch/cache performance improvements.
+### v0.5.0 — Favorites, History & UI Polish ✅
+- Favorites system with JSON persistence.
+- Recently Viewed history panel for quick character hopping.
+- Global pagination controls across all tabs.
+- Forge "Save UI Defaults" support.
 
-### v0.5.0 — Custom User Series & Collections *(complete)* ✅
-- Save custom character tags globally.
-- Custom Collections & Favorites system to quickly access and filter your top tier characters.
-- Extracted automation behaviors to improve user control.
-
-### v0.5.1 — Global Pagination & Forge State *(complete)* ✅
-- Pagination controls are now global across UI tabs.
-- Full support for Forge's "Save UI Defaults" (`elem_id` injection).
-- Search Reset logic correctly resets Series to "All".
-
-### v0.5.2 — History Pagination, Auto-Select & DB Rescue *(complete)* ✅
-- Fixed 709 missing series metadata natively in `characters.db`.
-- Upgraded the "Recently Viewed" tab space up to 100 characters and implemented standalone pagination limits.
-- The UI now automatically selects the first result in searches, showing the preview instantly.
-
-### v0.6.0 — Community Expansion & Advanced Tags *(planned)*
-- Save custom tags sets and export individual backup files.
-- Refined Tag Weights configuration from inside the UI.
-- Danbooru artist/style browser for discovery workflows.
+### v0.6.0 — Artist Style Discovery ✅
+- **10,000+ artist styles** with dual-preview cards.
+- Top-level Artists tab separate from Characters.
+- Visual style discovery with side-by-side previews.
+- One-click artist tag injection into prompts.
+- Separate pagination and display settings for artists.
 
 ---
 
@@ -184,7 +172,7 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 > ⭐ = Core Highlights
 
-### 🔍 Browse & Search
+### 🔍 Browse Characters
 - Browse **23,000+ characters** (20,000+ Danbooru and 3,000+ e621) directly inside the WebUI — no tab switching! ⭐
 - Search by character name, tag, or browse alphabetically by series/franchise
 - Use multiple keywords for precise filtering (e.g., `miku vocaloid` ensures both terms exist)
@@ -192,25 +180,34 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 - High-performance offline SQLite database ensures instant search results without internet dependence ⭐
 - Pagination system keeps the UI snappy even when returning thousands of results
 
+### 🎨 Discover Artist Styles *(NEW in v0.6.0)*
+- Browse **10,000+ artist styles** (6,024 Danbooru + 4,032 e621) in a dedicated Artists tab ⭐
+- **Dual-preview cards** — Every artist shows two side-by-side examples (e.g., Tifa Lockhart style + Harry Potter style) so you can visually compare their drawing technique before applying it ⭐
+- **Visual discovery** — Don't know an artist's name? Just browse the gallery and "scroll until something clicks" — thumbnails make discovering new styles effortless
+- **One-click apply** — Click any card, then hit **Add to txt2img** to inject `by artist_name` straight into your prompt
+- **Favorites for artists** — Save your favorite art styles for quick access, separate from character favorites
+- Separate pagination, thumbnail size, and column settings for the Artists gallery
+
 ### 🖼️ Character Info & Preview
 - View high-quality character thumbnails instantly (with color-coded Source Badges).
 - Stable visual card grid in **Gallery View** with responsive layout (desktop and mobile).
-- **Recently Viewed** panel tracks your last 10 clicked characters so you can quickly jump back to them.
-- Click any card to load character details and prompt tags.
+- **Recently Viewed** panel tracks your last clicked characters and artists.
+- Click any card to load details and prompt tags.
 - Side preview supports **Click to expand** and opens a large modal image.
-- Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category (Copyright, Character, General, Artist, Meta) ⭐
+- Expandable **Live Danbooru Tags** menu: dynamically fetch extra character-specific tags from Danbooru (like clothes, eyes, hair) separated into explicit selectable Checkboxes by Category ⭐
 - Automatically sorts appended web-tags following optimal generation standards (NovelAI style formatting).
 - Clean, translation-ready interface integrating straight into A1111/Forge standard inputs.
 
 ### 🚀 One-Click Prompting
-- **Send to Generate** — Instantly replaces your current `txt2img` prompt with the character's signature tags and **automatically switches you to the tab**.
-- **Add to txt2img** — Intelligently appends the character tags to your *existing* prompt ⭐
+- **Send to Generate** — Instantly replaces your current `txt2img` prompt and **automatically switches you to the tab**.
+- **Add to txt2img** — Intelligently appends tags to your *existing* prompt ⭐
 - **Smart Deduplication** — Automatically removes duplicate words when enabled in Settings
-- **Manual Duplicate Mode** — Disable deduplication in Settings to force raw append behavior
+- Supports both **Character tags** and **Artist style tags** seamlessly
 
 ### ⚙️ Configuration
 - Fully integrated with the native WebUI settings menu (Settings -> Options -> SD Character Finder)
-- Configure results per page (`5..30`), **thumbnail sizes, cards per row**, deduplication behavior for `Add to txt2img`, Danbooru API credentials, and default behaviors
+- Configure results per page for **Characters** and **Artists** independently
+- **Thumbnail sizes, cards per row**, deduplication behavior, Danbooru API credentials, and default behaviors
 - Fast, lightweight, and completely localized
 
 ---
@@ -231,14 +228,18 @@ Your ultimate character encyclopedia directly inside your Stable Diffusion WebUI
 
 ## 🚀 Quick Start
 
-1. Go to the new **Danbooru Characters** tab in your WebUI.
+1. Go to the new **Characters** tab in your WebUI.
 2. Type a character name or tag (e.g., miku, saber, blue hair), or pick a series from the **Series Dropdown** (e.g., Arknights).
 3. Click **🔍 Search**.
-4. Click on any character in the results table to see their preview card and tags.
-5. In **Gallery View**, click a visual card to select it instantly.
-6. Click the side preview image (`Click to expand`) to open a larger modal view.
-7. Expand **Extra tags** if you want to pull more specific prompt descriptors directly from the web.
-8. Click **➡️ Send to Generate** or **➕ Add to txt2img** to instantly fill your prompt!
+4. Click on any character card to see their preview and tags.
+5. Click **➡️ Send to Generate** or **➕ Add to txt2img** to instantly fill your prompt!
+
+### 🎨 Discovering Artist Styles
+1. Switch to the **Artists** tab.
+2. Browse the gallery visually — each card shows two style examples side-by-side.
+3. Found a style you like? Click the card to load the artist's tag.
+4. Click **➕ Add to txt2img** to inject `by artist_name` into your prompt.
+5. Combine character + artist for unique generations!
 
 ---
 
