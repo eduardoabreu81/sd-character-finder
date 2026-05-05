@@ -16,16 +16,28 @@ try:
     from modules import script_callbacks, shared
 
     def on_ui_tabs():
-        from wildcard_creator.ui import build_ui
-        from wildcard_creator.artist_tab import build_artist_ui
+        from wildcard_creator.ui import _build_characters_content
+        from wildcard_creator.artist_tab import build_artist_tab
         import gradio as gr
+        from pathlib import Path
+        
+        # Load CSS once at the top-level Blocks
+        css_path = Path(__file__).resolve().parent.parent / "style.css"
+        css_content = ""
+        if css_path.exists():
+            try:
+                css_content = css_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
         
         with gr.Blocks(elem_id="sdcf_main_blocks") as main_blocks:
+            if css_content:
+                gr.HTML(f"<style>{css_content}</style>")
             with gr.Tabs():
                 with gr.Tab("Characters", id="tab_characters"):
-                    build_ui()
+                    _build_characters_content()
                 with gr.Tab("Artists", id="tab_artists"):
-                    build_artist_ui()
+                    build_artist_tab()
         
         return [(main_blocks, "SD Character Finder", "sd_character_finder")]
 
