@@ -412,6 +412,21 @@ def build_artist_tab():
             gr.update(value=page),
         ]
 
+    def search_first_page(query, source):
+        return do_artist_search(query, source, 1)
+
+    def prev_page_action(query, source, page):
+        new_page = max(1, page - 1)
+        return do_artist_search(query, source, new_page)
+
+    def next_page_action(query, source, page, total_pages):
+        new_page = min(total_pages, page + 1)
+        return do_artist_search(query, source, new_page)
+
+    def jump_page_action(query, source, jump_page, total_pages):
+        new_page = max(1, min(total_pages, int(jump_page or 1)))
+        return do_artist_search(query, source, new_page)
+
     def on_artist_select(artist_id_str, results):
         artist_id = int(artist_id_str) if artist_id_str and artist_id_str != "-1" else None
         if not artist_id or not results:
@@ -474,14 +489,14 @@ def build_artist_tab():
     # -- Event wiring --
 
     btn_artist_search.click(
-        fn=do_artist_search,
-        inputs=[artist_search, artist_source_filter, artist_page_state],
+        fn=search_first_page,
+        inputs=[artist_search, artist_source_filter],
         outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     artist_search.submit(
-        fn=do_artist_search,
-        inputs=[artist_search, artist_source_filter, artist_page_state],
+        fn=search_first_page,
+        inputs=[artist_search, artist_source_filter],
         outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
@@ -489,39 +504,23 @@ def build_artist_tab():
         fn=lambda: ["", "all", 1],
         inputs=[],
         outputs=[artist_search, artist_source_filter, artist_page_state],
-    ).then(
-        fn=do_artist_search,
-        inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     btn_artist_prev.click(
-        fn=lambda p, tp: max(1, p - 1),
-        inputs=[artist_page_state, artist_total_pages_state],
-        outputs=[artist_page_state],
-    ).then(
-        fn=do_artist_search,
+        fn=prev_page_action,
         inputs=[artist_search, artist_source_filter, artist_page_state],
         outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     btn_artist_next.click(
-        fn=lambda p, tp: min(tp, p + 1),
-        inputs=[artist_page_state, artist_total_pages_state],
-        outputs=[artist_page_state],
-    ).then(
-        fn=do_artist_search,
-        inputs=[artist_search, artist_source_filter, artist_page_state],
+        fn=next_page_action,
+        inputs=[artist_search, artist_source_filter, artist_page_state, artist_total_pages_state],
         outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
-    artist_page_jump.change(
-        fn=lambda jp, tp: max(1, min(tp, int(jp or 1))),
-        inputs=[artist_page_jump, artist_total_pages_state],
-        outputs=[artist_page_state],
-    ).then(
-        fn=do_artist_search,
-        inputs=[artist_search, artist_source_filter, artist_page_state],
+    artist_page_jump.submit(
+        fn=jump_page_action,
+        inputs=[artist_search, artist_source_filter, artist_page_jump, artist_total_pages_state],
         outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
