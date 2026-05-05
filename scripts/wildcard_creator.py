@@ -18,12 +18,16 @@ try:
     def on_ui_tabs():
         from wildcard_creator.ui import build_ui
         from wildcard_creator.artist_tab import build_artist_ui
-        blocks_characters = build_ui()
-        blocks_artists = build_artist_ui()
-        return [
-            (blocks_characters, "Characters", "sd_character_finder"),
-            (blocks_artists, "Artists", "sd_character_finder_artists"),
-        ]
+        import gradio as gr
+        
+        with gr.Blocks(elem_id="sdcf_main_blocks") as main_blocks:
+            with gr.Tabs():
+                with gr.Tab("Characters", id="tab_characters"):
+                    build_ui()
+                with gr.Tab("Artists", id="tab_artists"):
+                    build_artist_ui()
+        
+        return [(main_blocks, "SD Character Finder", "sd_character_finder")]
 
     def on_ui_settings():
         section = ("sd_character_finder", "SD Character Finder")

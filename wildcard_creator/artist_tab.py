@@ -284,14 +284,17 @@ def _build_preview_html(artist: dict | None, is_favorite: bool = False) -> str:
 def build_artist_tab():
     """Build and return all Gradio components for the Artists tab."""
 
-    # -- Settings defaults --
-    raw_limit = _get_settings_opt("sdcf_artist_search_limit", 24)
-    raw_thumb_size = _get_settings_opt("sdcf_artist_gallery_thumb_size", 260)
-    raw_gallery_columns = _get_settings_opt("sdcf_artist_gallery_columns", 3)
-    results_per_page = max(5, min(int(raw_limit), 60))
-    thumb_size = max(80, min(int(raw_thumb_size), 400))
-    gallery_columns = max(1, min(int(raw_gallery_columns), 6))
-    mobile_columns = max(1, min(gallery_columns, 2))
+    def _get_artist_settings():
+        """Read current settings for artists (called on each event to reflect changes)."""
+        raw_limit = _get_settings_opt("sdcf_artist_search_limit", 24)
+        raw_thumb_size = _get_settings_opt("sdcf_artist_gallery_thumb_size", 260)
+        raw_gallery_columns = _get_settings_opt("sdcf_artist_gallery_columns", 3)
+        return {
+            "limit": max(6, min(int(raw_limit), 48)),
+            "thumb_size": max(80, min(int(raw_thumb_size), 400)),
+            "gallery_columns": max(1, min(int(raw_gallery_columns), 6)),
+            "mobile_columns": max(1, min(int(raw_gallery_columns), 2)),
+        }
 
     # -- States --
     artist_page_state = gr.State(1)
@@ -383,7 +386,8 @@ def build_artist_tab():
     def do_artist_search(query, source, page):
         db = get_artist_db()
         fav_db = get_artist_favorites_db()
-        limit = results_per_page
+        settings = _get_artist_settings()
+        limit = settings["limit"]
         offset = (page - 1) * limit
 
         total = db.count(query=query, source=source)
@@ -394,9 +398,9 @@ def build_artist_tab():
         gallery_html = _build_gallery_html(
             results,
             fav_db,
-            cols=gallery_columns,
-            mobile_cols=mobile_columns,
-            thumb_size=thumb_size,
+            cols=settings["gallery_columns"],
+            mobile_cols=settings["mobile_columns"],
+            thumb_size=settings["thumb_size"],
         )
 
         return [
