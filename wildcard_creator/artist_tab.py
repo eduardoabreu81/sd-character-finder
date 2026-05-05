@@ -404,12 +404,12 @@ def build_artist_tab():
         )
 
         return [
-            gallery_html,
+            gr.update(value=gallery_html),
             results,
-            gr.update(value=page),
-            gr.update(value=total_pages),
-            f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages}</div>",
-            gr.update(value=page),
+            page,
+            total_pages,
+            gr.update(value=f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages}</div>"),
+            page,
         ]
 
     def search_first_page(query, source):
@@ -544,19 +544,21 @@ def build_artist_tab():
     )
 
     # Add to txt2img — injects tag into the prompt textarea via JS
+    # Note: JS runs AFTER the Python fn. If JS returns a value it OVERWRITES the
+    # Python output. We intentionally return undefined so Python's status msg wins.
     btn_artist_add.click(
         fn=do_artist_add,
         inputs=[artist_tag_out],
         outputs=[artist_status],
         **get_js_kw("""(tag) => {
             const promptEl = gradioApp().querySelector('#txt2img_prompt textarea');
-            if (!promptEl || !tag) return [tag];
-            const current = promptEl.value || '';
-            const trimmed = current.trim();
-            promptEl.value = trimmed ? (trimmed + ', ' + tag) : tag;
-            promptEl.dispatchEvent(new Event('input', {bubbles: true}));
-            promptEl.dispatchEvent(new Event('change', {bubbles: true}));
-            return [tag];
+            if (promptEl && tag) {
+                const current = promptEl.value || '';
+                const trimmed = current.trim();
+                promptEl.value = trimmed ? (trimmed + ', ' + tag) : tag;
+                promptEl.dispatchEvent(new Event('input', {bubbles: true}));
+                promptEl.dispatchEvent(new Event('change', {bubbles: true}));
+            }
         }""")
     )
 
@@ -566,9 +568,7 @@ def build_artist_tab():
         inputs=[artist_tag_out],
         outputs=[artist_status],
         **get_js_kw("""(tag) => {
-            if (!tag) return [tag];
-            navigator.clipboard.writeText(tag).catch(() => {});
-            return [tag];
+            if (tag) navigator.clipboard.writeText(tag).catch(() => {});
         }""")
     )
 
