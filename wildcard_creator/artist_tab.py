@@ -231,7 +231,7 @@ def _build_gallery_html(
         )
 
     return (
-        f"<div id='sdcf_artist_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery' style='--sdcf-artist-cols:{cols};--sdcf-artist-mobile-cols:{mobile_cols};--sdcf-artist-thumb-size:{thumb_size}px'><div class='civmodellist'>"
+        f"<div id='sdcf_artist_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery' style='--sdcf-artist-thumb-size:{thumb_size}px'><div class='civmodellist' style='grid-template-columns: repeat({cols}, minmax(0, 1fr));'>"
         + "".join(cards_html)
         + "</div></div>"
     )
