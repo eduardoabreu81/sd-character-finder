@@ -32,6 +32,13 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ## 🆕 What's New
 
+### v0.6.1 — Artist Tab Reliability & Polish
+- **Unified Module Structure** — Characters and Artists now live inside a single **SD Character Finder** tab with internal sub-tabs (matching the CivitAI Browser pattern), cleaning up the top-level tab bar.
+- **Pagination Fixed** — Prev/Next and page jump now work correctly in the Artists tab. The root cause was Gradio `.then()` chains not passing updated `gr.State` values between handlers.
+- **Settings Now Reflect Live** — Changes to artist gallery columns, thumbnail size, and results-per-page in WebUI Settings are picked up immediately on the next search or page change.
+- **No More Image Cropping** — Artist cards switched to `object-fit: contain` so images display fully at any thumbnail size, with a clean dark background for letterboxing.
+- **Status Field Fixed** — The Status textbox no longer shows the raw artist tag after clicking **Add to txt2img**; it correctly displays the confirmation message.
+
 ### v0.6.0 — Artist Style Discovery
 - **🎨 MAJOR UPDATE — Artist Style Browser!** Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621). Browse visually, add the artist's tag with one click, and watch the magic happen — your generation's art style transforms instantly.
 - **Dual-Preview Cards** ⭐ — Every artist shows two side-by-side examples (e.g., *Tifa Lockhart* and *Harry Potter* both rendered in that artist's unique style) so you can instantly see how their drawing technique looks applied to different subjects before adding it to your prompt.
@@ -41,6 +48,13 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 ---
 
 ## 📖 Changelog
+
+### v0.6.1 — Artist Tab Reliability & Polish
+- **Unified Tab Structure** — Artists is now a sub-tab inside "SD Character Finder" instead of a separate top-level tab.
+- **Pagination Fix** — Removed broken Gradio `.then()` chains; pagination handlers now compute new pages internally like the Characters tab.
+- **Dynamic Settings** — Artist gallery columns, thumbnail size, and search limit are read fresh on every event instead of cached at build time.
+- **Image Crop Fix** — `object-fit: contain` replaces `cover` so artist previews show fully at any size.
+- **Status Message Fix** — JavaScript handlers no longer overwrite the Python confirmation message with the raw tag.
 
 ### v0.5.3 — Hotfix: Startup Crash & Database Lock
 - **Startup Crash Fix** — Fixed a `NameError` crash that prevented the Gradio extension from initializing on remote WebUI instances (like RunPod) after the recent pagination updates.
@@ -155,10 +169,15 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ### v0.6.0 — Artist Style Discovery ✅
 - **10,000+ artist styles** with dual-preview cards.
-- Top-level Artists tab separate from Characters.
 - Visual style discovery with side-by-side previews.
 - One-click artist tag injection into prompts.
 - Separate pagination and display settings for artists.
+
+### v0.6.1 — Artist Tab Polish ✅
+- Unified sub-tab structure (Characters + Artists inside one module).
+- Live pagination and settings reflection.
+- Clean image rendering without cropping.
+- Stable status messages after add/copy actions.
 
 ---
 
