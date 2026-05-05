@@ -536,14 +536,17 @@
     aspect-ratio: 3 / 2; /* wider aspect ratio for two images */
     display: flex;
     gap: 2px;
+    background: #111; /* dark background for letterbox when images don't fill */
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 /* Each preview image takes half the card */
 .sdcf-artist-gallery .civmodelcard figure img {
     width: 50%;
     height: 100%;
-    object-fit: cover;
-    object-position: top center;
+    object-fit: contain; /* show full image, no crop */
+    object-position: center;
     display: block;
 }
 
