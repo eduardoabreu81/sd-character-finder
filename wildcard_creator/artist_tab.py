@@ -409,6 +409,7 @@ def build_artist_tab():
             gr.update(value=page),
             gr.update(value=total_pages),
             f"<div style='text-align: center; margin-top: 8px;'>Page {page} of {total_pages}</div>",
+            gr.update(value=page),
         ]
 
     def on_artist_select(artist_id_str, results):
@@ -475,13 +476,13 @@ def build_artist_tab():
     btn_artist_search.click(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     artist_search.submit(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     btn_artist_clear.click(
@@ -491,7 +492,7 @@ def build_artist_tab():
     ).then(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     btn_artist_prev.click(
@@ -501,7 +502,7 @@ def build_artist_tab():
     ).then(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     btn_artist_next.click(
@@ -511,7 +512,7 @@ def build_artist_tab():
     ).then(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     artist_page_jump.change(
@@ -521,7 +522,7 @@ def build_artist_tab():
     ).then(
         fn=do_artist_search,
         inputs=[artist_search, artist_source_filter, artist_page_state],
-        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator],
+        outputs=[artist_gallery, artist_results_state, artist_page_state, artist_total_pages_state, artist_page_indicator, artist_page_jump],
     )
 
     artist_gallery_click_idx.change(
