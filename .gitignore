@@ -15,3 +15,6 @@ __pycache__/
 tmp_resolve_*.txt
 data/covers/
 data/user_overrides.json
+
+AGENTS.md
+
