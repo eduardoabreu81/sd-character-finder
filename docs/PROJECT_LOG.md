@@ -121,3 +121,11 @@
 - Changes in startup scraping may increase first-boot background activity when source counts are below thresholds.
 - Deduplication toggle affects prompt composition behavior in `Add to txt2img`; users should verify preferred mode.
 - SQLite pragmas depend on environment capabilities; fallbacks remain best-effort.
+
+---
+
+## Notas de Manutenção
+
+### Regras de Documentação
+
+> **What's New (apenas a família da minor atual):** A seção "What's New" do README.md mantém SOMENTE a entrada da versão da minor atual (ex: se estamos em v0.4.x, só fica v0.4.0 no What's New). Versões anteriores pertencem exclusivamente ao Changelog.

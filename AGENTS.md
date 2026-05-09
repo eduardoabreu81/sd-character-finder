@@ -51,7 +51,7 @@ sd-character-finder/
 │   └── wildcard_creator.py      # WebUI entry point (tab registration)
 ├── wildcard_creator/            # Main package (legacy name, don't rename)
 │   ├── __init__.py
-│   ├── ui.py                    # Gradio UI (1,500+ lines)
+│   ├── ui.py                    # Gradio UI (~1,650 lines)
 │   ├── character_db.py          # SQLite database interface
 │   ├── danbooru.py              # Danbooru API + CSV tag database
 │   ├── favorites.py             # Favorites JSON persistence
@@ -74,7 +74,12 @@ sd-character-finder/
 ├── wildcards/                   # Output folder for TXT wildcards
 ├── style.css                    # Custom CSS (Gradio 4 patches)
 ├── install.py                   # Extension install hook
-└── test_df.py                   # Dev utility for testing Gradio
+├── test_df.py                   # Dev utility for testing Gradio DataFrame
+├── docs/                        # Local planning docs (gitignored)
+│   ├── PROJECT_LOG.md           # Technical change log (Portuguese)
+│   └── PLANO_MELHORIAS.md       # Improvement roadmap (Portuguese)
+└── .github/
+    └── copilot-instructions.md  # AI workflow rules (gitignored)
 ```
 
 ---
@@ -131,6 +136,11 @@ CREATE TABLE characters (
    - `favorites.json` stores character IDs
    - Toggle via "Favorite" button → updates preview badge + favorites tab
 
+5. **User Overrides:**
+   - `data/user_overrides.json` stores user-saved `danbooru_tag` overrides
+   - Applied automatically on DB connection via `character_db.apply_overrides()`
+   - Gitignored to prevent conflicts on `git pull`
+
 ---
 
 ## Development
@@ -181,9 +191,25 @@ for ddl in [
         pass  # column already exists
 ```
 
+### Versioning
+
+The project follows **Semantic Versioning** `vX.Y.Z`:
+- **X** — Breaking architecture change (DB schema, API restructuring)
+- **Y** — New backward-compatible feature
+- **Z** — Bug fix / stability patch
+
 ---
 
 ## Testing
+
+### Automated Tests
+
+There are **no automated test suites** in this project. The only test-related file is:
+
+```bash
+# Quick Gradio DataFrame test
+python test_df.py
+```
 
 ### Manual Testing Checklist
 
@@ -200,13 +226,6 @@ When modifying UI code, verify in **both** modes:
 - [ ] Recent searches dropdown
 - [ ] Recently viewed persistence
 
-### Test Script
-
-```bash
-# Quick Gradio DataFrame test
-python test_df.py
-```
-
 ---
 
 ## Code Style Guidelines
@@ -218,6 +237,9 @@ python test_df.py
 - **Line length:** ~100 characters (soft limit)
 - **Naming:** `snake_case` for functions/variables, `PascalCase` for classes
 - **Docstrings:** Google-style or concise single-line for simple functions
+- **Paths:** Always use `pathlib.Path`, encoding `"utf-8"` explicit
+- **I/O:** Critical I/O always wrapped with `try/except`
+- **Module state:** No mutable module-level state except lazy singletons (e.g., `get_db()`)
 
 ### Gradio Compatibility
 
@@ -233,6 +255,8 @@ def get_js_kw(js_script: str) -> dict:
 # Usage
 btn.click(fn=handler, inputs=[...], outputs=[...], **get_js_kw("alert('ok')"))
 ```
+
+**Handler outputs:** Gradio handlers should return `gr.update()` — never naked raw values.
 
 ### CSS Conventions
 
@@ -251,6 +275,31 @@ Keep inline JS in `**get_js_kw()` calls readable with multiline strings:
     ...
 """)
 ```
+
+### WebUI Imports
+
+Imports from `modules.*` must always be inside `try/except ImportError`:
+
+```python
+try:
+    from modules import shared
+    limit = getattr(shared.opts, "sdcf_search_limit", 30)
+except Exception:
+    limit = 30  # fallback
+```
+
+### Commit Convention
+
+```
+type(scope): short description
+
+Types: feat | fix | chore | refactor | docs | test
+Scope: python | js | css | readme | ci
+```
+
+Examples:
+- `feat(python): add character search filter by series`
+- `fix(js): correct send-to-generate selector for Gradio 4`
 
 ---
 
@@ -271,6 +320,8 @@ Settings are registered in `scripts/wildcard_creator.py` via WebUI's `shared.opt
 | `sdcf_live_min_freq` | 0.08 | Minimum tag frequency threshold |
 | `sdcf_scraper_rate_limit` | 1.0 | Seconds between API requests |
 | `sdcf_live_cache_ttl` | 1800 | Cache TTL for live tags (seconds) |
+| `sdcf_default_wildcards_path` | "" | Default folder for exported wildcards |
+| `sdcf_debug_logging` | False | Enable debug logging |
 
 Access in code:
 ```python
@@ -285,10 +336,11 @@ except Exception:
 
 ## Security Considerations
 
-1. **API Credentials:** Danbooru API key is stored in WebUI's settings (shared.opts). Never log or expose it.
+1. **API Credentials:** Danbooru API key is stored in WebUI's settings (`shared.opts`). Never log or expose it.
 2. **SQL Injection:** All DB queries use parameterized queries (`?` placeholders).
 3. **XSS:** All HTML output uses `html.escape()` for user-controlled content.
 4. **Path Traversal:** Wildcard export validates paths against discovered wildcard directories only.
+5. **Local Data:** Runtime JSON files (`favorites.json`, `search_history.json`, `recent_viewed.json`, `user_overrides.json`) contain user data and are gitignored. Never commit them.
 
 ---
 
@@ -317,6 +369,12 @@ Problem: Works only inside actual WebUI (Forge/A1111), not standalone.
 
 Solution: Use standalone mode for UI development, test integration in real WebUI.
 
+### Database Lock / Corruption on Remote Servers
+
+Problem: `database disk image is malformed` after `git pull` on RunPod.
+
+Solution: `character_db.py` disables WAL mode (`PRAGMA journal_mode=DELETE`) and auto-deletes orphaned `.db-wal`/`.db-shm` files on connection.
+
 ---
 
 ## File Naming Notes
@@ -328,8 +386,9 @@ Solution: Use standalone mode for UI development, test integration in real WebUI
 ## Git Conventions
 
 - Database files (`data/characters.db`) are **tracked in git** (pre-packaged data)
-- Runtime JSON files (`favorites.json`, `search_history.json`, `recent_viewed.json`) are **gitignored**
+- Runtime JSON files (`favorites.json`, `search_history.json`, `recent_viewed.json`, `user_overrides.json`) are **gitignored**
 - Thumbnail cache (`data/covers/`) is **gitignored**
+- Local planning docs (`docs/`, `.github/copilot-instructions.md`, `AGENTS.local.md`) are **gitignored**
 
 ---
 
@@ -338,3 +397,9 @@ Solution: Use standalone mode for UI development, test integration in real WebUI
 - [Danbooru API Docs](https://danbooru.donmai.us/wiki_pages/api)
 - [Gradio Docs](https://gradio.app/docs)
 - [AG Grid Themes](https://www.ag-grid.com/javascript-data-grid/themes/)
+
+---
+
+## Regras de Documentação
+
+> **What's New (apenas a família da minor atual):** A seção "What's New" do README.md mantém SOMENTE a entrada da versão da minor atual (ex: se estamos em v0.4.x, só fica v0.4.0 no What's New). Versões anteriores pertencem exclusivamente ao Changelog.
