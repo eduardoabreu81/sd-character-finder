@@ -2,7 +2,13 @@
 """
 Import the AnimaDex public catalogue into local SQLite databases.
 
+The AnimaDex export token can be provided via:
+  1) WebUI Settings > SD Character Finder > AnimaDex export token (recommended)
+  2) --token command-line argument
+  3) ANIMADEX_TOKEN environment variable
+
 Usage:
+    python scripts/import_anima.py
     python scripts/import_anima.py --token YOUR_TOKEN
     ANIMADEX_TOKEN=YOUR_TOKEN python scripts/import_anima.py
 
@@ -12,6 +18,9 @@ This downloads the character and artist CSVs from animadex.net and builds:
 
 Images are NOT downloaded here. They are fetched on-demand by the UI from
 https://blobs.animadex.net and cached locally under data/anima_covers/.
+
+NOTE: AnimaDex export tokens are personal. Full catalogue downloads are limited
+to 1x per 48h per token; delta updates and thumbnails are always allowed.
 """
 from __future__ import annotations
 
@@ -221,17 +230,39 @@ def import_artists(conn: sqlite3.Connection, csv_path: Path) -> int:
     return len(rows)
 
 
+def _get_settings_token() -> tuple[str, str]:
+    """Read AnimaDex token/site from the WebUI settings if available."""
+    try:
+        from modules import shared
+
+        token = str(getattr(shared.opts, "sdcf_animadex_token", "") or "")
+        site = str(getattr(shared.opts, "sdcf_animadex_site", DEFAULT_SITE) or DEFAULT_SITE)
+        return token, site
+    except Exception:
+        return "", DEFAULT_SITE
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--token", default=os.environ.get("ANIMADEX_TOKEN"), help="AnimaDex export token")
-    ap.add_argument("--site", default=DEFAULT_SITE, help="AnimaDex site base URL")
+    ap.add_argument("--token", default=None, help="AnimaDex export token (overrides settings/env)")
+    ap.add_argument("--site", default=None, help="AnimaDex site base URL (overrides settings)")
     args = ap.parse_args(argv)
 
-    if not args.token:
-        ap.error("Token is required. Use --token or set ANIMADEX_TOKEN env var.")
+    settings_token, settings_site = _get_settings_token()
+    token = (args.token or os.environ.get("ANIMADEX_TOKEN") or settings_token or "").strip()
+    site = (args.site or settings_site or DEFAULT_SITE).strip()
 
-    print(f"Contacting {args.site}...")
-    manifest = fetch_manifest(args.site, args.token)
+    if not token:
+        ap.error(
+            "AnimaDex export token is required.\n"
+            "Set it in Settings > SD Character Finder > AnimaDex export token, "
+            "or use --token / ANIMADEX_TOKEN env var.\n"
+            "Note: full catalogue downloads are limited to 1x per 48h per token; "
+            "delta updates and thumbnails are always allowed."
+        )
+
+    print(f"Contacting {site}...")
+    manifest = fetch_manifest(site, token)
     print(f"Catalogue version: {manifest['version']}")
     print(f"R2 base: {manifest['r2_base']}")
 

@@ -33,6 +33,14 @@ try:
         with gr.Blocks(elem_id="sdcf_main_blocks") as main_blocks:
             if css_content:
                 gr.HTML(f"<style>{css_content}</style>")
+            gr.HTML(
+                "<div style='padding:8px 12px;margin-bottom:8px;border-left:4px solid #a855f7;"
+                "background:rgba(168,85,247,0.08);border-radius:4px;font-size:13px;color:var(--body-text-color);'>"
+                "📦 The AnimaDex catalogue is bundled with the extension. To update it with your own data, "
+                "add your <strong>personal AnimaDex export token</strong> in Settings → SD Character Finder. "
+                "Full downloads are limited to 1× per 48h per token; thumbnails always work."
+                "</div>"
+            )
             with gr.Tabs():
                 with gr.Tab("Characters", id="tab_characters"):
                     _build_characters_content()
@@ -59,6 +67,24 @@ try:
                 section=section,
                 component=gr.Textbox,
                 component_args={"type": "password"},
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_animadex_token",
+            shared.OptionInfo(
+                "",
+                "AnimaDex export token (personal — do not share). Leave empty to use the bundled catalogue.",
+                section=section,
+                component=gr.Textbox,
+                component_args={"type": "password"},
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_animadex_site",
+            shared.OptionInfo(
+                "https://animadex.net",
+                "AnimaDex site base URL",
+                section=section,
             ),
         )
         shared.opts.add_option(
