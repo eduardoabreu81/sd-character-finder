@@ -164,7 +164,7 @@ class CharacterDB:
         elif tag_status_filter == "Has Danbooru Tag":
             clauses.append("(danbooru_tag IS NOT NULL AND danbooru_tag != '')")
 
-        if source_filter and source_filter != "both":
+        if source_filter and source_filter not in {"both", "all"}:
             clauses.append("source = ?")
             params.append(source_filter)
 

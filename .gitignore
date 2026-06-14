@@ -14,7 +14,21 @@ __pycache__/
 *.py[cod]
 tmp_resolve_*.txt
 data/covers/
-data/user_overrides.json
+data/artist_covers/
+data/anima_import/
+data/anima_preview_samples/
+*.db.backup_*
+data/artist_favorites.json
+data/favorites.json
+data/recent_viewed.json
+data/search_history.json
+
+# IDE / editor
+.vscode/
+*.ipynb
+
+# Test scripts
+test_df.py
 
 AGENTS.md
 

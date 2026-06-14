@@ -223,7 +223,7 @@ def _build_gallery_html(
                     <div class='sdcf-ref-count'>{ref_count:,} refs</div>
                     <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
                     <img src='{safe_img1}' alt='{safe_name} - preview 1' loading='lazy' />
-                    <img src='{safe_img2}' alt='{safe_name} - preview 2' loading='lazy' />
+                    {f"<img src='{safe_img2}' alt='{safe_name} - preview 2' loading='lazy' />" if img2 else ""}
                     <figcaption>{safe_name}</figcaption>
                 </figure>
             </div>
@@ -266,7 +266,7 @@ def _build_preview_html(artist: dict | None, is_favorite: bool = False) -> str:
     {src_badge}
     <div class='sdcf-artist-preview-images'>
         <img src='{safe_img1}' alt='{safe_name} - style preview 1' />
-        <img src='{safe_img2}' alt='{safe_name} - style preview 2' />
+        {f"<img src='{safe_img2}' alt='{safe_name} - style preview 2' />" if img2 else ""}
     </div>
     <div class='sdcf-artist-preview-info'>
         <div class='sdcf-artist-preview-name'>{safe_name}</div>
@@ -312,7 +312,7 @@ def build_artist_tab():
         )
         artist_source_filter = gr.Dropdown(
             label="Source",
-            choices=["all", "danbooru", "e621"],
+            choices=["all", "danbooru", "e621", "anima"],
             value="all",
             elem_id="sdcf_artist_source",
         )

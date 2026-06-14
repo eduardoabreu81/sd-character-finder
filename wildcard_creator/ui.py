@@ -331,8 +331,8 @@ def _build_characters_content():
     with gr.Row():
         source_filter = gr.Radio(
             label="Source",
-            choices=["both", "danbooru", "e621"],
-            value="both",
+            choices=["all", "danbooru", "e621", "anima"],
+            value="all",
             interactive=True,
             elem_id="sdcf_source_filter"
         )
@@ -445,7 +445,7 @@ def _build_characters_content():
             char_name_out = gr.Textbox(label="Character", interactive=False, lines=1)
             char_series_out = gr.Textbox(label="Series", interactive=False, lines=1)
             char_danbooru_tag_out = gr.Textbox(
-                label="Danbooru tag (canonical)",
+                label="Canonical tag / trigger",
                 lines=1,
                 interactive=True,
                 placeholder="e.g. rosalina (mario)",
@@ -528,7 +528,7 @@ def _build_characters_content():
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
-        source = (source or "both").strip() or "both"
+        source = (source or "all").strip() or "all"
         raw_limit = get_shared_opt("sdcf_search_limit", 30)
         raw_thumb_size = get_shared_opt("sdcf_gallery_thumb_size", 160)
         raw_gallery_columns = get_shared_opt("sdcf_gallery_columns", 5)
@@ -645,7 +645,7 @@ def _build_characters_content():
             gr.update(value=""),
             gr.update(value="All"),
             gr.update(value="All"),
-            gr.update(value="both"),
+            gr.update(value="all"),
             gr.update(value=False),
             gr.update(value=None),
         )
@@ -655,7 +655,7 @@ def _build_characters_content():
             gr.update(value=""),          # char_search
             gr.update(value="All"),        # char_series
             gr.update(value="All"),        # tag_status_filter
-            gr.update(value="both"),       # source_filter
+            gr.update(value="all"),       # source_filter
             gr.update(value=False),        # favorites_only
             gr.update(value=[]),           # char_results
             gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),  # char_gallery
@@ -847,7 +847,7 @@ def _build_characters_content():
         safe_src = html.escape(src, quote=True)
         safe_title = html.escape(title or "Preview")
         source_value = (source or "danbooru").strip().lower()
-        if source_value not in {"danbooru", "e621"}:
+        if source_value not in {"danbooru", "e621", "anima"}:
             source_value = "danbooru"
         safe_source = html.escape(source_value)
         fav_preview_badge = "<div class='sdcf-badge sdcf-badge-favorite sdcf-preview-favorite'>favorite</div>" if is_favorite else ""
