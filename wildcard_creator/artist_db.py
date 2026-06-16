@@ -182,6 +182,27 @@ class ArtistDB:
         row = conn.execute("SELECT COUNT(*) FROM artists").fetchone()
         return row[0] if row else 0
 
+    def count_unique(self) -> int:
+        """Count distinct canonical artist entities across all sources.
+
+        Deduplication strips a leading '@' and normalizes spaces so the same
+        artist appearing in Danbooru and Anima counts once.
+        """
+        conn = self._get_conn()
+        rows = conn.execute(
+            "SELECT COALESCE(NULLIF(tag, ''), NULLIF(name, ''), display_name) AS token FROM artists"
+        ).fetchall()
+        seen: set[str] = set()
+        for (token,) in rows:
+            if not token:
+                continue
+            key = token.strip().lower().lstrip("@")
+            key = key.replace("_", " ")
+            key = " ".join(key.split())
+            if key:
+                seen.add(key)
+        return len(seen)
+
 
 # ---------------------------------------------------------------------------
 # Singleton

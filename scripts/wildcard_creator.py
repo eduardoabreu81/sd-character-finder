@@ -15,6 +15,27 @@ if _ext_dir not in sys.path:
 try:
     from modules import script_callbacks, shared
 
+    def _get_catalogue_stats_html() -> str:
+        """Return a small HTML banner with real unique entity counts."""
+        try:
+            from wildcard_creator.character_db import get_character_db
+            from wildcard_creator.artist_db import get_artist_db
+
+            cdb = get_character_db()
+            adb = get_artist_db()
+            char_total = cdb.count()
+            char_unique = cdb.count_unique()
+            artist_total = adb.total_count()
+            artist_unique = adb.count_unique()
+            return (
+                f"<span style='margin-right:16px;'>👤 <strong>{char_unique:,}</strong> unique characters "
+                f"<span style='opacity:0.7;font-size:11px;'>({char_total:,} records)</span></span>"
+                f"<span>🎨 <strong>{artist_unique:,}</strong> unique artists "
+                f"<span style='opacity:0.7;font-size:11px;'>({artist_total:,} records)</span></span>"
+            )
+        except Exception:
+            return ""
+
     def on_ui_tabs():
         from wildcard_creator.ui import _build_characters_content
         from wildcard_creator.artist_tab import build_artist_tab
@@ -33,12 +54,14 @@ try:
         with gr.Blocks(elem_id="sdcf_main_blocks") as main_blocks:
             if css_content:
                 gr.HTML(f"<style>{css_content}</style>")
+            stats_html = _get_catalogue_stats_html()
             gr.HTML(
                 "<div style='padding:8px 12px;margin-bottom:8px;border-left:4px solid #a855f7;"
                 "background:rgba(168,85,247,0.08);border-radius:4px;font-size:13px;color:var(--body-text-color);'>"
                 "📦 The AnimaDex catalogue is bundled with the extension. To update it with your own data, "
                 "add your <strong>personal AnimaDex export token</strong> in Settings → SD Character Finder. "
-                "Full downloads are limited to 1× per 48h per token; thumbnails always work."
+                "Full downloads are limited to 1× per 48h per token; thumbnails always work.<br/>"
+                f"{stats_html}"
                 "</div>"
             )
             with gr.Tabs():

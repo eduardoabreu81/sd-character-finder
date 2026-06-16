@@ -14,7 +14,7 @@
 
 > **Can't remember the exact tag for that specific character? Want to discover a new art style and completely change the look of your generations? Say no more!** 🦸‍♂️
 
-Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse over **23,000+ characters** (Danbooru and e621) and **10,000+ artist styles** without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
+Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse over **39,500+ unique characters** (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) and **19,800+ unique artist styles** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex) without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
 
 ---
 
@@ -32,6 +32,14 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ## 🆕 What's New
 
+### v0.6.2 — AnimaDex Integration
+- **New Source: AnimaDex** — Added 36,492 Anima characters and 15,879 Anima artists to the bundled database.
+- **Real Catalogue Numbers** — The extension now ships **39,503 unique characters** (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) and **19,817 unique artists** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex) after deduplicating overlaps.
+- **Source Filter Expanded** — Characters and Artists tabs now include an **Anima** source filter alongside Danbooru and e621.
+- **AnimaDex Token Settings** — Added `AnimaDex export token` and `AnimaDex site base URL` settings so users can update the catalogue with their own personal token.
+- **Artist Tag Prefix** — Anima artists are tagged with `@artist_name`, matching the prompt format expected by NoobAI/Illustrious models.
+- **Single-Image Artist Cards** — Artist cards and preview panel adapt when only one cover image is available (Anima provides one thumbnail per artist).
+
 ### v0.6.1 — Artist Tab Reliability & Polish
 - **Unified Module Structure** — Characters and Artists now live inside a single **SD Character Finder** tab with internal sub-tabs (matching the CivitAI Browser pattern), cleaning up the top-level tab bar.
 - **Pagination Fixed** — Prev/Next and page jump now work correctly in the Artists tab. The root cause was Gradio `.then()` chains not passing updated `gr.State` values between handlers.
@@ -40,7 +48,7 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 - **Status Field Fixed** — The Status textbox no longer shows the raw artist tag after clicking **Add to txt2img**; it correctly displays the confirmation message.
 
 ### v0.6.0 — Artist Style Discovery
-- **🎨 MAJOR UPDATE — Artist Style Browser!** Discover and apply **10,000+ artist styles** (6,000+ Danbooru + 4,000+ e621). Browse visually, add the artist's tag with one click, and watch the magic happen — your generation's art style transforms instantly.
+- **🎨 MAJOR UPDATE — Artist Style Browser!** Discover and apply **19,800+ unique artist styles** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex). Browse visually, add the artist's tag with one click, and watch the magic happen — your generation's art style transforms instantly.
 - **Dual-Preview Cards** ⭐ — Every artist shows two side-by-side examples (e.g., *Tifa Lockhart* and *Harry Potter* both rendered in that artist's unique style) so you can instantly see how their drawing technique looks applied to different subjects before adding it to your prompt.
 - **Separate Settings** — Artists have their own pagination limit, thumbnail size, and column count settings independent from characters.
 - **Security Improvements** — Fixed potential vulnerabilities in gallery rendering and image downloads.
@@ -168,7 +176,7 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 - Forge "Save UI Defaults" support.
 
 ### v0.6.0 — Artist Style Discovery ✅
-- **10,000+ artist styles** with dual-preview cards.
+- **Artist Style Browser** with dual-preview cards.
 - Visual style discovery with side-by-side previews.
 - One-click artist tag injection into prompts.
 - Separate pagination and display settings for artists.
@@ -186,7 +194,7 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 > ⭐ = Core Highlights
 
 ### 🔍 Browse Characters
-- Browse **23,000+ characters** (20,000+ Danbooru and 3,000+ e621) directly inside the WebUI — no tab switching! ⭐
+- Browse **39,500+ unique characters** (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) directly inside the WebUI — no tab switching! ⭐
 - Search by character name, tag, or browse alphabetically by series/franchise
 - Use multiple keywords for precise filtering (e.g., `miku vocaloid` ensures both terms exist)
 - Track your session with **Recent searches** and **Favorites** Tabs directly synced local-first. ⭐
@@ -194,7 +202,7 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 - Pagination system keeps the UI snappy even when returning thousands of results
 
 ### 🎨 Discover Artist Styles *(NEW in v0.6.0)*
-- Browse **10,000+ artist styles** (6,024 Danbooru + 4,032 e621) in a dedicated Artists tab ⭐
+- Browse **19,800+ unique artist styles** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex) in a dedicated Artists tab ⭐
 - **Dual-preview cards** — Every artist shows two side-by-side examples (e.g., Tifa Lockhart style + Harry Potter style) so you can visually compare their drawing technique before applying it ⭐
 - **Visual discovery** — Don't know an artist's name? Just browse the gallery and "scroll until something clicks" — thumbnails make discovering new styles effortless
 - **One-click apply** — Click any card, then hit **Add to txt2img** to inject `by artist_name` straight into your prompt

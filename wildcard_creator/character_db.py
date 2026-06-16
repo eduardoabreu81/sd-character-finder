@@ -264,6 +264,32 @@ class CharacterDB:
             logger.error(f"list_series failed: error={e}", exc_info=True)
             return []
 
+    def count_unique(self) -> int:
+        """Count distinct canonical character entities across all sources.
+
+        Deduplication uses the first whitespace-normalized tag/token from each
+        row (danbooru_tag > tags > name) so overlapping Danbooru/e621/Anima
+        entries count as one.
+        """
+        try:
+            rows = self._get_conn().execute(
+                "SELECT COALESCE(NULLIF(danbooru_tag, ''), NULLIF(tags, ''), name) AS token FROM characters"
+            ).fetchall()
+            seen: set[str] = set()
+            for (token,) in rows:
+                if not token:
+                    continue
+                first = token.split(",")[0].strip().lower()
+                first = first.replace("_", " ")
+                first = first.replace("\\(", "(").replace("\\)", ")")
+                first = re.sub(r"\s+", " ", first)
+                if first:
+                    seen.add(first)
+            return len(seen)
+        except Exception as e:
+            logger.error(f"count_unique failed: error={e}", exc_info=True)
+            return 0
+
     def close(self) -> None:
         if self._conn:
             self._conn.close()
