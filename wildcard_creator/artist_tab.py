@@ -167,8 +167,14 @@ def _build_gallery_html(
     cols: int = 3,
     mobile_cols: int = 2,
     thumb_size: int = 260,
+    target_idx_elem_id: str = "sdcf_artist_gallery_click_idx",
+    hidden_click_btn_id: str = "sdcf_artist_hidden_click",
 ) -> str:
-    """Render artist cards with dual preview images."""
+    """Render artist cards with dual preview images.
+
+    target_idx_elem_id and hidden_click_btn_id allow the same gallery HTML to
+    drive different Gradio inputs (e.g. search results vs favorites).
+    """
     if not artists:
         return "<div class='sdcf-char-gallery sdcf-artist-gallery'><div class='civmodellist'><p style='padding:20px;text-align:center;color:var(--body-text-color-subdued)'>No artists found.</p></div></div>"
 
@@ -203,13 +209,13 @@ def _build_gallery_html(
 
         onclick_js = (
             "const app=(window.gradioApp?window.gradioApp():document);"
-            "const input=app.querySelector('#sdcf_artist_gallery_click_idx textarea, #sdcf_artist_gallery_click_idx input');"
+            f"const input=app.querySelector('#{target_idx_elem_id} textarea, #{target_idx_elem_id} input');"
             "if(input){"
             f"input.value='{a_id}';"
             "input.dispatchEvent(new Event('input',{bubbles:true}));"
             "input.dispatchEvent(new Event('change',{bubbles:true}));"
             "}"
-            "const btn=app.querySelector('#sdcf_artist_hidden_click');"
+            f"const btn=app.querySelector('#{hidden_click_btn_id}');"
             "if(btn){btn.click();}"
             "return false;"
         )
@@ -230,8 +236,9 @@ def _build_gallery_html(
             """
         )
 
+    wrapper_id = f"{target_idx_elem_id}_html"
     return (
-        f"<div id='sdcf_artist_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery' style='--sdcf-artist-thumb-size:{thumb_size}px'><div class='civmodellist' style='grid-template-columns: repeat({cols}, minmax(0, 1fr));'>"
+        f"<div id='{wrapper_id}' class='sdcf-char-gallery sdcf-artist-gallery' style='--sdcf-artist-thumb-size:{thumb_size}px'><div class='civmodellist' style='grid-template-columns: repeat({cols}, minmax(0, 1fr));'>"
         + "".join(cards_html)
         + "</div></div>"
     )
@@ -300,6 +307,7 @@ def build_artist_tab():
     artist_page_state = gr.State(1)
     artist_total_pages_state = gr.State(1)
     artist_results_state = gr.State([])
+    artist_fav_state = gr.State([])
     artist_selected_id_state = gr.State(None)
 
     # -- Search row --
@@ -319,28 +327,52 @@ def build_artist_tab():
         btn_artist_search = gr.Button("🔍 Search", variant="primary")
         btn_artist_clear = gr.Button("🗑️ Clear")
 
-    # -- Gallery --
-    artist_gallery = gr.HTML(
-        value="<div id='sdcf_artist_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery'><div class='civmodellist'></div></div>",
-        label="Artists",
-        elem_id="sdcf_artist_gallery_html",
-    )
-    artist_gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_artist_gallery_click_idx")
-    # Hidden button for reliable click event (Gradio 4 compatible)
-    btn_artist_hidden_click = gr.Button("Select Artist", visible=False, elem_id="sdcf_artist_hidden_click")
+    # -- Results area with Search + Favorites tabs --
+    with gr.Tabs():
+        with gr.Tab("🔍 Search Results", id="tab_artist_search"):
+            artist_gallery = gr.HTML(
+                value="<div id='sdcf_artist_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery'><div class='civmodellist'></div></div>",
+                label="Artists",
+                elem_id="sdcf_artist_gallery_html",
+            )
+            artist_gallery_click_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_artist_gallery_click_idx")
+            # Hidden button for reliable click event (Gradio 4 compatible)
+            btn_artist_hidden_click = gr.Button("Select Artist", visible=False, elem_id="sdcf_artist_hidden_click")
 
-    # -- Pagination --
-    with gr.Row():
-        with gr.Column(scale=4):
-            pass
-        with gr.Column(scale=1, min_width=100):
-            btn_artist_prev = gr.Button("◀ Prev", interactive=True)
-        with gr.Column(scale=1, min_width=120):
+            # -- Pagination --
             with gr.Row():
-                artist_page_jump = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
-            artist_page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
-        with gr.Column(scale=1, min_width=100):
-            btn_artist_next = gr.Button("Next ▶", interactive=True)
+                with gr.Column(scale=4):
+                    pass
+                with gr.Column(scale=1, min_width=100):
+                    btn_artist_prev = gr.Button("◀ Prev", interactive=True)
+                with gr.Column(scale=1, min_width=120):
+                    with gr.Row():
+                        artist_page_jump = gr.Number(value=1, label="Page", precision=0, show_label=False, min_width=50)
+                    artist_page_indicator = gr.Markdown("<div style='text-align: center; margin-top: 8px;'>Page 1 of 1</div>")
+                with gr.Column(scale=1, min_width=100):
+                    btn_artist_next = gr.Button("Next ▶", interactive=True)
+
+        with gr.Tab("❤️ Favorites", id="tab_artist_favorites"):
+            btn_refresh_artist_favs = gr.Button("↻ Refresh Favorites", visible=True, elem_id="sdcf_artist_fav_refresh_btn", elem_classes=["sdcf-hidden-trigger"])
+            with gr.Tabs():
+                with gr.Tab("List View", id="tab_artist_fav_list"):
+                    artist_fav_results_df = gr.Dataframe(
+                        headers=["name", "tag", "source", "rank"],
+                        datatype=["str", "str", "str", "number"],
+                        value=[],
+                        interactive=False,
+                        wrap=False,
+                        line_breaks=False,
+                        height=600,
+                        row_count=(30, "fixed"),
+                    )
+                with gr.Tab("Gallery View", id="tab_artist_fav_gallery"):
+                    artist_fav_html = gr.HTML(
+                        value="<div id='sdcf_artist_fav_gallery_html' class='sdcf-char-gallery sdcf-artist-gallery'><div class='civmodellist'></div></div>",
+                        elem_id="sdcf_artist_fav_gallery_html",
+                    )
+            artist_fav_select_idx = gr.Textbox(value="-1", visible=False, elem_id="sdcf_artist_fav_select_idx")
+            btn_artist_fav_hidden_click = gr.Button("Select Favorite Artist", visible=False, elem_id="sdcf_artist_fav_hidden_click")
 
     gr.Markdown("---\n*Click an artist card above to load details.*")
 
@@ -469,12 +501,73 @@ def build_artist_tab():
             gr.update(value="❤️ Unfavorite" if is_fav else "🤍 Favorite"),
         ]
 
+    def _render_artist_list_df(results: list) -> list[list]:
+        """Render artist results as a DataFrame-compatible list of rows."""
+        rows = []
+        for r in results:
+            rows.append([
+                r.get("display_name") or r.get("name") or "",
+                r.get("tag") or r.get("name") or "",
+                r.get("source", "danbooru"),
+                r.get("rank", 0) or 0,
+            ])
+        return rows
+
     def toggle_artist_favorite(artist_id):
         if not artist_id:
             return gr.update(value="⚠️ No artist selected")
         fav_db = get_artist_favorites_db()
         is_fav = fav_db.toggle(artist_id)
         return gr.update(value="❤️ Unfavorite" if is_fav else "🤍 Favorite")
+
+    def do_refresh_artist_favs():
+        """Load all favorited artists from the DB and render list + gallery."""
+        fav_db = get_artist_favorites_db()
+        db = get_artist_db()
+        fav_ids = sorted(fav_db.get_all())
+        if not fav_ids:
+            empty = []
+            return empty, _render_artist_list_df(empty), _build_gallery_html(
+                empty, fav_db, target_idx_elem_id="sdcf_artist_fav_select_idx", hidden_click_btn_id="sdcf_artist_fav_hidden_click"
+            )
+
+        rows = db.search(query="", source="all", limit=max(len(fav_ids), 1))
+        # Filter to favorite IDs (search with favorites_list isn't in artist_db, do client-side)
+        fav_results = [dict(r) for r in rows if r["id"] in fav_ids]
+        return (
+            fav_results,
+            _render_artist_list_df(fav_results),
+            _build_gallery_html(
+                fav_results,
+                fav_db,
+                target_idx_elem_id="sdcf_artist_fav_select_idx",
+                hidden_click_btn_id="sdcf_artist_fav_hidden_click",
+            ),
+        )
+
+    def _find_artist_by_id(artist_id, *states):
+        for state in states:
+            if not state:
+                continue
+            for item in state:
+                try:
+                    if int(item.get("id")) == int(artist_id):
+                        return item
+                except Exception:
+                    continue
+        return None
+
+    def on_artist_fav_select(artist_id_str, fav_state):
+        """Select an artist from the favorites gallery."""
+        return on_artist_select(artist_id_str, fav_state)
+
+    def on_artist_fav_row_select(evt: gr.SelectData, fav_state):
+        """Select an artist from the favorites DataFrame."""
+        row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
+        if not fav_state or row_idx < 0 or row_idx >= len(fav_state):
+            return on_artist_select("-1", [])
+        artist = fav_state[row_idx]
+        return on_artist_select(str(artist.get("id", "-1")), fav_state)
 
     def do_artist_add(tag):
         if not tag:
@@ -541,6 +634,29 @@ def build_artist_tab():
         fn=toggle_artist_favorite,
         inputs=[artist_selected_id_state],
         outputs=[btn_artist_favorite],
+    )
+
+    btn_refresh_artist_favs.click(
+        fn=do_refresh_artist_favs,
+        outputs=[artist_fav_state, artist_fav_results_df, artist_fav_html],
+    )
+
+    artist_fav_results_df.select(
+        fn=on_artist_fav_row_select,
+        inputs=[artist_fav_state],
+        outputs=[artist_name_out, artist_tag_out, artist_preview, artist_status, artist_selected_id_state, btn_artist_favorite],
+    )
+
+    artist_fav_select_idx.change(
+        fn=on_artist_fav_select,
+        inputs=[artist_fav_select_idx, artist_fav_state],
+        outputs=[artist_name_out, artist_tag_out, artist_preview, artist_status, artist_selected_id_state, btn_artist_favorite],
+    )
+
+    btn_artist_fav_hidden_click.click(
+        fn=on_artist_fav_select,
+        inputs=[artist_fav_select_idx, artist_fav_state],
+        outputs=[artist_name_out, artist_tag_out, artist_preview, artist_status, artist_selected_id_state, btn_artist_favorite],
     )
 
     # Add to txt2img — injects tag into the prompt textarea via JS
