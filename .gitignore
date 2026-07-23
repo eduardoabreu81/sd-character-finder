@@ -18,6 +18,7 @@ data/covers/
 data/artist_covers/
 data/anima_import/
 data/anima_preview_samples/
+data/anima_characters.db
 *.db.backup_*
 data/artist_favorites.json
 data/favorites.json
