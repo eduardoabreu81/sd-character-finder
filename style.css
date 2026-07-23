@@ -13,6 +13,30 @@
     box-sizing: border-box;
 }
 
+#sdcf_main_blocks #sdcf_btn_search,
+#sdcf_main_blocks #sdcf_btn_clear_search,
+#sdcf_main_blocks #sdcf_btn_clear_all {
+    margin-top: 15px;
+}
+
+#sdcf_main_blocks #sdcf_source_favorites_group {
+    align-items: flex-end;
+    gap: 12px;
+}
+
+#sdcf_main_blocks #sdcf_source_favorites_group #sdcf_favorites_only_chk {
+    margin-top: 15px;
+    min-height: 32px;
+}
+
+@media (max-width: 950px) {
+    #sdcf_main_blocks #sdcf_btn_search,
+    #sdcf_main_blocks #sdcf_btn_clear_search,
+    #sdcf_main_blocks #sdcf_btn_clear_all {
+        margin-top: 0;
+    }
+}
+
 #sdcf_char_preview .sdcf-preview-wrap {
     position: relative;
     width: 100%;

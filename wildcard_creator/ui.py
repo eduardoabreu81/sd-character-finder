@@ -540,15 +540,24 @@ def _build_characters_content():
             btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
 
     with gr.Row(elem_id="sdcf_character_filter_controls"):
-        with gr.Column(scale=3, min_width=300):
-            source_filter = gr.Radio(
-                label="Source",
-                choices=["all", "danbooru", "e621", "anima"],
-                value="all",
-                interactive=True,
-                elem_id="sdcf_source_filter"
-            )
-        with gr.Column(scale=2, min_width=180):
+        with gr.Column(scale=4, min_width=390):
+            with gr.Row(elem_id="sdcf_source_favorites_group"):
+                with gr.Column(scale=3, min_width=260):
+                    source_filter = gr.Radio(
+                        label="Source",
+                        choices=["all", "danbooru", "e621", "anima"],
+                        value="all",
+                        interactive=True,
+                        elem_id="sdcf_source_filter"
+                    )
+                with gr.Column(scale=1, min_width=130):
+                    favorites_only = gr.Checkbox(
+                        label="❤️ Favorites Only",
+                        value=False,
+                        interactive=True,
+                        elem_id="sdcf_favorites_only_chk",
+                    )
+        with gr.Column(scale=2, min_width=190):
             exclusive_filter = gr.Dropdown(
                 label="Availability",
                 choices=[
@@ -563,14 +572,7 @@ def _build_characters_content():
                 interactive=True,
                 elem_id="sdcf_exclusive_filter",
             )
-        with gr.Column(scale=1, min_width=150):
-            favorites_only = gr.Checkbox(
-                label="❤️ Favorites Only",
-                value=False,
-                interactive=True,
-                elem_id="sdcf_favorites_only_chk",
-            )
-        with gr.Column(scale=2, min_width=200):
+        with gr.Column(scale=3, min_width=240):
             recent_searches = gr.Dropdown(
                 label="Recent Searches",
                 choices=get_search_history_db().get_all(),
