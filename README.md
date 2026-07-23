@@ -63,7 +63,7 @@ schema v5 and never opens the legacy `data/characters.db` at runtime.
   Git must restore a dirty locked file; that installation needs one final WebUI
   shutdown for the v2 update. Future updates use private runtime copies and do not
   have this limitation.
-- The packaged catalogue currently contains 39,008 variations backed by 59,508
+- The packaged catalogue currently contains 39,007 variations backed by 59,508
   immutable source representations.
 
 Only four source-exclusive variations have completed manual identity review.

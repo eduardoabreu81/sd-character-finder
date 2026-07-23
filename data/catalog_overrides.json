@@ -58,6 +58,18 @@
       "reviewed_exclusive_source": "danbooru",
       "reject_match_keys": [],
       "notes": "Made in Abyss character with no exact Anima source record in the local catalogue."
+    },
+    {
+      "override_key": "e621:hex_maniac",
+      "source": "e621",
+      "match_key": "hex maniac",
+      "series_source_tag": "pokemon",
+      "identity_action": "same_variant",
+      "merge_with_match_key": "hex maniac (pokemon)",
+      "reject_match_keys": [
+        "hex maniac (pokemon xy)"
+      ],
+      "notes": "The unqualified e621 tag and prompt explicitly identify the generic Pokemon Hex Maniac; merge it with the generic Danbooru/Anima variant, not the Pokemon XY-specific Anima record."
     }
   ]
 }

@@ -314,6 +314,18 @@ class CatalogHealthTests(unittest.TestCase):
             )[0][0]
             self.assertIn("huge breasts", hex_maniac["tags"])
             self.assertIn("large breasts", hex_maniac["tags"])
+
+            e621_hex_maniac = database.search(
+                "hex maniac",
+                source_filter="e621",
+                limit=1,
+            )[0][0]
+            self.assertEqual(e621_hex_maniac["series"], "Pokemon")
+            self.assertEqual(e621_hex_maniac["tags"], "hex maniac, pokemon")
+            self.assertEqual(
+                set(e621_hex_maniac["sources"]),
+                {"danbooru", "e621", "anima"},
+            )
         finally:
             database.close()
 
