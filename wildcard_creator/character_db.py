@@ -167,9 +167,18 @@ class CharacterDB:
         for row in rows:
             representation = dict(row)
             variation_id = int(row["variation_id"])
-            canonical_tag = str(
-                row["canonical_tag_raw"] or row["source_tag_raw"] or ""
-            )
+            if row["source"] in {"danbooru", "e621"}:
+                # These profiles target tag-based models, so the value shown in
+                # the UI must retain prompt escapes such as ``\(fate\)``.
+                canonical_tag = str(
+                    row["source_tag_raw"] or row["canonical_tag_raw"] or ""
+                )
+            else:
+                # Anima triggers have their own formatting and may contain more
+                # than the first prompt token. Keep the exact imported trigger.
+                canonical_tag = str(
+                    row["canonical_tag_raw"] or row["source_tag_raw"] or ""
+                )
             if row["source"] == "danbooru":
                 canonical_tag = overrides.get(
                     variation_keys[variation_id],

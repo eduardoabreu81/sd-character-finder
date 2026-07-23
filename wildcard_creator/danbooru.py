@@ -43,6 +43,18 @@ USEFUL_CATEGORIES = {0, 4}  # general + character tags
 
 _last_api_request_time = 0.0
 
+
+def _normalize_live_query_tag(tag: str) -> str:
+    """Convert a prompt-ready tag into Danbooru's API query format."""
+    return (
+        tag.strip()
+        .replace("\\(", "(")
+        .replace("\\)", ")")
+        .replace(" ", "_")
+        .lower()
+    )
+
+
 def _rate_limit(min_interval: float = 1.0) -> None:
     """Enforce a simple delay between requests."""
     global _last_api_request_time
@@ -254,8 +266,9 @@ class DanbooruDB:
             List of dicts: {tag, count, frequency, category, category_name}
             sorted by count descending.
         """
-        # Normalize name to Danbooru underscore format
-        tag_query = character_name.strip().replace(" ", "_").lower()
+        # The UI keeps prompt-ready escapes (for example ``astolfo \(fate\)``).
+        # Danbooru's API expects the underlying tag without those backslashes.
+        tag_query = _normalize_live_query_tag(character_name)
         
         cache_key = f"{tag_query}_{n_posts}_{top_n}_{min_freq}"
         if cache_key in self._posts_cache:

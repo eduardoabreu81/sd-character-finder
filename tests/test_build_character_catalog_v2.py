@@ -228,6 +228,10 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
                 "astolfo \\(fate\\), fate \\(series\\), 1boy, pink hair",
             )
             self.assertEqual(
+                danbooru_results[0]["danbooru_tag"],
+                "astolfo \\(fate\\)",
+            )
+            self.assertEqual(
                 danbooru_results[0]["image_url"],
                 "https://example.test/danbooru.jpg",
             )
