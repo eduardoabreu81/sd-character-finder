@@ -2,6 +2,17 @@
     padding: 8px 4px;
 }
 
+#sdcf_main_blocks #sdcf_character_search_controls,
+#sdcf_main_blocks #sdcf_character_filter_controls {
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#sdcf_main_blocks #sdcf_character_search_controls > div,
+#sdcf_main_blocks #sdcf_character_filter_controls > div {
+    box-sizing: border-box;
+}
+
 #sdcf_char_preview .sdcf-preview-wrap {
     position: relative;
     width: 100%;

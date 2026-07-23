@@ -32,9 +32,9 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ## 🧪 Experimental Character Catalogue v2
 
-The `feat/canonical-characters-v2` branch is a clean-install preview of the new
-character architecture. It does not contain a legacy/v2 switch and expects the
-bundled `data/characters.db` to use schema v5.
+The `feat/canonical-characters-v2` branch is a preview of the new character
+architecture. It expects the bundled `data/catalog/characters-v2.db` to use
+schema v5 and never opens the legacy `data/characters.db` at runtime.
 
 - One canonical variation can have separate Danbooru, e621, and Anima
   representations.
@@ -55,6 +55,14 @@ bundled `data/characters.db` to use schema v5.
 - The tracked character and artist databases are never kept open by the running
   extension. Verified private copies under `data/runtime/` serve searches instead,
   allowing Forge's in-app Git updater to replace packaged databases on Windows.
+- The first update from v1 keeps the old `data/characters.db` byte-identical only
+  as a Forge updater bridge. After restart, v2 validates and activates its private
+  runtime copy, recognizes the old official database by checksum, and removes it.
+  The legacy database is never used as a fallback.
+  If the old **Save Danbooru Tag** behavior modified that tracked database, Windows
+  Git must restore a dirty locked file; that installation needs one final WebUI
+  shutdown for the v2 update. Future updates use private runtime copies and do not
+  have this limitation.
 - The packaged catalogue currently contains 39,008 variations backed by 59,508
   immutable source representations.
 

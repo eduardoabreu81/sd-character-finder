@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 from wildcard_creator.catalog_health import build_catalog_manifest
 
 
-DEFAULT_DATABASE = ROOT / "data" / "characters.db"
+DEFAULT_DATABASE = ROOT / "data" / "catalog" / "characters-v2.db"
 DEFAULT_OUTPUT = ROOT / "data" / "characters.manifest.json"
 # Pin recovery to the immutable commit that first published this exact DB.
 # Update this value only when publishing a rebuilt catalogue and manifest.

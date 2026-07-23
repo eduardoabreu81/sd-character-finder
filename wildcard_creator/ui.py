@@ -28,6 +28,7 @@ import requests
 from wildcard_creator.catalog_health import (
     CatalogRecoveryError,
     CatalogValidation,
+    finalize_legacy_catalog_migration,
     prepare_runtime_catalog,
     redownload_catalog,
     validate_catalog,
@@ -144,6 +145,7 @@ def _build_characters_content():
             if force_redownload:
                 _clear_redownload_on_startup_setting()
 
+    finalize_legacy_catalog_migration(catalog_validation)
     _populated = catalog_validation.ok and cdb.is_populated()
     _total = cdb.count() if _populated else 0
     _series_choices = ["All"] + [s for s, _ in cdb.list_series()] if _populated else ["All"]
@@ -184,6 +186,7 @@ def _build_characters_content():
             validation = prepare_runtime_catalog(close_callback=cdb.close)
             if not validation.ok:
                 raise CatalogRecoveryError(validation.message)
+            finalize_legacy_catalog_migration(validation)
             action_note = (
                 "A verified copy was downloaded and activated."
                 if downloaded
@@ -499,8 +502,8 @@ def _build_characters_content():
     _initial_recent_df = [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in _initial_recent]
     _initial_recent_gallery = _render_initial_recent_gallery(_initial_recent)
 
-    with gr.Row():
-        with gr.Column(scale=2):
+    with gr.Row(elem_id="sdcf_character_search_controls"):
+        with gr.Column(scale=3, min_width=220):
             char_search = gr.Textbox(
                 label="Search",
                 placeholder="e.g. miku, saber, blue hair…",
@@ -508,7 +511,7 @@ def _build_characters_content():
                 interactive=_populated,
                 elem_id="sdcf_char_search"
             )
-        with gr.Column(scale=1):
+        with gr.Column(scale=2, min_width=180):
             char_series = gr.Dropdown(
                 label="Franchise / Work",
                 choices=_series_choices,
@@ -516,7 +519,7 @@ def _build_characters_content():
                 interactive=True,
                 elem_id="sdcf_char_series"
             )
-        with gr.Column(scale=1):
+        with gr.Column(scale=2, min_width=180):
             tag_status_filter = gr.Dropdown(
                 label="Danbooru availability",
                 choices=["All", "Missing Danbooru Tag", "Has Danbooru Tag"],
@@ -524,49 +527,57 @@ def _build_characters_content():
                 interactive=True,
                 elem_id="sdcf_tag_status_filter"
             )
-        with gr.Column(scale=1, min_width=100):
+        with gr.Column(scale=1, min_width=110):
             btn_char_search = gr.Button(
                 "🔍 Search",
                 variant="primary",
                 interactive=_populated,
                 elem_id="sdcf_btn_search",
             )
-        with gr.Column(scale=1, min_width=100):
+        with gr.Column(scale=1, min_width=110):
             btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
-        with gr.Column(scale=1, min_width=100):
+        with gr.Column(scale=1, min_width=110):
             btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
 
-    with gr.Row():
-        source_filter = gr.Radio(
-            label="Source",
-            choices=["all", "danbooru", "e621", "anima"],
-            value="all",
-            interactive=True,
-            elem_id="sdcf_source_filter"
-        )
-        exclusive_filter = gr.Dropdown(
-            label="Availability",
-            choices=[
-                "All",
-                "Reviewed exclusive",
-                "Danbooru only",
-                "e621 only",
-                "Anima only",
-                "Multiple sources",
-            ],
-            value="All",
-            interactive=True,
-            elem_id="sdcf_exclusive_filter",
-        )
-        favorites_only = gr.Checkbox(label="❤️ Favorites Only", value=False, interactive=True, elem_id="sdcf_favorites_only_chk")
-        recent_searches = gr.Dropdown(
-            label="Recent Searches",
-            choices=get_search_history_db().get_all(),
-            value=None,
-            interactive=True,
-            min_width=200,
-            elem_id="sdcf_recent_searches"
-        )
+    with gr.Row(elem_id="sdcf_character_filter_controls"):
+        with gr.Column(scale=3, min_width=300):
+            source_filter = gr.Radio(
+                label="Source",
+                choices=["all", "danbooru", "e621", "anima"],
+                value="all",
+                interactive=True,
+                elem_id="sdcf_source_filter"
+            )
+        with gr.Column(scale=2, min_width=180):
+            exclusive_filter = gr.Dropdown(
+                label="Availability",
+                choices=[
+                    "All",
+                    "Reviewed exclusive",
+                    "Danbooru only",
+                    "e621 only",
+                    "Anima only",
+                    "Multiple sources",
+                ],
+                value="All",
+                interactive=True,
+                elem_id="sdcf_exclusive_filter",
+            )
+        with gr.Column(scale=1, min_width=150):
+            favorites_only = gr.Checkbox(
+                label="❤️ Favorites Only",
+                value=False,
+                interactive=True,
+                elem_id="sdcf_favorites_only_chk",
+            )
+        with gr.Column(scale=2, min_width=200):
+            recent_searches = gr.Dropdown(
+                label="Recent Searches",
+                choices=get_search_history_db().get_all(),
+                value=None,
+                interactive=True,
+                elem_id="sdcf_recent_searches"
+            )
 
     current_page_state = gr.State(1)
     total_pages_state = gr.State(1)

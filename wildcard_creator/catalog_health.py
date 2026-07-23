@@ -17,9 +17,10 @@ import requests
 
 
 _ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CATALOG_PATH = _ROOT / "data" / "characters.db"
+DEFAULT_CATALOG_PATH = _ROOT / "data" / "catalog" / "characters-v2.db"
 DEFAULT_MANIFEST_PATH = _ROOT / "data" / "characters.manifest.json"
 DEFAULT_RUNTIME_CATALOG_PATH = _ROOT / "data" / "runtime" / "characters.db"
+DEFAULT_LEGACY_CATALOG_PATH = _ROOT / "data" / "characters.db"
 MANIFEST_SCHEMA_VERSION = 1
 _RUNTIME_SYNC_LOCK = threading.Lock()
 _COUNT_TABLES = (
@@ -34,6 +35,46 @@ _ALLOWED_DOWNLOAD_HOSTS = {
     "raw.githubusercontent.com",
     "release-assets.githubusercontent.com",
 }
+# Official schema-v1 catalogue revisions that were shipped on ``main``.
+# The v2 release keeps the latest one byte-identical at its old tracked path so
+# Forge can update while the old process still has it open. The restarted v2
+# process recognizes and removes these inert files; it never opens them.
+_LEGACY_CATALOG_FINGERPRINTS = frozenset(
+    {
+        (
+            24_788_992,
+            "cbd084daddf2aefeab2a7c1c410ea239a1096658f2e4a7a7f535a4fe56762697",
+        ),
+        (
+            24_780_800,
+            "3ed86fa6a39fa064a78b5d5aa1cf2cd22f9edf467e63feab3599cbca5f2573f2",
+        ),
+        (
+            8_777_728,
+            "700c3079e38142e15cb342aae04049dde980eb0093242bc65d90a35e28e308da",
+        ),
+        (
+            9_719_808,
+            "c3c1b0ae61d784b96d29533345d1c15fcfcc0fc7fdb825a8ffdc528a491b7fac",
+        ),
+        (
+            9_633_792,
+            "e796212705296793aca07a1b74c3835697f75139a87b635cb54c4c83374b53ab",
+        ),
+        (
+            8_667_136,
+            "9b5ecbda38658cf9db0bf1631d2d3e64489bfb31f7c542b9490b470528926b0b",
+        ),
+        (
+            8_667_136,
+            "3958d9daa048adb957b3daa1da30816822e8c584e957c0a7d71f9d39e52dba2a",
+        ),
+        (
+            7_569_408,
+            "2bb7d02bc898f27f1ace1e0495735c24b7dc0f54551152a49f4a84ddeac2dfeb",
+        ),
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +89,16 @@ class CatalogValidation:
 
 class CatalogRecoveryError(RuntimeError):
     """Raised when a replacement catalogue cannot be downloaded safely."""
+
+
+@dataclass(frozen=True)
+class LegacyCatalogMigration:
+    """Result of retiring the inert schema-v1 catalogue after v2 starts."""
+
+    completed: bool
+    code: str
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 def sha256_file(path: Path) -> str:
@@ -239,6 +290,113 @@ def validate_catalog(
             "sha256": actual_sha256,
             "catalog_bytes": actual_bytes,
             "schema_version": int(manifest["catalog_schema_version"]),
+        },
+    )
+
+
+def finalize_legacy_catalog_migration(
+    v2_validation: CatalogValidation,
+    legacy_db_path: Path = DEFAULT_LEGACY_CATALOG_PATH,
+) -> LegacyCatalogMigration:
+    """Remove a recognized v1 DB after the v2 runtime catalogue is healthy.
+
+    The legacy database is only a Forge updater bridge. It is never opened or
+    used as a runtime fallback by the v2 application.
+    """
+    legacy_db_path = legacy_db_path.resolve()
+    if not v2_validation.ok:
+        return LegacyCatalogMigration(
+            False,
+            "v2_not_ready",
+            "The inert legacy catalogue was retained because v2 is not ready.",
+            {"path": str(legacy_db_path)},
+        )
+
+    sidecar_paths = (
+        Path(str(legacy_db_path) + "-wal"),
+        Path(str(legacy_db_path) + "-shm"),
+    )
+    if not legacy_db_path.exists():
+        pending_sidecars: list[str] = []
+        for sidecar_path in sidecar_paths:
+            try:
+                sidecar_path.unlink(missing_ok=True)
+            except OSError:
+                pending_sidecars.append(str(sidecar_path))
+        return LegacyCatalogMigration(
+            not pending_sidecars,
+            (
+                "legacy_absent"
+                if not pending_sidecars
+                else "legacy_sidecar_cleanup_deferred"
+            ),
+            (
+                "The legacy catalogue is already absent."
+                if not pending_sidecars
+                else "Legacy SQLite sidecar cleanup will be retried on next startup."
+            ),
+            {
+                "path": str(legacy_db_path),
+                "pending_sidecars": pending_sidecars,
+            },
+        )
+
+    try:
+        legacy_bytes = legacy_db_path.stat().st_size
+        legacy_sha256 = sha256_file(legacy_db_path)
+    except OSError as exc:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_inspection_deferred",
+            "The legacy catalogue could not be inspected and was retained.",
+            {"path": str(legacy_db_path), "error": str(exc)},
+        )
+
+    fingerprint = (legacy_bytes, legacy_sha256)
+    if fingerprint not in _LEGACY_CATALOG_FINGERPRINTS:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_unrecognized",
+            "An unrecognized database exists at the legacy path and was preserved.",
+            {
+                "path": str(legacy_db_path),
+                "catalog_bytes": legacy_bytes,
+                "sha256": legacy_sha256,
+            },
+        )
+
+    try:
+        legacy_db_path.unlink()
+    except OSError as exc:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_cleanup_deferred",
+            "The recognized legacy catalogue is still locked; cleanup will retry.",
+            {"path": str(legacy_db_path), "error": str(exc)},
+        )
+
+    pending_sidecars = []
+    for sidecar_path in sidecar_paths:
+        try:
+            sidecar_path.unlink(missing_ok=True)
+        except OSError:
+            pending_sidecars.append(str(sidecar_path))
+    return LegacyCatalogMigration(
+        not pending_sidecars,
+        "legacy_removed" if not pending_sidecars else "legacy_sidecar_cleanup_deferred",
+        (
+            "The inert legacy catalogue was removed."
+            if not pending_sidecars
+            else (
+                "The inert legacy catalogue was removed; SQLite sidecar cleanup "
+                "will retry on next startup."
+            )
+        ),
+        {
+            "path": str(legacy_db_path),
+            "catalog_bytes": legacy_bytes,
+            "sha256": legacy_sha256,
+            "pending_sidecars": pending_sidecars,
         },
     )
 
