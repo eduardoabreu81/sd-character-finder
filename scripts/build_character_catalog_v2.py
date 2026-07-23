@@ -1607,16 +1607,20 @@ def enrich_series_titles(
 
 
 def finalize_series_catalog(conn: sqlite3.Connection) -> dict[str, Any]:
-    """Choose a conservative runtime title without discarding source metadata."""
+    """Prefer the official English title while preserving every source alias."""
     conn.execute(
         """
         UPDATE series
         SET canonical_display_name = CASE
+                WHEN TRIM(COALESCE(title_english, '')) != ''
+                    THEN title_english
                 WHEN TRIM(COALESCE(title_original_transcription, '')) != ''
                     THEN title_original_transcription
                 ELSE provisional_display_name
             END,
             canonical_title_source = CASE
+                WHEN TRIM(COALESCE(title_english, '')) != ''
+                    THEN 'anidb_official_english'
                 WHEN TRIM(COALESCE(title_original_transcription, '')) != ''
                     THEN 'anidb_original_transcription'
                 ELSE 'source_tag'
@@ -1625,7 +1629,15 @@ def finalize_series_catalog(conn: sqlite3.Connection) -> dict[str, Any]:
     )
     return {
         "total": int(conn.execute("SELECT COUNT(*) FROM series").fetchone()[0]),
-        "using_original_transcription": int(
+        "using_official_english": int(
+            conn.execute(
+                """
+                SELECT COUNT(*) FROM series
+                WHERE canonical_title_source = 'anidb_official_english'
+                """
+            ).fetchone()[0]
+        ),
+        "using_original_transcription_fallback": int(
             conn.execute(
                 """
                 SELECT COUNT(*) FROM series

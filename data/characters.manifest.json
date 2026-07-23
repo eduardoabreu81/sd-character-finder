@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "catalog_schema_version": 5,
+  "catalog_bytes": 82882560,
+  "catalog_sha256": "8e1efa43e801d05ad5672ff0b0642e8a35b7d1485f191f6b83164eca5879271a",
+  "download_url": "https://raw.githubusercontent.com/eduardoabreu81/sd-character-finder/feat/canonical-characters-v2/data/characters.db",
+  "counts": {
+    "canonical_characters": 39007,
+    "character_variations": 39008,
+    "character_representations": 59508,
+    "source_records": 59508
+  },
+  "source_records_by_source": {
+    "anima": 36492,
+    "danbooru": 20016,
+    "e621": 3000
+  }
+}

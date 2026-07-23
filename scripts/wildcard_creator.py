@@ -207,6 +207,28 @@ try:
                 section=section,
             ),
         )
+        shared.opts.add_option(
+            "sdcf_catalog_auto_restore",
+            shared.OptionInfo(
+                True,
+                (
+                    "Automatically redownload the verified character catalogue "
+                    "when validation fails"
+                ),
+                section=section,
+            ),
+        )
+        shared.opts.add_option(
+            "sdcf_catalog_redownload_on_startup",
+            shared.OptionInfo(
+                False,
+                (
+                    "Redownload the verified character catalogue on next UI startup "
+                    "(one-shot)"
+                ),
+                section=section,
+            ),
+        )
 
     script_callbacks.on_ui_tabs(on_ui_tabs)
     script_callbacks.on_ui_settings(on_ui_settings)

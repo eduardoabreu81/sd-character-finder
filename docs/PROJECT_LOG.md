@@ -1,5 +1,62 @@
 # PROJECT_LOG
 
+### [2026-07-23] Character Catalogue v2 — Validation, Recovery, and Local Prompts
+
+**What changed:**
+- Added `data/characters.manifest.json` as the authority for packaged-database
+  size, SHA-256, schema, table counts, and provider counts.
+- Added startup validation covering the manifest checksum, schema v5,
+  `PRAGMA quick_check`, foreign keys, core table counts, and source counts.
+- Added verified catalogue recovery through WebUI settings and an in-tab error
+  banner. Downloads are restricted to trusted GitHub HTTPS hosts, validated in a
+  temporary file, and installed with an atomic replace only after every check passes.
+- Added source-specific local prompt overrides to `data/user_overrides_v2.json`
+  schema v3. The override records the source prompt hash and is ignored with a
+  visible review state if a later catalogue changes its base prompt.
+- Added **Save prompt** and **Source prompt** actions. Saving a prompt never
+  mutates `source_records.prompt_raw`; Danbooru, e621, and Anima overrides remain
+  independent.
+- Kept **Save lookup tag** as a Danbooru-only live-query override and kept
+  Danbooru availability based on actual source representations.
+- Changed runtime series display policy to prefer a verified official English
+  title, with original transcription, Japanese title, and all provider titles
+  retained as searchable aliases.
+- Rebuilt the packaged catalogue and generated the matching recovery manifest.
+
+**Validation results:**
+- Rebuilt 39,008 variations and 59,508 representations.
+- Verified all 36,492 Anima prompts and detected zero prompt changes across all
+  59,508 source records.
+- Selected official English display names for 1,070 accepted series. `pokemon`
+  now displays as `Pokemon`; `Pocket Monsters` and `ポケットモンスター` remain
+  searchable aliases.
+- The rebuilt 82,882,560-byte catalogue has SHA-256
+  `8e1efa43e801d05ad5672ff0b0642e8a35b7d1485f191f6b83164eca5879271a`.
+- SQLite integrity passed, foreign-key errors remained zero, and all 24 automated
+  tests passed.
+- A real Hex Maniac override test removed only `large breasts` from the Danbooru
+  effective prompt, preserved `huge breasts`, left the Anima prompt unchanged,
+  and left the packaged catalogue validation healthy.
+
+**Known validation boundary:**
+- The complete UI still requires testing in the user's remote A1111/Forge host.
+  Local Gradio 6.9.0 rejects the project's existing Gradio 3/4 Dataframe
+  `height` argument and is not a representative visual runtime.
+
+**Files changed:**
+- `data/characters.db`
+- `data/characters.manifest.json`
+- `wildcard_creator/catalog_health.py`
+- `wildcard_creator/character_db.py`
+- `wildcard_creator/ui.py`
+- `scripts/build_character_catalog_v2.py`
+- `scripts/generate_catalog_manifest.py`
+- `scripts/wildcard_creator.py`
+- `tests/test_build_character_catalog_v2.py`
+- `tests/test_catalog_health.py`
+- `.gitignore`
+- `README.md`
+
 ### [2026-07-23] Character Catalogue v2 — Clean Runtime Branch
 
 **What changed:**

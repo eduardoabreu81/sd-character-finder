@@ -265,6 +265,146 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
                 updated[0]["tags"],
                 "astolfo \\(fate\\), fate \\(series\\), 1boy, pink hair",
             )
+            edited_prompt = (
+                "astolfo \\(fate\\), fate \\(series\\), 1boy, pink hair, cape"
+            )
+            self.assertTrue(
+                database.save_prompt_override(
+                    base["id"],
+                    "danbooru",
+                    edited_prompt,
+                )
+            )
+            updated, _ = database.search("astolfo", source_filter="danbooru")
+            self.assertEqual(updated[0]["tags"], edited_prompt)
+            self.assertTrue(updated[0]["prompt_overridden"])
+            anima_after_override, _ = database.search(
+                "astolfo",
+                source_filter="anima",
+            )
+            anima_base = next(
+                row
+                for row in anima_after_override
+                if row["variation_key"] == "astolfo (fate)"
+            )
+            self.assertEqual(
+                anima_base["tags"],
+                "astolfo (fate), fate (series), 1boy, pink hair",
+            )
+            override_payload = json.loads(
+                database._user_overrides_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(override_payload["schema_version"], 3)
+            self.assertIn(
+                "danbooru:astolfo (fate)",
+                override_payload["prompt_overrides"],
+            )
+            conn = sqlite3.connect(self.output)
+            try:
+                stored_prompt = conn.execute(
+                    """
+                    SELECT prompt_raw FROM source_records
+                    WHERE source = 'danbooru' AND match_key = 'astolfo (fate)'
+                    """
+                ).fetchone()[0]
+            finally:
+                conn.close()
+            self.assertEqual(
+                stored_prompt,
+                "astolfo \\(fate\\), fate \\(series\\), 1boy, pink hair",
+            )
+            self.assertTrue(
+                database.reset_prompt_override(base["id"], "danbooru")
+            )
+            reset, _ = database.search("astolfo", source_filter="danbooru")
+            self.assertEqual(reset[0]["tags"], stored_prompt)
+        finally:
+            database.close()
+
+    def test_migrates_schema_two_overrides_without_losing_lookup_tags(self) -> None:
+        build_catalog(
+            self.current_db,
+            self.anima_csv,
+            self.output,
+            self.report,
+        )
+        overrides_path = self.output.parent / "user_overrides_v2.json"
+        overrides_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "danbooru_tags": {
+                        "astolfo (fate)": "astolfo_existing_override",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        database = CharacterDB(self.output)
+        try:
+            results, _ = database.search("astolfo", source_filter="danbooru")
+            self.assertEqual(
+                results[0]["danbooru_tag"],
+                "astolfo_existing_override",
+            )
+            self.assertTrue(
+                database.save_prompt_override(
+                    results[0]["id"],
+                    "danbooru",
+                    results[0]["tags"] + ", cape",
+                )
+            )
+        finally:
+            database.close()
+
+        migrated = json.loads(overrides_path.read_text(encoding="utf-8"))
+        self.assertEqual(migrated["schema_version"], 3)
+        self.assertEqual(
+            migrated["danbooru_tags"]["astolfo (fate)"],
+            "astolfo_existing_override",
+        )
+        self.assertIn(
+            "danbooru:astolfo (fate)",
+            migrated["prompt_overrides"],
+        )
+
+    def test_stale_prompt_override_falls_back_to_packaged_prompt(self) -> None:
+        build_catalog(
+            self.current_db,
+            self.anima_csv,
+            self.output,
+            self.report,
+        )
+        database = CharacterDB(self.output)
+        try:
+            results, _ = database.search("astolfo", source_filter="danbooru")
+            base_prompt = results[0]["source_prompt_raw"]
+            self.assertTrue(
+                database.save_prompt_override(
+                    results[0]["id"],
+                    "danbooru",
+                    base_prompt + ", cape",
+                )
+            )
+            payload = json.loads(
+                database._user_overrides_path.read_text(encoding="utf-8")
+            )
+            payload["prompt_overrides"]["danbooru:astolfo (fate)"][
+                "base_prompt_sha256"
+            ] = "stale"
+            database._user_overrides_path.write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+
+            stale_results, _ = database.search(
+                "astolfo",
+                source_filter="danbooru",
+            )
+            self.assertEqual(stale_results[0]["tags"], base_prompt)
+            self.assertFalse(stale_results[0]["prompt_overridden"])
+            self.assertTrue(stale_results[0]["prompt_override_conflict"])
         finally:
             database.close()
 
@@ -651,7 +791,8 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
         try:
             series = conn.execute(
                 """
-                SELECT title_original_transcription, title_original_language,
+                SELECT canonical_display_name, canonical_title_source,
+                       title_original_transcription, title_original_language,
                        title_romaji, title_english, title_native,
                        title_resolution, title_confidence
                 FROM series
@@ -696,6 +837,8 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
         self.assertEqual(
             series,
             (
+                "Konosuba: God's Blessing on This Wonderful World!",
+                "anidb_official_english",
                 "Kono Subarashii Sekai ni Shukufuku o!",
                 "x-jat",
                 "Kono Subarashii Sekai ni Shukufuku o!",
@@ -715,6 +858,10 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
         self.assertEqual(prompt, konosuba_prompt)
         self.assertEqual(report["series_titles"]["accepted_series"], 1)
         self.assertEqual(report["series_titles"]["identity_merges_applied"], 0)
+        self.assertEqual(
+            report["series_catalog"]["using_official_english"],
+            1,
+        )
 
     def test_leaves_tied_anidb_title_matches_ambiguous(self) -> None:
         anidb_titles = self._write_anidb_dump(
@@ -867,7 +1014,8 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
         try:
             series = conn.execute(
                 """
-                SELECT title_original_transcription, title_original_language,
+                SELECT canonical_display_name, canonical_title_source,
+                       title_original_transcription, title_original_language,
                        title_romaji, title_english, title_native,
                        title_resolution
                 FROM series WHERE source_copyright_tag = 'fate_(series)'
@@ -879,6 +1027,8 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
         self.assertEqual(
             series,
             (
+                "Fate Saga",
+                "anidb_official_english",
                 "Fate (series)",
                 "x-zht",
                 None,

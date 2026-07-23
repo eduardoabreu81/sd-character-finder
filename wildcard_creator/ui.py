@@ -25,6 +25,12 @@ from urllib.parse import urlparse
 import gradio as gr
 import requests
 
+from wildcard_creator.catalog_health import (
+    CatalogRecoveryError,
+    CatalogValidation,
+    redownload_catalog,
+    validate_catalog,
+)
 from wildcard_creator.character_db import get_character_db
 from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
@@ -50,6 +56,51 @@ def _get_default_danbooru_auth() -> tuple[str, str]:
         return "", ""
 
 
+def _get_shared_opt(key: str, default):
+    """Read a WebUI setting with a standalone-safe fallback."""
+    try:
+        from modules import shared  # type: ignore
+
+        if hasattr(shared, "opts") and hasattr(shared.opts, key):
+            return getattr(shared.opts, key)
+    except Exception:
+        pass
+    return default
+
+
+def _clear_redownload_on_startup_setting() -> None:
+    """Consume the one-shot recovery setting when WebUI settings are available."""
+    try:
+        from modules import shared  # type: ignore
+
+        setattr(shared.opts, "sdcf_catalog_redownload_on_startup", False)
+        save_options = getattr(shared.opts, "save", None)
+        config_filename = getattr(shared, "config_filename", None)
+        if callable(save_options) and config_filename:
+            save_options(config_filename)
+    except Exception:
+        pass
+
+
+def _catalog_status_markdown(
+    validation: CatalogValidation,
+    recovery_note: str = "",
+) -> str:
+    if validation.ok:
+        if recovery_note:
+            return (
+                "### ✅ Character catalogue restored\n\n"
+                f"{recovery_note} Reload this tab to refresh all controls."
+            )
+        return ""
+    note = f"\n\n{recovery_note}" if recovery_note else ""
+    return (
+        "### ⚠️ Character catalogue problem detected\n\n"
+        f"{validation.message}{note}\n\n"
+        "Search is disabled until the verified catalogue is restored."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tab -- Character Browser
 # ---------------------------------------------------------------------------
@@ -57,17 +108,78 @@ def _get_default_danbooru_auth() -> tuple[str, str]:
 def _build_characters_content():
     """Renders the character browser UI directly into the current Blocks context."""
     cdb = get_character_db()
-    _populated = cdb.is_populated()
+    catalog_validation = validate_catalog()
+    recovery_note = ""
+    force_redownload = bool(
+        _get_shared_opt("sdcf_catalog_redownload_on_startup", False)
+    )
+    auto_restore = bool(_get_shared_opt("sdcf_catalog_auto_restore", True))
+    if force_redownload or (not catalog_validation.ok and auto_restore):
+        try:
+            catalog_validation = redownload_catalog(close_callback=cdb.close)
+            recovery_note = "A verified copy was downloaded and installed."
+        except CatalogRecoveryError as exc:
+            recovery_note = f"Automatic recovery failed: {exc}"
+        finally:
+            if force_redownload:
+                _clear_redownload_on_startup_setting()
+
+    _populated = catalog_validation.ok and cdb.is_populated()
     _total = cdb.count() if _populated else 0
     _series_choices = ["All"] + [s for s, _ in cdb.list_series()] if _populated else ["All"]
 
-    _NOT_POPULATED_MSG = (
-        "⚠️ **The v2 character catalogue is missing or incompatible.**\n\n"
-        "Reinstall this branch so its packaged `data/characters.db` is restored."
+    catalog_status = gr.Markdown(
+        value=_catalog_status_markdown(catalog_validation, recovery_note),
+        visible=not catalog_validation.ok or bool(recovery_note),
+        elem_id="sdcf_catalog_status",
+    )
+    btn_catalog_redownload = gr.Button(
+        "⬇️ Redownload verified catalogue",
+        variant="primary",
+        visible=not catalog_validation.ok,
+        elem_id="sdcf_catalog_redownload",
     )
 
-    if _total < 20000:
-        gr.Markdown(_NOT_POPULATED_MSG)
+    def _redownload_catalog_action():
+        yield (
+            gr.update(
+                value=(
+                    "### ⏳ Restoring character catalogue\n\n"
+                    "Downloading and validating the packaged database..."
+                ),
+                visible=True,
+            ),
+            gr.update(interactive=False),
+        )
+        try:
+            validation = redownload_catalog(close_callback=cdb.close)
+            yield (
+                gr.update(
+                    value=_catalog_status_markdown(
+                        validation,
+                        "A verified copy was downloaded and installed.",
+                    ),
+                    visible=True,
+                ),
+                gr.update(visible=False, interactive=True),
+            )
+        except CatalogRecoveryError as exc:
+            failed_validation = validate_catalog()
+            yield (
+                gr.update(
+                    value=_catalog_status_markdown(
+                        failed_validation,
+                        f"Recovery failed: {exc}",
+                    ),
+                    visible=True,
+                ),
+                gr.update(visible=True, interactive=True),
+            )
+
+    btn_catalog_redownload.click(
+        _redownload_catalog_action,
+        outputs=[catalog_status, btn_catalog_redownload],
+    )
 
     def _discover_wildcard_dirs() -> tuple[list[str], dict[str, str]]:
         """
@@ -354,6 +466,7 @@ def _build_characters_content():
                 label="Search",
                 placeholder="e.g. miku, saber, blue hair…",
                 lines=1,
+                interactive=_populated,
                 elem_id="sdcf_char_search"
             )
         with gr.Column(scale=1):
@@ -373,7 +486,12 @@ def _build_characters_content():
                 elem_id="sdcf_tag_status_filter"
             )
         with gr.Column(scale=1, min_width=100):
-            btn_char_search = gr.Button("🔍 Search", variant="primary", elem_id="sdcf_btn_search")
+            btn_char_search = gr.Button(
+                "🔍 Search",
+                variant="primary",
+                interactive=_populated,
+                elem_id="sdcf_btn_search",
+            )
         with gr.Column(scale=1, min_width=100):
             btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
         with gr.Column(scale=1, min_width=100):
@@ -534,7 +652,10 @@ def _build_characters_content():
                 btn_char_add = gr.Button("➕ Add to txt2img", size="lg")
             with gr.Row():
                 btn_char_copy = gr.Button("📋 Copy Tags", size="lg")
-                btn_char_save_tag = gr.Button("💾 Save Danbooru Tag", size="lg")
+                btn_char_save_prompt = gr.Button("💾 Save prompt", size="lg")
+                btn_char_reset_prompt = gr.Button("↩ Source prompt", size="lg")
+            with gr.Row():
+                btn_char_save_tag = gr.Button("💾 Save lookup tag", size="lg")
                 btn_favorite_toggle = gr.Button("🤍 Favorite", size="lg")
             char_selected_id = gr.State(None)
             char_selected_state = gr.State({})
@@ -703,7 +824,7 @@ def _build_characters_content():
                 "",
                 "",
                 "",
-                "",
+                _prompt_update(""),
                 None,
                 "",
                 "🤍 Favorite",
@@ -1094,6 +1215,14 @@ def _build_characters_content():
             pass
         return "🤍 Favorite"
 
+    def _prompt_update(value: str, representation: dict | None = None):
+        label = "Prompt tags"
+        if representation and representation.get("prompt_override_conflict"):
+            label = "Prompt tags — local override needs review"
+        elif representation and representation.get("prompt_overridden"):
+            label = "Prompt tags — local override"
+        return gr.update(value=value, label=label)
+
     def _select_by_index(results_state, row_idx):
         if not results_state or row_idx < 0 or row_idx >= len(results_state):
             return (
@@ -1101,21 +1230,57 @@ def _build_characters_content():
                 "",
                 "",
                 "",
-                "",
+                _prompt_update(""),
                 None,
                 "",
                 "🤍 Favorite",
                 gr.update(choices=[], value=None, visible=False),
                 {},
             )
-        char = results_state[row_idx]
+        char = dict(results_state[row_idx])
+        char_id = char.get("id")
+        if char_id:
+            fresh_representations = cdb.get_representations(int(char_id))
+            if fresh_representations:
+                selected_representation = next(
+                    (
+                        item
+                        for item in fresh_representations
+                        if item.get("source") == char.get("source")
+                    ),
+                    fresh_representations[0],
+                )
+                char["representations"] = fresh_representations
+                char.update(
+                    {
+                        "source": selected_representation["source"],
+                        "representation_id": selected_representation[
+                            "representation_id"
+                        ],
+                        "source_record_id": selected_representation[
+                            "source_record_id"
+                        ],
+                        "tags": selected_representation["prompt_raw"],
+                        "source_prompt_raw": selected_representation[
+                            "source_prompt_raw"
+                        ],
+                        "image_url": selected_representation["image_url"],
+                        "rank": selected_representation["rank"],
+                        "danbooru_tag": selected_representation["canonical_tag"],
+                        "prompt_overridden": selected_representation[
+                            "prompt_overridden"
+                        ],
+                        "prompt_override_conflict": selected_representation[
+                            "prompt_override_conflict"
+                        ],
+                    }
+                )
         canonical_tag = (char.get("danbooru_tag") or "").strip()
         # DB tags are mandatory — always use them as the prompt base.
         # canonical_tag is only a fallback when tags is empty.
         prompt_value = (char.get("tags") or canonical_tag or "").strip()
         
         img_url = char.get("image_url")
-        char_id = char.get("id")
         representation_id = char.get("representation_id")
         image_value = None
         if img_url:
@@ -1148,6 +1313,14 @@ def _build_characters_content():
             source=char.get("source", "danbooru"),
         )
         representations = char.get("representations") or []
+        active_representation = next(
+            (
+                item
+                for item in representations
+                if item.get("source") == char.get("source")
+            ),
+            None,
+        )
         representation_choices = [
             str(item.get("source"))
             for item in representations
@@ -1159,7 +1332,7 @@ def _build_characters_content():
             char["name"],
             char.get("series") or "",
             canonical_tag,
-            prompt_value,
+            _prompt_update(prompt_value, active_representation),
             char.get("id"),
             _normalize_wildcard_name(char["name"]),
             _favorite_button_label(char.get("id")),
@@ -1197,9 +1370,14 @@ def _build_characters_content():
                 "representation_id": representation["representation_id"],
                 "source_record_id": representation["source_record_id"],
                 "tags": representation["prompt_raw"],
+                "source_prompt_raw": representation["source_prompt_raw"],
                 "image_url": representation["image_url"],
                 "rank": representation["rank"],
                 "danbooru_tag": representation["canonical_tag"],
+                "prompt_overridden": representation["prompt_overridden"],
+                "prompt_override_conflict": representation[
+                    "prompt_override_conflict"
+                ],
             }
         )
         preview_html = _build_preview_html(
@@ -1211,7 +1389,7 @@ def _build_characters_content():
         return (
             gr.update(value=preview_html),
             gr.update(value=representation["canonical_tag"]),
-            gr.update(value=representation["prompt_raw"]),
+            _prompt_update(representation["prompt_raw"], representation),
             updated,
         )
 
@@ -1314,6 +1492,43 @@ def _build_characters_content():
         return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
 
+    def _refresh_selected_state_from_db(selected_state):
+        updated_state = dict(selected_state or {})
+        selected_id = updated_state.get("id")
+        selected_source = updated_state.get("source")
+        if not selected_id or not selected_source:
+            return updated_state, None
+        representations = cdb.get_representations(int(selected_id))
+        selected_representation = next(
+            (
+                item
+                for item in representations
+                if item.get("source") == selected_source
+            ),
+            None,
+        )
+        if selected_representation is None:
+            return updated_state, None
+        updated_state["representations"] = representations
+        updated_state.update(
+            {
+                "representation_id": selected_representation["representation_id"],
+                "source_record_id": selected_representation["source_record_id"],
+                "tags": selected_representation["prompt_raw"],
+                "source_prompt_raw": selected_representation[
+                    "source_prompt_raw"
+                ],
+                "image_url": selected_representation["image_url"],
+                "rank": selected_representation["rank"],
+                "danbooru_tag": selected_representation["canonical_tag"],
+                "prompt_overridden": selected_representation["prompt_overridden"],
+                "prompt_override_conflict": selected_representation[
+                    "prompt_override_conflict"
+                ],
+            }
+        )
+        return updated_state, selected_representation
+
     def save_manual_danbooru_tag(selected_id, manual_tag, selected_state):
         if not selected_id:
             return (
@@ -1328,6 +1543,17 @@ def _build_characters_content():
                 gr.update(),
                 selected_state or {},
             )
+        if (selected_state or {}).get("source") != "danbooru":
+            return (
+                gr.update(
+                    value=(
+                        "⚠️ Switch to the Danbooru representation before saving "
+                        "a lookup tag"
+                    )
+                ),
+                gr.update(),
+                selected_state or {},
+            )
         ok = cdb.save_danbooru_tag(int(selected_id), manual_tag)
         if not ok:
             return (
@@ -1335,19 +1561,90 @@ def _build_characters_content():
                 gr.update(),
                 selected_state or {},
             )
-        updated_state = dict(selected_state or {})
-        updated_representations = []
-        for representation in updated_state.get("representations", []):
-            updated_representation = dict(representation)
-            if updated_representation.get("source") == "danbooru":
-                updated_representation["canonical_tag"] = manual_tag
-            updated_representations.append(updated_representation)
-        updated_state["representations"] = updated_representations
-        if updated_state.get("source") == "danbooru":
-            updated_state["danbooru_tag"] = manual_tag
+        updated_state, _ = _refresh_selected_state_from_db(selected_state)
         return (
             gr.update(value="✅ Danbooru lookup tag saved; source prompt unchanged"),
             gr.update(),
+            updated_state,
+        )
+
+    def save_prompt_override(selected_id, prompt, selected_state):
+        if not selected_id:
+            return (
+                gr.update(value="⚠️ Select a character first"),
+                gr.update(),
+                selected_state or {},
+            )
+        selected_source = str((selected_state or {}).get("source") or "").strip()
+        if not selected_source:
+            return (
+                gr.update(value="⚠️ Select a source representation first"),
+                gr.update(),
+                selected_state or {},
+            )
+        prompt = (prompt or "").strip()
+        if not prompt:
+            return (
+                gr.update(value="⚠️ Prompt cannot be empty"),
+                gr.update(),
+                selected_state or {},
+            )
+        if not cdb.save_prompt_override(
+            int(selected_id),
+            selected_source,
+            prompt,
+        ):
+            return (
+                gr.update(value="❌ Failed to save prompt override"),
+                gr.update(),
+                selected_state or {},
+            )
+        updated_state, representation = _refresh_selected_state_from_db(
+            selected_state
+        )
+        effective_prompt = (
+            representation["prompt_raw"] if representation is not None else prompt
+        )
+        return (
+            gr.update(
+                value=(
+                    f"✅ {selected_source} prompt override saved locally; "
+                    "source catalogue unchanged"
+                )
+            ),
+            _prompt_update(effective_prompt, representation),
+            updated_state,
+        )
+
+    def reset_prompt_override(selected_id, selected_state):
+        if not selected_id:
+            return (
+                gr.update(value="⚠️ Select a character first"),
+                gr.update(),
+                selected_state or {},
+            )
+        selected_source = str((selected_state or {}).get("source") or "").strip()
+        if not selected_source:
+            return (
+                gr.update(value="⚠️ Select a source representation first"),
+                gr.update(),
+                selected_state or {},
+            )
+        if not cdb.reset_prompt_override(int(selected_id), selected_source):
+            return (
+                gr.update(value="❌ Failed to reset prompt override"),
+                gr.update(),
+                selected_state or {},
+            )
+        updated_state, representation = _refresh_selected_state_from_db(
+            selected_state
+        )
+        source_prompt = (
+            representation["prompt_raw"] if representation is not None else ""
+        )
+        return (
+            gr.update(value=f"✅ Restored the packaged {selected_source} prompt"),
+            _prompt_update(source_prompt, representation),
             updated_state,
         )
 
@@ -1616,6 +1913,30 @@ def _build_characters_content():
                 throw new Error('Cancelled by user');
             }
             return [id, tag, selectedState];
+        }""")
+    )
+    btn_char_save_prompt.click(
+        save_prompt_override,
+        inputs=[char_selected_id, char_tags_out, char_selected_state],
+        outputs=[char_send_status, char_tags_out, char_selected_state],
+        **get_js_kw("""(id, prompt, selectedState) => {
+            const source = (selectedState && selectedState.source) || 'selected';
+            if(!confirm(`Save this local prompt override for ${source}? The packaged source prompt will remain unchanged.`)) {
+                throw new Error('Cancelled by user');
+            }
+            return [id, prompt, selectedState];
+        }""")
+    )
+    btn_char_reset_prompt.click(
+        reset_prompt_override,
+        inputs=[char_selected_id, char_selected_state],
+        outputs=[char_send_status, char_tags_out, char_selected_state],
+        **get_js_kw("""(id, selectedState) => {
+            const source = (selectedState && selectedState.source) || 'selected';
+            if(!confirm(`Restore the packaged ${source} prompt and remove its local override?`)) {
+                throw new Error('Cancelled by user');
+            }
+            return [id, selectedState];
         }""")
     )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import hashlib
 import json
 import logging
 import re
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "characters.db"
 _SOURCE_ORDER = ("danbooru", "e621", "anima")
 _REQUIRED_SCHEMA_VERSION = 5
+_USER_OVERRIDES_SCHEMA_VERSION = 3
 
 
 def _normalize_text(value: str | None) -> str:
@@ -108,26 +110,68 @@ class CharacterDB:
             )
             return 0
 
-    def _load_user_tag_overrides(self) -> dict[str, str]:
+    @staticmethod
+    def _empty_user_overrides() -> dict[str, Any]:
+        return {
+            "schema_version": _USER_OVERRIDES_SCHEMA_VERSION,
+            "danbooru_tags": {},
+            "prompt_overrides": {},
+        }
+
+    def _load_user_overrides(self) -> dict[str, Any]:
         if not self._user_overrides_path.exists():
-            return {}
+            return self._empty_user_overrides()
         try:
             payload = json.loads(
                 self._user_overrides_path.read_text(encoding="utf-8")
             )
-            if payload.get("schema_version") != 2:
-                return {}
-            values = payload.get("danbooru_tags", {})
-            if not isinstance(values, dict):
-                return {}
+            if not isinstance(payload, dict) or payload.get("schema_version") not in {
+                2,
+                _USER_OVERRIDES_SCHEMA_VERSION,
+            }:
+                return self._empty_user_overrides()
+            raw_tags = payload.get("danbooru_tags", {})
+            raw_prompts = payload.get("prompt_overrides", {})
+            tags = raw_tags if isinstance(raw_tags, dict) else {}
+            prompts = raw_prompts if isinstance(raw_prompts, dict) else {}
             return {
-                str(key): str(value)
-                for key, value in values.items()
-                if str(key).strip() and str(value).strip()
+                "schema_version": _USER_OVERRIDES_SCHEMA_VERSION,
+                "danbooru_tags": {
+                    str(key): str(value)
+                    for key, value in tags.items()
+                    if str(key).strip() and str(value).strip()
+                },
+                "prompt_overrides": {
+                    str(key): dict(value)
+                    for key, value in prompts.items()
+                    if str(key).strip()
+                    and isinstance(value, dict)
+                    and str(value.get("prompt") or "").strip()
+                    and str(value.get("base_prompt_sha256") or "").strip()
+                },
             }
         except (OSError, json.JSONDecodeError, AttributeError) as exc:
             logger.error("Cannot read v2 user overrides: %s", exc)
-            return {}
+            return self._empty_user_overrides()
+
+    def _write_user_overrides(self, payload: dict[str, Any]) -> None:
+        normalized = {
+            "schema_version": _USER_OVERRIDES_SCHEMA_VERSION,
+            "danbooru_tags": dict(sorted(payload.get("danbooru_tags", {}).items())),
+            "prompt_overrides": dict(
+                sorted(payload.get("prompt_overrides", {}).items())
+            ),
+        }
+        temp_path = self._user_overrides_path.with_suffix(".json.tmp")
+        temp_path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        temp_path.replace(self._user_overrides_path)
+
+    @staticmethod
+    def _prompt_override_key(source: str, variation_key: str) -> str:
+        return f"{source}:{variation_key}"
 
     def _get_representations_many(
         self,
@@ -150,7 +194,9 @@ class CharacterDB:
             """,
             variation_ids,
         ).fetchall()
-        overrides = self._load_user_tag_overrides()
+        user_overrides = self._load_user_overrides()
+        tag_overrides = user_overrides["danbooru_tags"]
+        prompt_overrides = user_overrides["prompt_overrides"]
         variation_keys = {
             int(row["id"]): str(row["variation_key"])
             for row in self._get_conn()
@@ -167,6 +213,7 @@ class CharacterDB:
         for row in rows:
             representation = dict(row)
             variation_id = int(row["variation_id"])
+            variation_key = variation_keys[variation_id]
             if row["source"] in {"danbooru", "e621"}:
                 # These profiles target tag-based models, so the value shown in
                 # the UI must retain prompt escapes such as ``\(fate\)``.
@@ -180,12 +227,29 @@ class CharacterDB:
                     row["canonical_tag_raw"] or row["source_tag_raw"] or ""
                 )
             if row["source"] == "danbooru":
-                canonical_tag = overrides.get(
-                    variation_keys[variation_id],
+                canonical_tag = tag_overrides.get(
+                    variation_key,
                     canonical_tag,
                 )
+            source_prompt = str(row["prompt_raw"])
+            prompt_key = self._prompt_override_key(str(row["source"]), variation_key)
+            prompt_override = prompt_overrides.get(prompt_key)
+            prompt_override_conflict = False
+            effective_prompt = source_prompt
+            if prompt_override:
+                current_base_sha256 = hashlib.sha256(
+                    source_prompt.encode("utf-8")
+                ).hexdigest()
+                if prompt_override["base_prompt_sha256"] == current_base_sha256:
+                    effective_prompt = str(prompt_override["prompt"])
+                else:
+                    prompt_override_conflict = True
             representation["canonical_tag"] = canonical_tag
-            representation["tags"] = str(row["prompt_raw"])
+            representation["source_prompt_raw"] = source_prompt
+            representation["prompt_raw"] = effective_prompt
+            representation["tags"] = effective_prompt
+            representation["prompt_overridden"] = effective_prompt != source_prompt
+            representation["prompt_override_conflict"] = prompt_override_conflict
             grouped[variation_id].append(representation)
         return dict(grouped)
 
@@ -244,6 +308,11 @@ class CharacterDB:
                     "source": selected["source"],
                     "representation_id": selected["representation_id"],
                     "source_record_id": selected["source_record_id"],
+                    "source_prompt_raw": selected["source_prompt_raw"],
+                    "prompt_overridden": selected["prompt_overridden"],
+                    "prompt_override_conflict": selected[
+                        "prompt_override_conflict"
+                    ],
                     "sources": sources,
                     "source_combination": "+".join(sources),
                     "representations": representations,
@@ -316,7 +385,10 @@ class CharacterDB:
             )
             params.extend([normalized_series, normalized_series])
 
-        if tag_status_filter == "Missing Danbooru Tag":
+        if tag_status_filter in {
+            "Missing Danbooru Tag",
+            "Missing Danbooru representation",
+        }:
             clauses.append(
                 """
                 NOT EXISTS (
@@ -325,7 +397,10 @@ class CharacterDB:
                 )
                 """
             )
-        elif tag_status_filter == "Has Danbooru Tag":
+        elif tag_status_filter in {
+            "Has Danbooru Tag",
+            "Has Danbooru representation",
+        }:
             clauses.append(
                 """
                 EXISTS (
@@ -461,23 +536,100 @@ class CharacterDB:
             if not row:
                 return False
             with self._write_lock:
-                values = self._load_user_tag_overrides()
-                values[str(row["variation_key"])] = tag
-                payload = {
-                    "schema_version": 2,
-                    "danbooru_tags": dict(sorted(values.items())),
-                }
-                temp_path = self._user_overrides_path.with_suffix(".json.tmp")
-                temp_path.write_text(
-                    json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8",
-                )
-                temp_path.replace(self._user_overrides_path)
+                payload = self._load_user_overrides()
+                payload["danbooru_tags"][str(row["variation_key"])] = tag
+                self._write_user_overrides(payload)
             return True
         except Exception as exc:
             logger.error(
                 "save_danbooru_tag failed: char_id=%s, error=%s",
                 char_id,
+                exc,
+                exc_info=True,
+            )
+            return False
+
+    def save_prompt_override(
+        self,
+        char_id: int,
+        source: str,
+        prompt: str,
+    ) -> bool:
+        """Persist an effective prompt for one source representation only."""
+        normalized_source = (source or "").strip().casefold()
+        effective_prompt = (prompt or "").strip()
+        if normalized_source not in _SOURCE_ORDER or not effective_prompt:
+            return False
+        try:
+            rows = self._get_conn().execute(
+                """
+                SELECT v.variation_key, sr.prompt_raw
+                FROM character_variations v
+                JOIN character_representations cr ON cr.variation_id = v.id
+                JOIN source_records sr ON sr.id = cr.source_record_id
+                WHERE v.id = ? AND cr.source = ?
+                """,
+                (int(char_id), normalized_source),
+            ).fetchall()
+            if len(rows) != 1:
+                return False
+            variation_key = str(rows[0]["variation_key"])
+            source_prompt = str(rows[0]["prompt_raw"])
+            prompt_key = self._prompt_override_key(
+                normalized_source,
+                variation_key,
+            )
+            with self._write_lock:
+                payload = self._load_user_overrides()
+                if effective_prompt == source_prompt:
+                    payload["prompt_overrides"].pop(prompt_key, None)
+                else:
+                    payload["prompt_overrides"][prompt_key] = {
+                        "source": normalized_source,
+                        "variation_key": variation_key,
+                        "base_prompt_sha256": hashlib.sha256(
+                            source_prompt.encode("utf-8")
+                        ).hexdigest(),
+                        "prompt": effective_prompt,
+                    }
+                self._write_user_overrides(payload)
+            return True
+        except Exception as exc:
+            logger.error(
+                "save_prompt_override failed: char_id=%s, source=%r, error=%s",
+                char_id,
+                source,
+                exc,
+                exc_info=True,
+            )
+            return False
+
+    def reset_prompt_override(self, char_id: int, source: str) -> bool:
+        """Remove one source-specific prompt override."""
+        normalized_source = (source or "").strip().casefold()
+        if normalized_source not in _SOURCE_ORDER:
+            return False
+        try:
+            row = self._get_conn().execute(
+                "SELECT variation_key FROM character_variations WHERE id = ?",
+                (int(char_id),),
+            ).fetchone()
+            if not row:
+                return False
+            prompt_key = self._prompt_override_key(
+                normalized_source,
+                str(row["variation_key"]),
+            )
+            with self._write_lock:
+                payload = self._load_user_overrides()
+                payload["prompt_overrides"].pop(prompt_key, None)
+                self._write_user_overrides(payload)
+            return True
+        except Exception as exc:
+            logger.error(
+                "reset_prompt_override failed: char_id=%s, source=%r, error=%s",
+                char_id,
+                source,
                 exc,
                 exc_info=True,
             )

@@ -42,8 +42,16 @@ bundled `data/characters.db` to use schema v5.
   together. Switching source never rewrites prompt punctuation or escaping.
 - Search accepts canonical character names, official character aliases,
   original work titles, Western/common work aliases, and prompt tags.
+- Accepted title matches use the official English work name for display while
+  retaining the original transcription and Japanese title as searchable aliases.
 - Availability filters distinguish reviewed exclusives, source-only candidates,
   and characters represented by multiple sources.
+- Prompt edits can be saved locally per representation source. They are stored
+  in `data/user_overrides_v2.json`; provider prompts inside the catalogue remain
+  immutable and can be restored with **Source prompt**.
+- The packaged database is checked against `data/characters.manifest.json`
+  (SHA-256, schema, SQLite integrity, relationships, and expected counts).
+  Invalid catalogues display a recovery warning and a verified-redownload button.
 - The packaged catalogue currently contains 39,008 variations backed by 59,508
   immutable source representations.
 
@@ -61,6 +69,13 @@ git clone --branch feat/canonical-characters-v2 --single-branch \
 
 Restart WebUI after cloning. Favorites, recent history, and user overrides
 should start clean during this experimental phase.
+
+Two recovery controls are available under **Settings → SD Character Finder**:
+
+- **Automatically redownload the verified character catalogue when validation
+  fails** restores a missing or damaged database.
+- **Redownload the verified character catalogue on next UI startup** forces one
+  verified redownload and resets itself after that startup.
 
 ---
 
