@@ -13,10 +13,10 @@
     box-sizing: border-box;
 }
 
-#sdcf_main_blocks #sdcf_btn_search,
-#sdcf_main_blocks #sdcf_btn_clear_search,
-#sdcf_main_blocks #sdcf_btn_clear_all {
-    margin-top: 15px;
+#sdcf_main_blocks #sdcf_search_button_slot,
+#sdcf_main_blocks #sdcf_clear_search_button_slot,
+#sdcf_main_blocks #sdcf_clear_all_button_slot {
+    justify-content: flex-end !important;
 }
 
 #sdcf_main_blocks #sdcf_source_favorites_group {
@@ -27,14 +27,6 @@
 #sdcf_main_blocks #sdcf_source_favorites_group #sdcf_favorites_only_chk {
     margin-top: 15px;
     min-height: 32px;
-}
-
-@media (max-width: 950px) {
-    #sdcf_main_blocks #sdcf_btn_search,
-    #sdcf_main_blocks #sdcf_btn_clear_search,
-    #sdcf_main_blocks #sdcf_btn_clear_all {
-        margin-top: 0;
-    }
 }
 
 #sdcf_char_preview .sdcf-preview-wrap {

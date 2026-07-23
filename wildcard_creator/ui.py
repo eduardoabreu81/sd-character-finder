@@ -527,16 +527,28 @@ def _build_characters_content():
                 interactive=True,
                 elem_id="sdcf_tag_status_filter"
             )
-        with gr.Column(scale=1, min_width=110):
+        with gr.Column(
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_search_button_slot",
+        ):
             btn_char_search = gr.Button(
                 "🔍 Search",
                 variant="primary",
                 interactive=_populated,
                 elem_id="sdcf_btn_search",
             )
-        with gr.Column(scale=1, min_width=110):
+        with gr.Column(
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_clear_search_button_slot",
+        ):
             btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
-        with gr.Column(scale=1, min_width=110):
+        with gr.Column(
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_clear_all_button_slot",
+        ):
             btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
 
     with gr.Row(elem_id="sdcf_character_filter_controls"):
