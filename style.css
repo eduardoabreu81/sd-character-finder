@@ -237,6 +237,45 @@
     background: #ec4899;
 }
 
+.sdcf-badge-exclusive {
+    background: #f59e0b;
+}
+
+.sdcf-badge-source-only {
+    background: #475569;
+}
+
+.sdcf-badge-variation {
+    background: #64748b;
+}
+
+.sdcf-card-source-badges,
+.sdcf-card-flag-badges {
+    position: absolute;
+    top: 6px;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: calc(100% - 12px);
+    pointer-events: none;
+}
+
+.sdcf-card-source-badges {
+    left: 6px;
+}
+
+.sdcf-card-flag-badges {
+    top: 28px;
+    right: 6px;
+    justify-content: flex-end;
+}
+
+.sdcf-char-gallery .civmodelcard figure .sdcf-card-source-badges .sdcf-badge,
+.sdcf-char-gallery .civmodelcard figure .sdcf-card-flag-badges .sdcf-badge {
+    position: static;
+}
+
 /* Position badge inside gallery cards */
 .sdcf-char-gallery .civmodelcard figure .sdcf-badge {
     position: absolute;

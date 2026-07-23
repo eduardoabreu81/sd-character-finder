@@ -1,5 +1,268 @@
 # PROJECT_LOG
 
+### [2026-07-23] Character Catalogue v2 — Clean Runtime Branch
+
+**What changed:**
+- Created `feat/canonical-characters-v2` as a clean-install branch with no legacy
+  database toggle or compatibility adapter.
+- Upgraded the catalogue builder to schema v5 and materialized three explicit
+  runtime layers: canonical characters, reviewed character variations, and
+  source-specific representations.
+- Each representation points to exactly one immutable source record containing
+  its original prompt, trigger, image, rank, and provider metadata.
+- Replaced the legacy runtime database reader with a query-only v2 reader.
+  Searches now return one variation and hydrate all available representations,
+  while source filters select the matching prompt/image bundle.
+- Added availability filtering for reviewed exclusives, source-only candidates,
+  and multi-source variations. Provisional source-only rows are not presented as
+  reviewed exclusives.
+- Added the representation selector to the character card. Switching Danbooru,
+  e621, or Anima updates the prompt, trigger, image, and active metadata together.
+- Added canonical/variation/source badges, representation-specific thumbnail
+  cache keys, and a result-scroll reset for new searches.
+- Moved manual Danbooru lookup tags to `data/user_overrides_v2.json`. Saving a
+  lookup tag can no longer overwrite a provider prompt.
+- Replaced the branch's packaged `data/characters.db` with the schema-v5
+  catalogue. The ignored legacy input remains local only under `data/generated/`
+  for repeatable rebuilds.
+
+**Build and audit results:**
+- Materialized 39,007 canonical characters, 39,008 variations, and 59,508
+  source representations.
+- Preserved 20,016 Danbooru, 3,000 e621, and 36,492 Anima representations.
+- Verified all 36,492 reconstructed Anima prompts and all source prompt hashes.
+- Mapped every source record exactly once; foreign-key audit returned zero
+  errors and `PRAGMA integrity_check` returned `ok`.
+- Reduced redundant search-term materialization so the packaged database is
+  approximately 83 MB and remains below GitHub's per-file limit.
+- Kept 20,118 multi-source variations, four reviewed Danbooru exclusives, and
+  18,886 provisional source-only variations.
+- All 17 automated tests pass, including source-specific Astolfo prompt/image
+  switching, official search aliases, reviewed exclusivity, immutable prompts,
+  and manual variation families.
+
+**Known validation boundary:**
+- Visual behavior inside the user's remote A1111/Forge installation cannot be
+  tested from the local workspace. The branch must be installed remotely for
+  final Gradio layout, event, and theme validation.
+- The local `.venv` contains Gradio 6.9.0, while the extension targets the
+  Gradio 3/4 versions embedded by supported WebUI hosts; it is unsuitable for a
+  representative standalone UI launch.
+
+**Files changed:**
+- `data/characters.db`
+- `wildcard_creator/character_db.py`
+- `wildcard_creator/ui.py`
+- `scripts/build_character_catalog_v2.py`
+- `tests/test_build_character_catalog_v2.py`
+- `style.css`
+- `.gitignore`
+- `README.md`
+- `docs/PROJECT_LOG.md`
+
+### [2026-07-23] Character Catalogue v2 — Series-Title Review Queue
+
+**What changed:**
+- Added `scripts/generate_series_title_review.py`, a deterministic read-only exporter
+  for all title associations that require human review.
+- The CSV includes the canonical copyright, resolution class, provider counts,
+  representative characters, candidate AniDB AIDs, exact match evidence, companion
+  `x-jat`/`ja`/`en` titles, and links to every candidate.
+- Decision fields are deliberately empty. Exporting the queue cannot accept a title,
+  choose an AID, modify the staging database, or change a prompt.
+- Added regression coverage for all three review classes, deterministic output,
+  blank decision fields, candidate evidence, input hashes, and path-collision safety.
+
+**Review results:**
+- Exported 159 pending rows: 8 ambiguous exact matches, 35 short-title-only matches,
+  and 116 alias-only matches.
+- Inspected the eight ambiguous rows as the first calibration batch. Their candidate
+  AIDs represent competing adaptations, remakes, seasons, or continuities, while the
+  canonical copyright and associated characters span the broader franchise.
+- Recommended `umbrella_franchise` for all eight cases. No recommendation has been
+  applied; the first batch remains pending explicit approval.
+
+**Files changed:**
+- `scripts/generate_series_title_review.py`
+- `tests/test_generate_series_title_review.py`
+- `docs/PROJECT_LOG.md`
+
+### [2026-07-23] Character Catalogue v2 — Provenance-Bearing Series Titles
+
+**What changed:**
+- Upgraded the staging catalogue to schema v4 with `series_titles` and
+  `series_title_matches` tables. Titles now retain provider, AniDB AID, language,
+  title type, confidence, and the exact catalogue alias used as evidence.
+- Added explicit summary fields for original transcription and its language, plus
+  romaji, Japanese-script, and official English titles. Romaji/Japanese fields are
+  populated only when the dump explicitly identifies the main title as `x-jat`;
+  language is never inferred from the text or alphabet.
+- Imported accepted AniDB `main`, `official`, `syn`, `short`, `card`, and `kana`
+  titles in `x-jat`, `ja`, and `en` as searchable aliases without changing the
+  Danbooru copyright key.
+- Added `scripts/fetch_anidb_titles.py`, an atomic, validated cache collector with
+  a mandatory 24-hour reuse window and no force-refresh option.
+- Added regression coverage for Konosuba, tied candidates, alias-only franchise
+  matches, non-Japanese main-title semantics, card/kana rows, cache reuse, and
+  immutable provider prompts.
+
+**Build results:**
+- Parsed the official daily AniDB snapshot containing 16,810 anime and 99,840
+  provenance-bearing titles.
+- Accepted 1,325 exact, unique copyright-to-title associations. These produced
+  6,888 stored title rows and 6,437 searchable title aliases.
+- Populated 1,325 original transcriptions, 1,310 Japanese romaji titles, 1,309
+  Japanese-script titles, and 1,070 official English titles.
+- Kept 8 ambiguous matches, 35 short-title-only matches, 116 alias-only matches,
+  and 2,218 unmatched series out of automatic enrichment.
+- Revalidated all 59,508 legacy prompt joins with zero prompt mismatches, missing
+  rows, or invalid prompt hashes. SQLite integrity and foreign-key checks passed.
+
+**Technical decisions:**
+- AniDB IDs are evidence for a title association, not replacements for the
+  Danbooru copyright identity and not proof that a franchise equals one anime
+  season or adaptation.
+- A verified Danbooru alias may confirm an AniDB AID already reached by the
+  canonical copyright, but an alias cannot establish the association by itself.
+  Cases such as `genshin_impact`, `kirby_(series)`, and other adaptation/franchise
+  collisions remain review-only.
+- Source-specific Danbooru, Anima, and e621 prompts remain immutable rendering
+  artifacts. Series-title enrichment changes only staging metadata and search
+  aliases.
+- The runtime `data/characters.db` and UI remain unchanged in this phase.
+
+**Files changed:**
+- `scripts/build_character_catalog_v2.py`
+- `scripts/fetch_anidb_titles.py`
+- `tests/test_build_character_catalog_v2.py`
+- `tests/test_fetch_anidb_titles.py`
+- `docs/PROJECT_LOG.md`
+
+### [2026-07-22] Character Catalogue v2 — Directional Search Alias Integration
+
+**What changed:**
+- Upgraded the staging catalogue to schema v3 with a dedicated `character_aliases` table
+  and official search aliases in the existing `series_aliases` table.
+- Added strict official-cache validation and a one-way import policy to the v2 builder.
+  Danbooru alias antecedents are searchable input only; the consequent remains the canonical
+  catalogue target and output.
+- Updated the alias auditor to distinguish aliases already integrated in the catalogue from
+  canonicalization and cross-target decisions that remain pending.
+- Added regression coverage proving directional aliases do not create identity relations,
+  reverse canonical output, or alter source-specific prompts.
+
+**Audit results:**
+- Integrated 6,604 official directional search aliases: 5,219 character aliases and 1,385
+  series aliases.
+- `yor_forger` exists only as a search alias pointing to the canonical `yor_briar` group;
+  no `yor_forger` identity group exists. `konosuba` points to the canonical
+  `kono_subarashii_sekai_ni_shukufuku_wo!` series.
+- Left 1,306 decisions pending: 1,110 canonicalization candidates and 196 aliases connecting
+  two existing catalogue targets. No identities were merged.
+- All 59,508 provider prompts still match the legacy source database exactly. SQLite
+  integrity and foreign-key checks passed.
+
+**Technical decisions:**
+- Searchability and canonical naming are separate concepts. An alias may find a character or
+  series but can never replace the official consequent in catalogue output.
+- Official aliases are auto-imported only when the antecedent has no catalogue target and the
+  consequent already has exactly one target. Every other case remains review-only.
+
+**Files changed:**
+- `scripts/build_character_catalog_v2.py`
+- `scripts/audit_danbooru_aliases.py`
+- `tests/test_build_character_catalog_v2.py`
+- `tests/test_audit_danbooru_aliases.py`
+- `docs/PROJECT_LOG.md`
+
+### [2026-07-22] Character Catalogue v2 — Official Alias Suggestion Audit
+
+**What changed:**
+- Added `scripts/audit_danbooru_aliases.py`, which can cache active official Danbooru
+  aliases for character (`category=4`) and copyright (`category=3`) tags in bulk pages,
+  then perform all catalogue matching offline.
+- Added a separate SQLite suggestion database and a reduced CSV review queue. The staging
+  character catalogue is opened read-only; aliases never merge identities, change source
+  presence, modify exclusivity, or rewrite prompts.
+- Added explicit suggestion classes for safe search aliases, canonicalization candidates,
+  cross-target connections, already-resolved targets, and ambiguous official aliases.
+- Added regression tests for suggestion classification, duplicate alias rejection, path
+  collision safety, pending review status, and catalogue hash preservation.
+
+**Audit results:**
+- The existing `data/danbooru_tags.csv` contains only 196 general-category rows and no
+  usable character or copyright aliases, so it cannot support identity resolution.
+- Cached 16,827 active official aliases: 12,811 character aliases and 4,016 series aliases.
+- Generated 7,910 catalogue-relevant suggestions: 6,469 character and 1,441 series.
+- Identified 6,604 search-only aliases that point to an existing catalogue target. These
+  are excluded from the manual review CSV but remain fully available in the SQLite output.
+- Generated a 1,306-row review queue: 1,110 canonicalization candidates and 196 aliases
+  connecting two existing catalogue targets.
+- Applied zero automatic merges. SQLite integrity, foreign-key checks, and the unchanged
+  staging-catalogue SHA-256 guard all passed.
+
+**Technical decisions:**
+- An official alias is positive evidence, not authorization to merge catalogue entities.
+- Search-only aliases are separated from decisions that affect identity or canonical tags.
+- The API snapshot is stored only under ignored `data/generated/`; credentials are optional,
+  read from environment variables when supplied, never written to output or logs.
+
+**Files changed:**
+- `scripts/audit_danbooru_aliases.py`
+- `tests/test_audit_danbooru_aliases.py`
+- `docs/PROJECT_LOG.md`
+
+### [2026-07-22] Character Catalogue v2 — Offline Staging Pipeline
+
+**What changed:**
+- Added `scripts/build_character_catalog_v2.py`, an offline and repeatable builder that
+  creates `data/generated/characters_v2.db` plus a JSON audit report without modifying
+  the runtime `data/characters.db`.
+- Preserved provider prompts as immutable source data. DownloadMost/Danbooru and e621
+  prompts are copied byte-for-byte from the current database, while every Anima prompt
+  is reconstructed from `trigger` + `core_tags` and required to match the bundled Anima
+  row exactly before the build may continue.
+- Added a relational staging schema for provider records, canonical series, series aliases,
+  exact raw-tag groups, build metadata, and review-only identity/variation candidates.
+- Added tracked `data/catalog_overrides.json` decisions plus relational audit tables for
+  accepted aliases, rejected false matches, character variations, and reviewed exclusivity.
+- Replaced positional series guessing with exact Anima copyright matching. A prompt's
+  second tag is deliberately not treated as a series.
+- Added focused regression tests for source-specific Astolfo prompt escaping, the fail-closed
+  Anima prompt-fidelity check, safe output paths, and metadata-only manual overrides.
+
+**Audit results:**
+- 59,508 provider records staged: 20,016 Danbooru, 3,000 e621, and 36,492 Anima.
+- All 36,492 Anima prompts and all 59,508 legacy-record prompt joins passed with zero
+  mismatches; SQLite integrity and foreign-key checks also passed.
+- Exact Anima copyright data resolved series metadata for 20,011 Danbooru records and 488
+  e621 records. Manual review resolved the remaining five Danbooru records, leaving all
+  20,016 Danbooru records resolved and 2,512 e621 records intentionally unresolved.
+- 39,009 exact raw-tag groups and 21,544 review candidates were generated. These are
+  provisional comparison aids, not final character entities or definitive exclusivity flags.
+- The five reviewed Danbooru cases produced four confirmed Danbooru-exclusive source records,
+  one accepted cross-provider Yamashiro variant alias, one `variation_of` relation, and four
+  rejected false-positive identity candidates.
+
+**Technical decisions:**
+- A provider prompt is an immutable rendering artifact. Normalization is allowed only on
+  derived matching keys and must never rewrite `prompt_text`.
+- Anima `copyright` is useful source metadata, but is not automatically assumed to be the
+  definitive original title of a work. Canonical titles and Western/common aliases will be
+  populated separately with provenance and confidence.
+- Manual catalogue decisions are source-record selectors stored in a tracked JSON artifact.
+  The builder rejects missing, duplicate, conflicting, or prompt-mutating overrides.
+- No runtime database swap, UI filter, or search behavior changed in this phase. The staged
+  database and report are ignored through `data/generated/` until identity resolution and
+  review rules are complete.
+
+**Files changed:**
+- `scripts/build_character_catalog_v2.py`
+- `tests/test_build_character_catalog_v2.py`
+- `data/catalog_overrides.json`
+- `.gitignore`
+- `docs/PROJECT_LOG.md`
+
 ### [2026-04-11] v0.5.3 — Hotfix: Startup Crash & Database Lock
 
 **O que foi feito:**
@@ -128,4 +391,4 @@
 
 ### Regras de Documentação
 
-> **What's New (apenas a família da minor atual):** A seção "What's New" do README.md mantém SOMENTE a entrada da versão da minor atual (ex: se estamos em v0.4.x, só fica v0.4.0 no What's New). Versões anteriores pertencem exclusivamente ao Changelog.
+> **What's New (apenas a família da minor atual):** A seção "What's New" mantém as entradas da família da minor atual vX.Y.* inteira (ex: se estamos em v0.6.1, ficam v0.6.1 e v0.6.0 no What's New; se estamos em v0.4.0-ex, fica apenas v0.4.0-ex). Versões de famílias anteriores (ex: v0.5.x) pertencem exclusivamente ao Changelog.

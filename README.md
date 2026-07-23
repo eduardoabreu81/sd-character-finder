@@ -30,6 +30,40 @@ Your ultimate **character encyclopedia** and **artist style discovery** tool dir
 
 ---
 
+## 🧪 Experimental Character Catalogue v2
+
+The `feat/canonical-characters-v2` branch is a clean-install preview of the new
+character architecture. It does not contain a legacy/v2 switch and expects the
+bundled `data/characters.db` to use schema v5.
+
+- One canonical variation can have separate Danbooru, e621, and Anima
+  representations.
+- A representation keeps its source prompt, trigger, image, rank, and URL
+  together. Switching source never rewrites prompt punctuation or escaping.
+- Search accepts canonical character names, official character aliases,
+  original work titles, Western/common work aliases, and prompt tags.
+- Availability filters distinguish reviewed exclusives, source-only candidates,
+  and characters represented by multiple sources.
+- The packaged catalogue currently contains 39,008 variations backed by 59,508
+  immutable source representations.
+
+Only four source-exclusive variations have completed manual identity review.
+The remaining Anima-only and e621-only rows are deliberately labelled as
+source-only candidates until the identity/variation review is complete.
+
+For a clean remote test, remove the existing extension folder and clone the
+branch directly inside the WebUI `extensions` directory:
+
+```bash
+git clone --branch feat/canonical-characters-v2 --single-branch \
+  https://github.com/eduardoabreu81/sd-character-finder.git
+```
+
+Restart WebUI after cloning. Favorites, recent history, and user overrides
+should start clean during this experimental phase.
+
+---
+
 ## 🆕 What's New
 
 ### v0.6.2 — AnimaDex Integration

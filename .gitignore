@@ -6,6 +6,7 @@ AGENTS.local.md
 docs/
 docs/PROJECT_LOG.md
 .specstory/
+.codegraph/
 
 # ============================================
 # Local runtime artifacts
@@ -22,6 +23,8 @@ data/artist_favorites.json
 data/favorites.json
 data/recent_viewed.json
 data/search_history.json
+data/user_overrides.json
+data/user_overrides_v2.json
 
 # IDE / editor
 .vscode/
@@ -32,3 +35,5 @@ test_df.py
 
 AGENTS.md
 
+# Generated catalogue staging
+data/generated/
