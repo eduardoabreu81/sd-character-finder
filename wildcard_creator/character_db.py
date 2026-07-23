@@ -16,7 +16,9 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_DB = Path(__file__).parent.parent / "data" / "characters.db"
+_DATA_DIR = Path(__file__).parent.parent / "data"
+_DEFAULT_DB = _DATA_DIR / "runtime" / "characters.db"
+_DEFAULT_USER_OVERRIDES = _DATA_DIR / "user_overrides_v2.json"
 _SOURCE_ORDER = ("danbooru", "e621", "anima")
 _REQUIRED_SCHEMA_VERSION = 5
 _USER_OVERRIDES_SCHEMA_VERSION = 3
@@ -32,11 +34,22 @@ def _normalize_text(value: str | None) -> str:
 class CharacterDB:
     """Query canonical variations and hydrate their source representations."""
 
-    def __init__(self, db_path: Path = _DEFAULT_DB):
-        self._path = db_path
+    def __init__(
+        self,
+        db_path: Path | None = None,
+        *,
+        user_overrides_path: Path | None = None,
+    ):
+        using_default_runtime = db_path is None
+        self._path = Path(db_path) if db_path is not None else _DEFAULT_DB
         self._conn: Optional[sqlite3.Connection] = None
         self._write_lock = threading.Lock()
-        self._user_overrides_path = self._path.parent / "user_overrides_v2.json"
+        if user_overrides_path is not None:
+            self._user_overrides_path = Path(user_overrides_path)
+        elif using_default_runtime:
+            self._user_overrides_path = _DEFAULT_USER_OVERRIDES
+        else:
+            self._user_overrides_path = self._path.parent / "user_overrides_v2.json"
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:

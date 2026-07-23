@@ -1,5 +1,39 @@
 # PROJECT_LOG
 
+### [2026-07-23] Character Catalogue v2 — Forge-Safe Runtime Database
+
+**What changed:**
+- Stopped opening the Git-tracked character and artist databases for runtime
+  searches.
+- Added verified, Git-ignored copies under `data/runtime/`. Packaged databases
+  are opened only briefly for validation/copying and are closed before Forge can
+  offer extension updates.
+- Runtime synchronization validates both sides against the same manifest, writes
+  to a temporary file, closes the previous runtime connection, and atomically
+  replaces the runtime copy.
+- Preserved `data/user_overrides_v2.json` in the main data directory instead of
+  moving user settings beside the runtime database.
+- Recovery now retries runtime preparation directly when the package is already
+  valid, avoiding an unnecessary 83 MB redownload.
+- Escaped JavaScript regular expressions correctly for Python 3.13, removing the
+  three `invalid escape sequence '\\s'` warnings reported by Forge Neo.
+
+**Validation results:**
+- All 29 automated tests passed.
+- A Windows lock regression test kept the runtime SQLite connection open while
+  successfully replacing the packaged database path.
+- A runtime refresh test verified that the old runtime connection closes before
+  its own atomic replacement and reopens on the new catalogue.
+- Mutable artist runtime copies retain local schema migrations while their
+  source-hash sidecars still detect new packaged artist databases.
+- The real 82,882,560-byte catalogue was copied and searched successfully from
+  `data/runtime/characters.db`; `Hex Maniac` still resolved to `Pokemon`.
+
+**Upgrade note:**
+- Installing this transition over the previous v2 commit still requires closing
+  Forge once, because that previous version already holds the tracked database
+  open. Updates after this commit can use Forge's normal in-app updater.
+
 ### [2026-07-23] Character Catalogue v2 — Validation, Recovery, and Local Prompts
 
 **What changed:**

@@ -11,6 +11,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from wildcard_creator.catalog_health import prepare_runtime_sqlite
+
 _R2_BASE = "https://blobs.animadex.net"
 _CHAR_THUMB_PREFIX = "Outputs/thumbs"
 _CHAR_IMG_PREFIX = "Outputs"
@@ -26,6 +28,11 @@ def _get_db_path(name: str) -> Path:
     return repo_root / "data" / name
 
 
+def _get_runtime_db_path(name: str) -> Path:
+    repo_root = Path(__file__).resolve().parent.parent
+    return repo_root / "data" / "runtime" / name
+
+
 def get_anima_character_db() -> "AnimaCharacterDB":
     global _anima_character_db
     if _anima_character_db is None:
@@ -36,7 +43,15 @@ def get_anima_character_db() -> "AnimaCharacterDB":
 def get_anima_artist_db() -> "AnimaArtistDB":
     global _anima_artist_db
     if _anima_artist_db is None:
-        _anima_artist_db = AnimaArtistDB(_get_db_path("anima_artists.db"))
+        packaged_path = _get_db_path("anima_artists.db")
+        runtime_path = _get_runtime_db_path("anima_artists.db")
+        runtime_validation = prepare_runtime_sqlite(
+            packaged_path,
+            runtime_path,
+        )
+        if not runtime_validation.ok:
+            raise RuntimeError(runtime_validation.message)
+        _anima_artist_db = AnimaArtistDB(runtime_path)
     return _anima_artist_db
 
 

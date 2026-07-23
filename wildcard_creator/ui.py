@@ -28,6 +28,7 @@ import requests
 from wildcard_creator.catalog_health import (
     CatalogRecoveryError,
     CatalogValidation,
+    prepare_runtime_catalog,
     redownload_catalog,
     validate_catalog,
 )
@@ -89,8 +90,8 @@ def _catalog_status_markdown(
     if validation.ok:
         if recovery_note:
             return (
-                "### ✅ Character catalogue restored\n\n"
-                f"{recovery_note} Reload this tab to refresh all controls."
+                "### ✅ Character catalogue ready\n\n"
+                f"{recovery_note}"
             )
         return ""
     note = f"\n\n{recovery_note}" if recovery_note else ""
@@ -108,18 +109,37 @@ def _catalog_status_markdown(
 def _build_characters_content():
     """Renders the character browser UI directly into the current Blocks context."""
     cdb = get_character_db()
-    catalog_validation = validate_catalog()
     recovery_note = ""
     force_redownload = bool(
         _get_shared_opt("sdcf_catalog_redownload_on_startup", False)
     )
     auto_restore = bool(_get_shared_opt("sdcf_catalog_auto_restore", True))
-    if force_redownload or (not catalog_validation.ok and auto_restore):
+    catalog_validation = (
+        validate_catalog()
+        if force_redownload
+        else prepare_runtime_catalog(close_callback=cdb.close)
+    )
+    package_needs_recovery = (
+        not catalog_validation.ok
+        and not catalog_validation.code.startswith("runtime_")
+    )
+    if force_redownload or (package_needs_recovery and auto_restore):
         try:
-            catalog_validation = redownload_catalog(close_callback=cdb.close)
-            recovery_note = "A verified copy was downloaded and installed."
+            redownload_catalog()
+            catalog_validation = prepare_runtime_catalog(close_callback=cdb.close)
+            if catalog_validation.ok:
+                recovery_note = "A verified copy was downloaded and activated."
+            else:
+                recovery_note = (
+                    "A verified packaged copy was downloaded, but the private "
+                    "runtime copy could not be prepared."
+                )
         except CatalogRecoveryError as exc:
             recovery_note = f"Automatic recovery failed: {exc}"
+            if force_redownload:
+                catalog_validation = prepare_runtime_catalog(
+                    close_callback=cdb.close
+                )
         finally:
             if force_redownload:
                 _clear_redownload_on_startup_setting()
@@ -134,7 +154,11 @@ def _build_characters_content():
         elem_id="sdcf_catalog_status",
     )
     btn_catalog_redownload = gr.Button(
-        "⬇️ Redownload verified catalogue",
+        (
+            "↻ Retry catalogue preparation"
+            if catalog_validation.code.startswith("runtime_")
+            else "⬇️ Redownload verified catalogue"
+        ),
         variant="primary",
         visible=not catalog_validation.ok,
         elem_id="sdcf_catalog_redownload",
@@ -145,19 +169,34 @@ def _build_characters_content():
             gr.update(
                 value=(
                     "### ⏳ Restoring character catalogue\n\n"
-                    "Downloading and validating the packaged database..."
+                    "Preparing or downloading the verified database..."
                 ),
                 visible=True,
             ),
             gr.update(interactive=False),
         )
         try:
-            validation = redownload_catalog(close_callback=cdb.close)
+            packaged_validation = validate_catalog()
+            downloaded = False
+            if not packaged_validation.ok:
+                redownload_catalog()
+                downloaded = True
+            validation = prepare_runtime_catalog(close_callback=cdb.close)
+            if not validation.ok:
+                raise CatalogRecoveryError(validation.message)
+            action_note = (
+                "A verified copy was downloaded and activated."
+                if downloaded
+                else "The verified runtime copy was prepared."
+            )
             yield (
                 gr.update(
                     value=_catalog_status_markdown(
                         validation,
-                        "A verified copy was downloaded and installed.",
+                        (
+                            f"{action_note} "
+                            "Reload this tab to refresh all controls."
+                        ),
                     ),
                     visible=True,
                 ),
@@ -1727,7 +1766,7 @@ def _build_characters_content():
         inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, recent_chars_state, recent_page_state],
         outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
         **get_js_kw("""(query, series, tag_status, source, exclusive, favorites_only, recent_chars, recent_page) => {
-            const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+            const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
             const targetKey = normalized('search results');
             const app = (window.gradioApp ? window.gradioApp() : document);
             const candidates = app.querySelectorAll('button, [role="tab"]');
@@ -2027,7 +2066,7 @@ def _build_characters_content():
         outputs=[char_send_status],
         **get_js_kw("""(tags) => {
             const switchToTab = (target) => {
-                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
                 const targetKey = normalized(target);
                 const app = gradioApp();
                 const candidates = app.querySelectorAll('button, [role="tab"]');
@@ -2057,7 +2096,7 @@ def _build_characters_content():
         outputs=[char_send_status],
         **get_js_kw("""(tags, deduplicateEnabled) => {
             const switchToTab = (target) => {
-                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
                 const targetKey = normalized(target);
                 const app = gradioApp();
                 const candidates = app.querySelectorAll('button, [role="tab"]');

@@ -52,6 +52,9 @@ bundled `data/characters.db` to use schema v5.
 - The packaged database is checked against `data/characters.manifest.json`
   (SHA-256, schema, SQLite integrity, relationships, and expected counts).
   Invalid catalogues display a recovery warning and a verified-redownload button.
+- The tracked character and artist databases are never kept open by the running
+  extension. Verified private copies under `data/runtime/` serve searches instead,
+  allowing Forge's in-app Git updater to replace packaged databases on Windows.
 - The packaged catalogue currently contains 39,008 variations backed by 59,508
   immutable source representations.
 
@@ -69,6 +72,10 @@ git clone --branch feat/canonical-characters-v2 --single-branch \
 
 Restart WebUI after cloning. Favorites, recent history, and user overrides
 should start clean during this experimental phase.
+
+The first startup creates ignored runtime copies of the catalogues, requiring
+approximately another 94 MB of local disk space. Later catalogue updates replace
+those copies atomically after validation.
 
 Two recovery controls are available under **Settings → SD Character Finder**:
 

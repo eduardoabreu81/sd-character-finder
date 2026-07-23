@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -17,7 +19,9 @@ import requests
 _ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CATALOG_PATH = _ROOT / "data" / "characters.db"
 DEFAULT_MANIFEST_PATH = _ROOT / "data" / "characters.manifest.json"
+DEFAULT_RUNTIME_CATALOG_PATH = _ROOT / "data" / "runtime" / "characters.db"
 MANIFEST_SCHEMA_VERSION = 1
+_RUNTIME_SYNC_LOCK = threading.Lock()
 _COUNT_TABLES = (
     "canonical_characters",
     "character_variations",
@@ -329,6 +333,238 @@ def redownload_catalog(
                 temp_path.unlink()
             except OSError:
                 pass
+
+
+def prepare_runtime_catalog(
+    packaged_db_path: Path = DEFAULT_CATALOG_PATH,
+    runtime_db_path: Path = DEFAULT_RUNTIME_CATALOG_PATH,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+    *,
+    close_callback: Callable[[], None] | None = None,
+) -> CatalogValidation:
+    """Synchronize a private runtime copy without leaving the tracked DB open."""
+    packaged_db_path = packaged_db_path.resolve()
+    runtime_db_path = runtime_db_path.resolve()
+    manifest_path = manifest_path.resolve()
+
+    packaged_validation = validate_catalog(packaged_db_path, manifest_path)
+    if not packaged_validation.ok:
+        return packaged_validation
+
+    with _RUNTIME_SYNC_LOCK:
+        runtime_validation = validate_catalog(runtime_db_path, manifest_path)
+        if runtime_validation.ok:
+            return CatalogValidation(
+                True,
+                "runtime_ready",
+                "The runtime character catalogue is current.",
+                {
+                    **runtime_validation.details,
+                    "runtime_path": str(runtime_db_path),
+                    "refreshed": False,
+                },
+            )
+
+        temp_path = runtime_db_path.with_suffix(runtime_db_path.suffix + ".sync")
+        try:
+            runtime_db_path.parent.mkdir(parents=True, exist_ok=True)
+            with packaged_db_path.open("rb") as source, temp_path.open("wb") as target:
+                shutil.copyfileobj(source, target, length=1024 * 1024)
+                target.flush()
+                os.fsync(target.fileno())
+
+            copied_validation = validate_catalog(temp_path, manifest_path)
+            if not copied_validation.ok:
+                return CatalogValidation(
+                    False,
+                    "runtime_copy_invalid",
+                    (
+                        "The packaged catalogue is valid, but its runtime copy "
+                        f"failed validation: {copied_validation.message}"
+                    ),
+                )
+
+            if close_callback is not None:
+                close_callback()
+            os.replace(temp_path, runtime_db_path)
+
+            installed_validation = validate_catalog(runtime_db_path, manifest_path)
+            if not installed_validation.ok:
+                return CatalogValidation(
+                    False,
+                    "runtime_install_invalid",
+                    (
+                        "The runtime character catalogue could not be installed: "
+                        f"{installed_validation.message}"
+                    ),
+                )
+            return CatalogValidation(
+                True,
+                "runtime_refreshed",
+                "The runtime character catalogue was refreshed.",
+                {
+                    **installed_validation.details,
+                    "runtime_path": str(runtime_db_path),
+                    "refreshed": True,
+                },
+            )
+        except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+            return CatalogValidation(
+                False,
+                "runtime_sync_failed",
+                f"The runtime character catalogue could not be prepared: {exc}",
+            )
+        finally:
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+
+
+def prepare_runtime_sqlite(
+    packaged_db_path: Path,
+    runtime_db_path: Path,
+    *,
+    close_callback: Callable[[], None] | None = None,
+) -> CatalogValidation:
+    """Prepare a mutable runtime SQLite copy using a source-hash sidecar."""
+    packaged_db_path = packaged_db_path.resolve()
+    runtime_db_path = runtime_db_path.resolve()
+    fingerprint_path = runtime_db_path.with_suffix(
+        runtime_db_path.suffix + ".source.sha256"
+    )
+
+    with _RUNTIME_SYNC_LOCK:
+        try:
+            if not packaged_db_path.exists():
+                return CatalogValidation(
+                    False,
+                    "package_missing",
+                    f"The packaged database is missing: {packaged_db_path}",
+                )
+            source_sha256 = sha256_file(packaged_db_path)
+            source_connection = sqlite3.connect(
+                packaged_db_path.as_uri() + "?mode=ro",
+                uri=True,
+                timeout=15.0,
+            )
+            try:
+                source_quick_check = str(
+                    source_connection.execute("PRAGMA quick_check").fetchone()[0]
+                )
+            finally:
+                source_connection.close()
+            if source_quick_check != "ok":
+                return CatalogValidation(
+                    False,
+                    "package_sqlite_corrupt",
+                    f"Packaged SQLite quick_check failed: {source_quick_check}",
+                )
+
+            recorded_sha256 = ""
+            if fingerprint_path.exists():
+                try:
+                    recorded_sha256 = fingerprint_path.read_text(
+                        encoding="ascii"
+                    ).strip()
+                except (OSError, UnicodeError):
+                    recorded_sha256 = ""
+            if runtime_db_path.exists() and recorded_sha256 == source_sha256:
+                runtime_connection: sqlite3.Connection | None = None
+                runtime_quick_check = ""
+                try:
+                    runtime_connection = sqlite3.connect(
+                        runtime_db_path.as_uri() + "?mode=ro",
+                        uri=True,
+                        timeout=15.0,
+                    )
+                    runtime_quick_check = str(
+                        runtime_connection.execute(
+                            "PRAGMA quick_check"
+                        ).fetchone()[0]
+                    )
+                except sqlite3.Error:
+                    runtime_quick_check = ""
+                finally:
+                    if runtime_connection is not None:
+                        runtime_connection.close()
+                if runtime_quick_check == "ok":
+                    return CatalogValidation(
+                        True,
+                        "runtime_ready",
+                        "The runtime database is current.",
+                        {
+                            "source_sha256": source_sha256,
+                            "runtime_path": str(runtime_db_path),
+                            "refreshed": False,
+                        },
+                    )
+
+            runtime_db_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = runtime_db_path.with_suffix(runtime_db_path.suffix + ".sync")
+            temp_fingerprint_path = fingerprint_path.with_suffix(
+                fingerprint_path.suffix + ".tmp"
+            )
+            try:
+                with packaged_db_path.open("rb") as source, temp_path.open(
+                    "wb"
+                ) as target:
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
+                    target.flush()
+                    os.fsync(target.fileno())
+
+                copied_connection = sqlite3.connect(
+                    temp_path.as_uri() + "?mode=ro",
+                    uri=True,
+                    timeout=15.0,
+                )
+                try:
+                    copied_quick_check = str(
+                        copied_connection.execute(
+                            "PRAGMA quick_check"
+                        ).fetchone()[0]
+                    )
+                finally:
+                    copied_connection.close()
+                if copied_quick_check != "ok":
+                    return CatalogValidation(
+                        False,
+                        "runtime_copy_invalid",
+                        f"Runtime SQLite quick_check failed: {copied_quick_check}",
+                    )
+
+                if close_callback is not None:
+                    close_callback()
+                os.replace(temp_path, runtime_db_path)
+                temp_fingerprint_path.write_text(
+                    source_sha256 + "\n",
+                    encoding="ascii",
+                )
+                os.replace(temp_fingerprint_path, fingerprint_path)
+                return CatalogValidation(
+                    True,
+                    "runtime_refreshed",
+                    "The runtime database was refreshed.",
+                    {
+                        "source_sha256": source_sha256,
+                        "runtime_path": str(runtime_db_path),
+                        "refreshed": True,
+                    },
+                )
+            finally:
+                for temporary_path in (temp_path, temp_fingerprint_path):
+                    if temporary_path.exists():
+                        try:
+                            temporary_path.unlink()
+                        except OSError:
+                            pass
+        except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+            return CatalogValidation(
+                False,
+                "runtime_sync_failed",
+                f"The runtime database could not be prepared: {exc}",
+            )
 
 
 def build_catalog_manifest(
