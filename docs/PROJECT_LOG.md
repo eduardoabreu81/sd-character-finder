@@ -9,7 +9,8 @@
   `PRAGMA quick_check`, foreign keys, core table counts, and source counts.
 - Added verified catalogue recovery through WebUI settings and an in-tab error
   banner. Downloads are restricted to trusted GitHub HTTPS hosts, validated in a
-  temporary file, and installed with an atomic replace only after every check passes.
+  temporary file, pinned to the immutable database commit, and installed with an
+  atomic replace only after every check passes.
 - Added source-specific local prompt overrides to `data/user_overrides_v2.json`
   schema v3. The override records the source prompt hash and is ignored with a
   visible review state if a later catalogue changes its base prompt.
