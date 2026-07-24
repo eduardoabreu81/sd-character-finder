@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import csv
 import gzip
+import hashlib
 import json
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.build_character_catalog_v2 import BuildError, build_catalog
+from scripts.build_character_catalog_v2 import (
+    BuildError,
+    build_catalog,
+    provisional_e621_series_display,
+)
 from wildcard_creator.character_db import CharacterDB
 
 
@@ -1036,6 +1041,132 @@ class BuildCharacterCatalogV2Tests(unittest.TestCase):
                 None,
                 "accepted_exact_unique",
             ),
+        )
+
+    def test_applies_official_e621_implication_without_changing_prompt(self) -> None:
+        prompt = "narinder, cult of the lamb"
+        conn = sqlite3.connect(self.current_db)
+        try:
+            conn.execute(
+                """
+                INSERT INTO characters
+                (id, name, series, tags, image_url, rank, danbooru_tag, source)
+                VALUES (?, ?, ?, ?, NULL, ?, NULL, 'e621')
+                """,
+                (4, "narinder", "Christmas", prompt, 4),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        evidence_path = self.root / "e621_series_implications.json"
+        evidence_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "provider": "e621_db_export",
+                    "export_date": "2026-07-23",
+                    "source_files": {},
+                    "assignments": [
+                        {
+                            "source_record_id": 4,
+                            "legacy_id": 4,
+                            "match_key": "narinder",
+                            "source_tag_raw": "narinder",
+                            "resolved_tag": "narinder",
+                            "alias_chain": ["narinder"],
+                            "character_post_count": 100,
+                            "copyright_tag": "cult_of_the_lamb",
+                            "series_source_tag": "cult_of_the_lamb",
+                            "catalog_match_type": "new_series_definition",
+                            "implication_path": [
+                                "narinder",
+                                "cult_of_the_lamb",
+                            ],
+                            "implication_depth": 1,
+                            "current_series_raw": "Christmas",
+                            "prompt_sha256": hashlib.sha256(
+                                prompt.encode("utf-8")
+                            ).hexdigest(),
+                            "confidence": 1.0,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        report = build_catalog(
+            self.current_db,
+            self.anima_csv,
+            self.output,
+            self.report,
+            e621_series_evidence_path=evidence_path,
+        )
+
+        conn = sqlite3.connect(self.output)
+        try:
+            source_record = conn.execute(
+                """
+                SELECT r.prompt_raw, r.copyright_tag_raw, r.series_resolution,
+                       r.series_confidence, s.source_copyright_tag,
+                       s.metadata_provider, s.metadata_verified
+                FROM source_records r
+                JOIN series s ON s.id = r.series_id
+                WHERE r.source = 'e621' AND r.legacy_id = 4
+                """
+            ).fetchone()
+            variation_series = conn.execute(
+                """
+                SELECT s.source_copyright_tag
+                FROM character_variations v
+                JOIN character_representations cr ON cr.variation_id = v.id
+                JOIN source_records r ON r.id = cr.source_record_id
+                JOIN series s ON s.id = v.series_id
+                WHERE r.source = 'e621' AND r.legacy_id = 4
+                """
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(
+            source_record,
+            (
+                prompt,
+                "cult_of_the_lamb",
+                "e621_export_active_implication",
+                1.0,
+                "cult_of_the_lamb",
+                "e621_db_export",
+                1,
+            ),
+        )
+        self.assertEqual(variation_series, ("cult_of_the_lamb",))
+        self.assertEqual(report["e621_series_evidence"]["assignments"], 1)
+        self.assertEqual(
+            report["e621_series_evidence"]["series_definitions_added"],
+            1,
+        )
+        self.assertEqual(report["e621_series_evidence"]["source_prompts_changed"], 0)
+
+    def test_formats_new_e621_series_as_readable_provisional_english(self) -> None:
+        self.assertEqual(
+            provisional_e621_series_display(
+                {"series_source_tag": "friendship_is_magic"}
+            ),
+            "Friendship Is Magic",
+        )
+        self.assertEqual(
+            provisional_e621_series_display(
+                {"series_source_tag": "sonic_the_hedgehog_(series)"}
+            ),
+            "Sonic the Hedgehog",
+        )
+        self.assertEqual(
+            provisional_e621_series_display(
+                {"series_source_tag": "t.u.f.f._puppy"}
+            ),
+            "T.U.F.F. Puppy",
         )
 
 

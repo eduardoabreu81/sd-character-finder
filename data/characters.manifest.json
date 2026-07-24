@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "catalog_schema_version": 5,
-  "catalog_bytes": 82886656,
-  "catalog_sha256": "d1124c9a11f8c7a7a504130771ddff9d6085f240cf2628d742d8a6715c50a18f",
-  "download_url": "https://raw.githubusercontent.com/eduardoabreu81/sd-character-finder/b345bbc19895537ec038f4813d8cab3f55d9e09b/data/catalog/releases/characters-v2-20260723.db",
+  "catalog_bytes": 83079168,
+  "catalog_sha256": "15aa0125599948db99a4101a25a980619b4b5ef75fff57b13de99b44d25555b9",
+  "download_url": "https://raw.githubusercontent.com/eduardoabreu81/sd-character-finder/0fbce1fb6ca4b7ca1eaf9edd4633fb55033cb66d/data/catalog/releases/characters-v2-20260724.db",
   "counts": {
     "canonical_characters": 39006,
     "character_variations": 39007,

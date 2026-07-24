@@ -65,6 +65,11 @@ schema v5 and never opens the legacy `data/characters.db` at runtime.
   have this limitation.
 - The packaged catalogue currently contains 39,007 variations backed by 59,508
   immutable source representations.
+- e621 series metadata is audited offline from the official daily tag, alias,
+  implication, and wiki exports. The current preview resolves 1,762 of the
+  3,000 e621 representations, including 1,273 unambiguous active copyright
+  implications. The remaining records stay unresolved instead of reusing the
+  legacy heuristic that mislabeled publishers and generic tags as works.
 
 Only four source-exclusive variations have completed manual identity review.
 The remaining Anima-only and e621-only rows are deliberately labelled as

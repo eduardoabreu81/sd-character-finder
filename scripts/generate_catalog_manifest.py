@@ -21,7 +21,8 @@ DEFAULT_OUTPUT = ROOT / "data" / "characters.manifest.json"
 # Update this value only when publishing a rebuilt catalogue and manifest.
 DEFAULT_DOWNLOAD_URL = (
     "https://raw.githubusercontent.com/eduardoabreu81/sd-character-finder/"
-    "ce7949db5d6c9820d02e0df26993717c82f6fcd9/data/characters.db"
+    "0fbce1fb6ca4b7ca1eaf9edd4633fb55033cb66d/"
+    "data/catalog/releases/characters-v2-20260724.db"
 )
 
 

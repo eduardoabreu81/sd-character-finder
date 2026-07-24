@@ -42,12 +42,14 @@ DEFAULT_ANIMA_CSV = DATA_DIR / "anima_import" / "characters.csv"
 DEFAULT_OVERRIDES = DATA_DIR / "catalog_overrides.json"
 DEFAULT_ALIAS_CACHE = DATA_DIR / "generated" / "danbooru_tag_aliases.json"
 DEFAULT_ANIDB_TITLES = DATA_DIR / "generated" / "anidb_anime_titles.xml.gz"
+DEFAULT_E621_SERIES_EVIDENCE = DATA_DIR / "e621_series_implications.json"
 DEFAULT_OUTPUT = DATA_DIR / "generated" / "characters_v2.db"
 DEFAULT_REPORT = DATA_DIR / "generated" / "characters_v2_report.json"
 
 BUILD_SCHEMA_VERSION = 5
 OVERRIDE_SCHEMA_VERSION = 1
 ALIAS_CACHE_SCHEMA_VERSION = 1
+E621_SERIES_EVIDENCE_SCHEMA_VERSION = 1
 SOURCE_BITS = {"danbooru": 1, "e621": 2, "anima": 4}
 SOURCE_ORDER = ("danbooru", "e621", "anima")
 XML_LANGUAGE_ATTRIBUTE = "{http://www.w3.org/XML/1998/namespace}lang"
@@ -93,6 +95,31 @@ def humanize_source_tag(value: str) -> str:
     return " ".join(
         value.replace("\\(", "(").replace("\\)", ")").replace("_", " ").split()
     )
+
+
+def provisional_e621_series_display(assignment: dict[str, Any]) -> str:
+    """Create readable fallback text without trusting the legacy series heuristic."""
+    source_tag = str(assignment["series_source_tag"])
+    humanized = humanize_source_tag(source_tag)
+    display = re.sub(
+        r"\s*\((?:series|franchise|game|movie|video game)\)\s*$",
+        "",
+        humanized,
+    )
+    small_words = {"a", "an", "and", "at", "for", "in", "of", "on", "the", "to"}
+    acronyms = {"dc", "fnaf", "mlp", "rpg", "scp", "tloz", "vg"}
+    words: list[str] = []
+    for index, word in enumerate(display.split()):
+        lowered = word.casefold()
+        if index > 0 and lowered in small_words:
+            words.append(lowered)
+        elif lowered in acronyms or "." in word:
+            words.append(word.upper())
+        elif word.startswith("(") and len(word) > 1:
+            words.append("(" + word[1].upper() + word[2:])
+        elif word:
+            words.append(word[0].upper() + word[1:])
+    return " ".join(words)
 
 
 def compose_anima_prompt(trigger: str, core_tags: str) -> str:
@@ -242,6 +269,63 @@ def read_official_alias_cache(path: Path | None) -> dict[str, Any] | None:
         if not str(row.get("consequent_name") or "").strip():
             raise BuildError(f"Official alias {alias_id} has an empty consequent")
         seen_ids.add(alias_id)
+    return data
+
+
+def read_e621_series_evidence(path: Path | None) -> dict[str, Any] | None:
+    """Load offline e621 implication evidence generated from an official export."""
+    if path is None:
+        return None
+    if not path.exists():
+        raise BuildError(f"e621 series evidence not found: {path}")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BuildError(f"Cannot read e621 series evidence: {path}") from exc
+    if (
+        not isinstance(data, dict)
+        or data.get("schema_version") != E621_SERIES_EVIDENCE_SCHEMA_VERSION
+        or data.get("provider") != "e621_db_export"
+    ):
+        raise BuildError(
+            "e621 series evidence must use schema_version="
+            f"{E621_SERIES_EVIDENCE_SCHEMA_VERSION} and provider=e621_db_export"
+        )
+    assignments = data.get("assignments")
+    if not isinstance(assignments, list):
+        raise BuildError("e621 series evidence field 'assignments' must be a list")
+
+    seen_match_keys: set[str] = set()
+    for assignment in assignments:
+        if not isinstance(assignment, dict):
+            raise BuildError("e621 series evidence contains a non-object assignment")
+        match_key = normalize_text(str(assignment.get("match_key") or ""))
+        source_tag_raw = str(assignment.get("source_tag_raw") or "").strip()
+        copyright_tag = str(assignment.get("copyright_tag") or "").strip()
+        series_source_tag = str(assignment.get("series_source_tag") or "").strip()
+        prompt_digest = str(assignment.get("prompt_sha256") or "").strip()
+        confidence = assignment.get("confidence")
+        implication_path = assignment.get("implication_path")
+        if (
+            not match_key
+            or not source_tag_raw
+            or not copyright_tag
+            or not series_source_tag
+            or not re.fullmatch(r"[0-9a-f]{64}", prompt_digest)
+            or not isinstance(confidence, (int, float))
+            or not 0.0 <= float(confidence) <= 1.0
+            or not isinstance(implication_path, list)
+            or len(implication_path) < 2
+            or str(implication_path[-1]) != copyright_tag
+        ):
+            raise BuildError(f"Invalid e621 series assignment for {source_tag_raw}")
+        if normalize_text(source_tag_raw) != match_key:
+            raise BuildError(
+                f"e621 evidence match key disagrees with source tag: {source_tag_raw}"
+            )
+        if match_key in seen_match_keys:
+            raise BuildError(f"Duplicate e621 evidence match key: {match_key}")
+        seen_match_keys.add(match_key)
     return data
 
 
@@ -2167,6 +2251,7 @@ def build_catalog(
     overrides_path: Path | None = None,
     alias_cache_path: Path | None = None,
     anidb_titles_path: Path | None = None,
+    e621_series_evidence_path: Path | None = None,
 ) -> dict[str, Any]:
     current_db = current_db.resolve()
     anima_csv = anima_csv.resolve()
@@ -2178,6 +2263,8 @@ def build_catalog(
         alias_cache_path = alias_cache_path.resolve()
     if anidb_titles_path is not None:
         anidb_titles_path = anidb_titles_path.resolve()
+    if e621_series_evidence_path is not None:
+        e621_series_evidence_path = e621_series_evidence_path.resolve()
 
     if not current_db.exists():
         raise BuildError(f"Current character DB not found: {current_db}")
@@ -2190,6 +2277,8 @@ def build_catalog(
         input_paths.add(alias_cache_path)
     if anidb_titles_path is not None:
         input_paths.add(anidb_titles_path)
+    if e621_series_evidence_path is not None:
+        input_paths.add(e621_series_evidence_path)
     if output in input_paths:
         raise BuildError("Refusing to overwrite a catalogue input with the database output")
     if report_path in input_paths | {output}:
@@ -2200,6 +2289,7 @@ def build_catalog(
     overrides = read_catalog_overrides(overrides_path)
     alias_cache = read_official_alias_cache(alias_cache_path)
     anidb_titles = read_anidb_title_dump(anidb_titles_path)
+    e621_series_evidence = read_e621_series_evidence(e621_series_evidence_path)
     matched_anima, prompt_validation = validate_anima_prompts(
         current_records,
         anima_records,
@@ -2272,6 +2362,29 @@ def build_catalog(
             f"empty_match_keys={len(empty_match_keys)}"
         )
 
+    e621_evidence_by_match_key: dict[str, dict[str, Any]] = {}
+    if e621_series_evidence is not None:
+        e621_records_by_match_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for record in staged_records:
+            if record["source"] == "e621":
+                e621_records_by_match_key[record["match_key"]].append(record)
+        for assignment in e621_series_evidence["assignments"]:
+            match_key = normalize_text(assignment["match_key"])
+            matching_records = e621_records_by_match_key.get(match_key, [])
+            if len(matching_records) != 1:
+                raise BuildError(
+                    "e621 evidence for "
+                    f"{assignment['source_tag_raw']} matched {len(matching_records)} "
+                    "source records instead of one"
+                )
+            source_record = matching_records[0]
+            if sha256_text(source_record["prompt_raw"]) != assignment["prompt_sha256"]:
+                raise BuildError(
+                    "e621 evidence is stale because the source prompt changed for "
+                    f"{assignment['source_tag_raw']}"
+                )
+            e621_evidence_by_match_key[match_key] = assignment
+
     output.parent.mkdir(parents=True, exist_ok=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     temp_output = output.with_suffix(output.suffix + ".tmp")
@@ -2296,6 +2409,10 @@ def build_catalog(
             metadata["official_alias_cache_sha256"] = sha256_file(alias_cache_path)
         if anidb_titles_path is not None:
             metadata["anidb_titles_sha256"] = sha256_file(anidb_titles_path)
+        if e621_series_evidence_path is not None:
+            metadata["e621_series_evidence_sha256"] = sha256_file(
+                e621_series_evidence_path
+            )
         conn.executemany(
             "INSERT INTO build_metadata(key, value) VALUES (?, ?)",
             sorted(metadata.items()),
@@ -2322,6 +2439,28 @@ def build_catalog(
             if not isinstance(definition, dict):
                 raise BuildError("Every manual series definition must be an object")
             insert_series_definition(conn, series_ids, definition)
+
+        e621_series_definitions_added = 0
+        e621_catalog_match_types: Counter[str] = Counter()
+        for assignment in e621_evidence_by_match_key.values():
+            series_source_tag = str(assignment["series_source_tag"])
+            e621_catalog_match_types[str(assignment["catalog_match_type"])] += 1
+            if series_source_tag in series_ids:
+                continue
+            insert_series_definition(
+                conn,
+                series_ids,
+                {
+                    "source_copyright_tag": series_source_tag,
+                    "provisional_display_name": provisional_e621_series_display(
+                        assignment
+                    ),
+                    "provider": "e621_db_export",
+                    "confidence": float(assignment["confidence"]),
+                    "verified": True,
+                },
+            )
+            e621_series_definitions_added += 1
 
         records_by_match_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in staged_records:
@@ -2357,12 +2496,29 @@ def build_catalog(
 
         for record in staged_records:
             copyright_tag: str | None
+            copyright_tag_raw = record["copyright_tag_raw"]
             resolution: str
             confidence: float
             if record["source"] == "anima":
                 copyright_tag = record["copyright_tag_raw"] or None
                 resolution = "animadex_explicit_copyright" if copyright_tag else "unresolved"
                 confidence = 1.0 if copyright_tag else 0.0
+            elif (
+                record["source"] == "e621"
+                and record["match_key"] in e621_evidence_by_match_key
+            ):
+                assignment = e621_evidence_by_match_key[record["match_key"]]
+                copyright_tag = str(assignment["series_source_tag"])
+                copyright_tag_raw = str(assignment["copyright_tag"])
+                resolution = "e621_export_active_implication"
+                confidence = float(assignment["confidence"])
+                anima_candidates = copyright_by_match_key.get(record["match_key"], set())
+                if anima_candidates and anima_candidates != {copyright_tag}:
+                    raise BuildError(
+                        "e621 implication evidence conflicts with Anima copyright for "
+                        f"{record['source_tag_raw']}: "
+                        f"e621={copyright_tag}, Anima={sorted(anima_candidates)}"
+                    )
             else:
                 copyright_candidates = copyright_by_match_key.get(record["match_key"], set())
                 if len(copyright_candidates) == 1:
@@ -2411,7 +2567,7 @@ def build_catalog(
                     sha256_text(record["prompt_raw"]),
                     record["trigger_raw"],
                     record["core_tags_raw"],
-                    record["copyright_tag_raw"],
+                    copyright_tag_raw,
                     record["current_series_raw"],
                     record["image_url"],
                     record["source_url"],
@@ -2527,6 +2683,13 @@ def build_catalog(
                     list(sorted(ambiguous_copyright_keys.items()))[:20]
                 ),
             },
+            "e621_series_evidence": {
+                "assignments": len(e621_evidence_by_match_key),
+                "series_definitions_added": e621_series_definitions_added,
+                "by_catalog_match_type": dict(sorted(e621_catalog_match_types.items())),
+                "resolution": "e621_export_active_implication",
+                "source_prompts_changed": 0,
+            },
             "exact_identity_groups": {
                 "total": len(group_ids),
                 "by_source_combination": dict(sorted(combination_counts.items())),
@@ -2560,6 +2723,13 @@ def build_catalog(
             report["inputs"]["anidb_titles_sha256"] = metadata[
                 "anidb_titles_sha256"
             ]
+        if e621_series_evidence_path is not None:
+            report["inputs"]["e621_series_evidence"] = str(
+                e621_series_evidence_path
+            )
+            report["inputs"]["e621_series_evidence_sha256"] = metadata[
+                "e621_series_evidence_sha256"
+            ]
 
         temp_report.write_text(
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
@@ -2587,6 +2757,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--overrides", type=Path, default=DEFAULT_OVERRIDES)
     parser.add_argument("--alias-cache", type=Path, default=DEFAULT_ALIAS_CACHE)
     parser.add_argument("--anidb-titles", type=Path, default=DEFAULT_ANIDB_TITLES)
+    parser.add_argument(
+        "--e621-series-evidence",
+        type=Path,
+        default=DEFAULT_E621_SERIES_EVIDENCE,
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     return parser.parse_args(argv)
@@ -2603,6 +2778,7 @@ def main(argv: list[str] | None = None) -> int:
             overrides_path=args.overrides,
             alias_cache_path=args.alias_cache,
             anidb_titles_path=args.anidb_titles,
+            e621_series_evidence_path=args.e621_series_evidence,
         )
     except BuildError as exc:
         print(f"Build blocked: {exc}", file=sys.stderr)
@@ -2639,6 +2815,11 @@ def main(argv: list[str] | None = None) -> int:
         f"{report['series_titles']['ambiguous_series']:,} ambiguous, "
         f"{report['series_titles']['unresolved_series']:,} unresolved; "
         "identity merges applied: 0"
+    )
+    print(
+        "e621 official series implications: "
+        f"{report['e621_series_evidence']['assignments']:,} applied; "
+        "source prompts changed: 0"
     )
     return 0
 
