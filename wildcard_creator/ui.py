@@ -502,7 +502,7 @@ def _build_characters_content():
     _initial_recent_df = [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in _initial_recent]
     _initial_recent_gallery = _render_initial_recent_gallery(_initial_recent)
 
-    with gr.Row(elem_id="sdcf_character_search_controls"):
+    with gr.Row(elem_id="sdcf_character_search_controls", equal_height=True):
         with gr.Column(scale=3, min_width=220):
             char_search = gr.Textbox(
                 label="Search",
@@ -527,29 +527,29 @@ def _build_characters_content():
                 interactive=True,
                 elem_id="sdcf_tag_status_filter"
             )
-        with gr.Column(
+        btn_char_search = gr.Button(
+            "🔍 Search",
+            variant="primary",
+            size="lg",
+            interactive=_populated,
             scale=1,
             min_width=110,
-            elem_id="sdcf_search_button_slot",
-        ):
-            btn_char_search = gr.Button(
-                "🔍 Search",
-                variant="primary",
-                interactive=_populated,
-                elem_id="sdcf_btn_search",
-            )
-        with gr.Column(
+            elem_id="sdcf_btn_search",
+        )
+        btn_char_clear_search = gr.Button(
+            "✖ Clear Search",
+            size="lg",
             scale=1,
             min_width=110,
-            elem_id="sdcf_clear_search_button_slot",
-        ):
-            btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
-        with gr.Column(
+            elem_id="sdcf_btn_clear_search",
+        )
+        btn_char_reset = gr.Button(
+            "✖ Clear All",
+            size="lg",
             scale=1,
             min_width=110,
-            elem_id="sdcf_clear_all_button_slot",
-        ):
-            btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
+            elem_id="sdcf_btn_clear_all",
+        )
 
     with gr.Row(elem_id="sdcf_character_filter_controls"):
         with gr.Column(scale=4, min_width=390):
