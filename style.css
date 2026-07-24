@@ -16,7 +16,22 @@
 #sdcf_main_blocks #sdcf_search_button_slot,
 #sdcf_main_blocks #sdcf_clear_search_button_slot,
 #sdcf_main_blocks #sdcf_clear_all_button_slot {
+    align-self: stretch !important;
     justify-content: flex-end !important;
+}
+
+#sdcf_main_blocks #sdcf_btn_search,
+#sdcf_main_blocks #sdcf_btn_clear_search,
+#sdcf_main_blocks #sdcf_btn_clear_all {
+    height: 44px !important;
+    min-height: 44px !important;
+}
+
+#sdcf_main_blocks #sdcf_btn_search button,
+#sdcf_main_blocks #sdcf_btn_clear_search button,
+#sdcf_main_blocks #sdcf_btn_clear_all button {
+    height: 100% !important;
+    min-height: 44px !important;
 }
 
 #sdcf_main_blocks #sdcf_source_favorites_group {
