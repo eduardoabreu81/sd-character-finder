@@ -357,7 +357,9 @@ What happens on the first v0.7.0 start:
    is activated.
 2. The old `data/characters.db` is kept byte-identical through the update purely
    as a bridge for the Forge updater. After the restart, v2 recognizes it by
-   checksum and removes it. **It is never used as a fallback.**
+   checksum and removes it. **It is never used as a fallback.** Git then reports
+   the file as a local deletion, which is expected and does not affect further
+   updates.
 3. `data/anima_characters.db` is no longer shipped and is removed; its data now
    lives in the v2 catalogue.
 

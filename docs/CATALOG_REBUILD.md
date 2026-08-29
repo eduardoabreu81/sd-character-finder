@@ -49,7 +49,7 @@ python -c "from wildcard_creator.catalog_health import redownload_catalog; print
 
 | Input | Origin |
 |---|---|
-| `data/generated/characters_legacy.db` | Byte-identical copy of the tracked `data/characters.db` |
+| `data/generated/characters_legacy.db` | Byte-identical copy of the tracked `data/characters.db` (see the note below) |
 | `data/anima_import/characters.csv` | Tracked AnimaDex character export |
 | `data/catalog_overrides.json` | Tracked manual review decisions |
 | `data/e621_series_implications.json` | Tracked e621 series evidence |
@@ -62,9 +62,16 @@ enough to reproduce the catalogue.
 
 ### Commands
 
+> **Note.** On an installation that has already started v0.7.0, the legacy
+> migration deletes `data/characters.db`, so Git reports it as a local
+> deletion. That is expected. The file is still tracked, so step 1 restores it
+> before use.
+
 ```bash
-# 1. Stage the legacy source database the builder reads from.
+# 1. Stage the legacy source database the builder reads from, restoring it
+#    first if the v2 migration already removed it from the working tree.
 mkdir -p data/generated
+git checkout -- data/characters.db
 cp data/characters.db data/generated/characters_legacy.db
 
 # 2. Fetch the AniDB official title dump (public, no credentials).
