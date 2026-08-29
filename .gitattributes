@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Catalogue build inputs are hashed into build_metadata for provenance, so they
+# must check out byte-identical on every platform. Without this they pick up
+# CRLF on Windows and the recorded hashes stop matching the tracked files.
+data/catalog_overrides.json text eol=lf
+data/e621_series_implications.json text eol=lf
+data/anima_import/characters.csv text eol=lf

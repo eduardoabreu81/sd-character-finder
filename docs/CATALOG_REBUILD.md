@@ -53,12 +53,22 @@ python -c "from wildcard_creator.catalog_health import redownload_catalog; print
 | `data/anima_import/characters.csv` | Tracked AnimaDex character export |
 | `data/catalog_overrides.json` | Tracked manual review decisions |
 | `data/e621_series_implications.json` | Tracked e621 series evidence |
-| `data/generated/anidb_anime_titles.xml.gz` | Downloaded by `scripts/fetch_anidb_titles.py` |
-| `data/generated/danbooru_tag_aliases.json` | Cache built by `scripts/audit_danbooru_aliases.py` |
+| `data/generated/anidb_anime_titles.xml.gz` | `scripts/fetch_anidb_titles.py`, or the release snapshot |
+| `data/generated/danbooru_tag_aliases.json` | `scripts/audit_danbooru_aliases.py`, or the release snapshot |
 
-Everything under `data/generated/` is disposable and regenerated on demand. The
-first four inputs are tracked, so a clean clone plus the commands below is
-enough to reproduce the catalogue.
+Everything under `data/generated/` is disposable. The first four inputs are
+tracked; the last two are snapshots published as assets on the release that
+shipped the catalogue, so a clean clone plus the commands below is enough.
+
+The two `data/generated/` inputs are published alongside the database because
+rebuilding them from the live Danbooru and AniDB APIs samples whatever those
+services return today, which would silently change the result. Use the
+snapshots to reproduce a published catalogue; refresh them only when you intend
+to adopt newer upstream data.
+
+The tracked build inputs are pinned to LF in `.gitattributes`. They are hashed
+into `build_metadata` for provenance, and without that pin they pick up CRLF on
+Windows and the recorded hashes stop matching the tracked files.
 
 ### Commands
 
@@ -74,12 +84,16 @@ mkdir -p data/generated
 git checkout -- data/characters.db
 cp data/characters.db data/generated/characters_legacy.db
 
-# 2. Fetch the AniDB official title dump (public, no credentials).
-python scripts/fetch_anidb_titles.py
+# 2. Fetch the input snapshots published with the catalogue. A clean clone has
+#    no cache to reuse, and the builder aborts if --alias-cache is missing.
+BASE=https://github.com/eduardoabreu81/sd-character-finder/releases/download/v0.7.0
+curl -sL -o data/generated/anidb_anime_titles.xml.gz "$BASE/anidb_anime_titles.xml.gz"
+curl -sL -o data/generated/danbooru_tag_aliases.json "$BASE/danbooru_tag_aliases.json"
 
-# 3. Optional: refresh the Danbooru alias cache (slow, uses the public API).
-#    Skip this to reuse an existing cache.
-python scripts/audit_danbooru_aliases.py
+# 3. Only when adopting newer upstream data, regenerate them instead of
+#    downloading. audit_danbooru_aliases.py is slow and uses the public API.
+# python scripts/fetch_anidb_titles.py
+# python scripts/audit_danbooru_aliases.py
 
 # 4. Build the catalogue into data/generated/characters_v2.db.
 python scripts/build_character_catalog_v2.py
@@ -96,6 +110,19 @@ The builder refuses to emit a database whose AnimaDex prompts differ from the
 bundled ones, and it never mutates `data/characters.db`. Danbooru, e621, and
 AnimaDex prompts are immutable per-source artifacts; metadata enrichment must
 never reformat them.
+
+### Reproducibility
+
+A rebuild reproduces the catalogue's *content*, not its bytes. SQLite page
+layout and ordering leave the file digest different on every run, so a rebuilt
+database never matches the published SHA-256 and publishing one always
+regenerates the manifest.
+
+The v0.7.0 catalogue was verified this way from a clean clone: all sixteen
+tables matched the published database row for row (39,006 canonical characters,
+39,007 variations, 59,508 representations, 3,987 series), with 36,492 AnimaDex
+prompts verified, 1,273 e621 implications applied, and zero source prompts
+changed.
 
 ### Publishing a rebuilt catalogue
 
