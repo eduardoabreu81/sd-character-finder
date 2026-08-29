@@ -2,6 +2,30 @@
     padding: 8px 4px;
 }
 
+#sdcf_main_blocks #sdcf_character_search_controls {
+    gap: 8px;
+}
+
+#sdcf_main_blocks #sdcf_character_filter_controls {
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#sdcf_main_blocks #sdcf_character_search_controls > div,
+#sdcf_main_blocks #sdcf_character_filter_controls > div {
+    box-sizing: border-box;
+}
+
+#sdcf_main_blocks #sdcf_source_favorites_group {
+    align-items: flex-end;
+    gap: 12px;
+}
+
+#sdcf_main_blocks #sdcf_source_favorites_group #sdcf_favorites_only_chk {
+    margin-top: 15px;
+    min-height: 32px;
+}
+
 #sdcf_char_preview .sdcf-preview-wrap {
     position: relative;
     width: 100%;
@@ -235,6 +259,45 @@
 
 .sdcf-badge-favorite {
     background: #ec4899;
+}
+
+.sdcf-badge-exclusive {
+    background: #f59e0b;
+}
+
+.sdcf-badge-source-only {
+    background: #475569;
+}
+
+.sdcf-badge-variation {
+    background: #64748b;
+}
+
+.sdcf-card-source-badges,
+.sdcf-card-flag-badges {
+    position: absolute;
+    top: 6px;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: calc(100% - 12px);
+    pointer-events: none;
+}
+
+.sdcf-card-source-badges {
+    left: 6px;
+}
+
+.sdcf-card-flag-badges {
+    top: 28px;
+    right: 6px;
+    justify-content: flex-end;
+}
+
+.sdcf-char-gallery .civmodelcard figure .sdcf-card-source-badges .sdcf-badge,
+.sdcf-char-gallery .civmodelcard figure .sdcf-card-flag-badges .sdcf-badge {
+    position: static;
 }
 
 /* Position badge inside gallery cards */

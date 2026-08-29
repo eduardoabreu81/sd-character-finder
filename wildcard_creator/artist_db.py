@@ -1,8 +1,8 @@
 """
 artist_db.py — SQLite-backed artist style reference browser.
 
-Reads data/artists.db (populated by scripts/scrape_artists.py).
-No external dependencies — uses stdlib sqlite3 only.
+Copies the packaged data/artists.db into data/runtime/ before opening it.
+The tracked package therefore remains replaceable by Forge's Git updater.
 
 Usage:
     from wildcard_creator.artist_db import get_artist_db
@@ -13,11 +13,14 @@ Usage:
 
 from __future__ import annotations
 
+import atexit
 import logging
 import sqlite3
 import threading
 from pathlib import Path
 from typing import Optional
+
+from wildcard_creator.catalog_health import prepare_runtime_sqlite
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,9 @@ logger = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 
-_DEFAULT_DB = Path(__file__).parent.parent / "data" / "artists.db"
+_DATA_DIR = Path(__file__).parent.parent / "data"
+_PACKAGED_DB = _DATA_DIR / "artists.db"
+_DEFAULT_DB = _DATA_DIR / "runtime" / "artists.db"
 
 
 # ---------------------------------------------------------------------------
@@ -33,14 +38,23 @@ _DEFAULT_DB = Path(__file__).parent.parent / "data" / "artists.db"
 # ---------------------------------------------------------------------------
 
 class ArtistDB:
-    def __init__(self, db_path: Path = _DEFAULT_DB):
-        self._path = db_path
+    def __init__(self, db_path: Path | None = None):
+        if db_path is None:
+            runtime_validation = prepare_runtime_sqlite(
+                _PACKAGED_DB,
+                _DEFAULT_DB,
+            )
+            if not runtime_validation.ok:
+                raise RuntimeError(runtime_validation.message)
+            self._path = _DEFAULT_DB
+        else:
+            self._path = Path(db_path)
         self._conn: Optional[sqlite3.Connection] = None
         self._write_lock = threading.Lock()
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:
-            # Prevents 'database disk image is malformed' on git pull updates by discarding orphaned WAL files
+            # Discard orphaned runtime WAL files after an interrupted process.
             try:
                 wal = self._path.with_name(self._path.name + "-wal")
                 shm = self._path.with_name(self._path.name + "-shm")
@@ -203,6 +217,11 @@ class ArtistDB:
                 seen.add(key)
         return len(seen)
 
+    def close(self) -> None:
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
 
 # ---------------------------------------------------------------------------
 # Singleton
@@ -219,3 +238,13 @@ def get_artist_db() -> ArtistDB:
             if _ARTIST_DB_INSTANCE is None:
                 _ARTIST_DB_INSTANCE = ArtistDB()
     return _ARTIST_DB_INSTANCE
+
+
+@atexit.register
+def _close_artist_db_on_exit() -> None:
+    global _ARTIST_DB_INSTANCE
+    if _ARTIST_DB_INSTANCE is not None:
+        try:
+            _ARTIST_DB_INSTANCE.close()
+        except Exception:
+            pass

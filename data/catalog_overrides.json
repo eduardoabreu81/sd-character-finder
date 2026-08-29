@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "series": [],
+  "records": [
+    {
+      "override_key": "danbooru:ol-chan_(oouso)",
+      "source": "danbooru",
+      "match_key": "ol-chan (oouso)",
+      "series_source_tag": "original",
+      "identity_action": "keep_distinct",
+      "reviewed_exclusive_source": "danbooru",
+      "reject_match_keys": [
+        "ol-chan (ol mahonanoka)",
+        "ol-chan (udon)"
+      ],
+      "notes": "Artist-qualified original character; keep distinct from unrelated OL-chan tags by other artists."
+    },
+    {
+      "override_key": "danbooru:yamashiro_summer_offensive_azur_lane",
+      "source": "danbooru",
+      "match_key": "yamashiro (summer offensive) (azur lane)",
+      "series_source_tag": "azur_lane",
+      "identity_action": "same_variant",
+      "merge_with_match_key": "yamashiro (summer offensive?) (azur lane)",
+      "variation_of_match_key": "yamashiro (azur lane)",
+      "reject_match_keys": [],
+      "notes": "Same named Azur Lane costume variant as the Anima tag; the providers differ only by question-mark punctuation."
+    },
+    {
+      "override_key": "danbooru:henrietta_(zankuro)",
+      "source": "danbooru",
+      "match_key": "henrietta (zankuro)",
+      "series_source_tag": "original",
+      "identity_action": "keep_distinct",
+      "reviewed_exclusive_source": "danbooru",
+      "reject_match_keys": [
+        "henrietta (gunslinger girl)",
+        "henrietta (log horizon)"
+      ],
+      "notes": "Artist-qualified original character; do not merge with franchise characters sharing the name Henrietta."
+    },
+    {
+      "override_key": "danbooru:sagami_jun",
+      "source": "danbooru",
+      "match_key": "sagami jun",
+      "series_source_tag": "bakusou_kyoudai_let's_&_go!!",
+      "identity_action": "keep_distinct",
+      "reviewed_exclusive_source": "danbooru",
+      "reject_match_keys": [],
+      "notes": "Danbooru post copyright metadata confirms Bakusou Kyoudai Let's & Go!!; the legacy series value 'Loli' was descriptive-tag leakage."
+    },
+    {
+      "override_key": "danbooru:irumyuui",
+      "source": "danbooru",
+      "match_key": "irumyuui",
+      "series_source_tag": "made_in_abyss",
+      "identity_action": "keep_distinct",
+      "reviewed_exclusive_source": "danbooru",
+      "reject_match_keys": [],
+      "notes": "Made in Abyss character with no exact Anima source record in the local catalogue."
+    },
+    {
+      "override_key": "e621:hex_maniac",
+      "source": "e621",
+      "match_key": "hex maniac",
+      "series_source_tag": "pokemon",
+      "identity_action": "same_variant",
+      "merge_with_match_key": "hex maniac (pokemon)",
+      "reject_match_keys": [
+        "hex maniac (pokemon xy)"
+      ],
+      "notes": "The unqualified e621 tag and prompt explicitly identify the generic Pokemon Hex Maniac; merge it with the generic Danbooru/Anima variant, not the Pokemon XY-specific Anima record."
+    }
+  ]
+}

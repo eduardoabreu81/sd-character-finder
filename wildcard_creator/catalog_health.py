@@ -1,0 +1,768 @@
+"""Validation and recovery helpers for the packaged character catalogue."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import sqlite3
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable
+from urllib.parse import urlparse
+
+import requests
+
+
+_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_CATALOG_PATH = _ROOT / "data" / "catalog" / "characters-v2.db"
+DEFAULT_MANIFEST_PATH = _ROOT / "data" / "characters.manifest.json"
+DEFAULT_RUNTIME_CATALOG_PATH = _ROOT / "data" / "runtime" / "characters.db"
+DEFAULT_LEGACY_CATALOG_PATH = _ROOT / "data" / "characters.db"
+MANIFEST_SCHEMA_VERSION = 1
+_RUNTIME_SYNC_LOCK = threading.Lock()
+_COUNT_TABLES = (
+    "canonical_characters",
+    "character_variations",
+    "character_representations",
+    "source_records",
+)
+_ALLOWED_DOWNLOAD_HOSTS = {
+    "github.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+# Official schema-v1 catalogue revisions that were shipped on ``main``.
+# The v2 release keeps the latest one byte-identical at its old tracked path so
+# Forge can update while the old process still has it open. The restarted v2
+# process recognizes and removes these inert files; it never opens them.
+_LEGACY_CATALOG_FINGERPRINTS = frozenset(
+    {
+        (
+            24_788_992,
+            "cbd084daddf2aefeab2a7c1c410ea239a1096658f2e4a7a7f535a4fe56762697",
+        ),
+        (
+            24_780_800,
+            "3ed86fa6a39fa064a78b5d5aa1cf2cd22f9edf467e63feab3599cbca5f2573f2",
+        ),
+        (
+            8_777_728,
+            "700c3079e38142e15cb342aae04049dde980eb0093242bc65d90a35e28e308da",
+        ),
+        (
+            9_719_808,
+            "c3c1b0ae61d784b96d29533345d1c15fcfcc0fc7fdb825a8ffdc528a491b7fac",
+        ),
+        (
+            9_633_792,
+            "e796212705296793aca07a1b74c3835697f75139a87b635cb54c4c83374b53ab",
+        ),
+        (
+            8_667_136,
+            "9b5ecbda38658cf9db0bf1631d2d3e64489bfb31f7c542b9490b470528926b0b",
+        ),
+        (
+            8_667_136,
+            "3958d9daa048adb957b3daa1da30816822e8c584e957c0a7d71f9d39e52dba2a",
+        ),
+        (
+            7_569_408,
+            "2bb7d02bc898f27f1ace1e0495735c24b7dc0f54551152a49f4a84ddeac2dfeb",
+        ),
+    }
+)
+
+
+@dataclass(frozen=True)
+class CatalogValidation:
+    """Result of validating the immutable packaged catalogue."""
+
+    ok: bool
+    code: str
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+class CatalogRecoveryError(RuntimeError):
+    """Raised when a replacement catalogue cannot be downloaded safely."""
+
+
+@dataclass(frozen=True)
+class LegacyCatalogMigration:
+    """Result of retiring the inert schema-v1 catalogue after v2 starts."""
+
+    completed: bool
+    code: str
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+def sha256_file(path: Path) -> str:
+    """Return a streaming SHA-256 digest for ``path``."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_catalog_manifest(path: Path = DEFAULT_MANIFEST_PATH) -> dict[str, Any]:
+    """Load and minimally validate the tracked catalogue manifest."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise CatalogRecoveryError(f"Catalogue manifest not found: {path}") from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CatalogRecoveryError(f"Cannot read catalogue manifest: {path}") from exc
+
+    if not isinstance(payload, dict):
+        raise CatalogRecoveryError("Catalogue manifest must be a JSON object")
+    if payload.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise CatalogRecoveryError(
+            f"Catalogue manifest must use schema_version={MANIFEST_SCHEMA_VERSION}"
+        )
+    if not str(payload.get("catalog_sha256") or "").strip():
+        raise CatalogRecoveryError("Catalogue manifest has no SHA-256 digest")
+    try:
+        if int(payload.get("catalog_bytes", 0)) <= 0:
+            raise ValueError
+        if int(payload.get("catalog_schema_version", 0)) <= 0:
+            raise ValueError
+    except (TypeError, ValueError) as exc:
+        raise CatalogRecoveryError("Catalogue manifest has invalid numeric fields") from exc
+    if (
+        not isinstance(payload.get("counts"), dict)
+        or set(payload["counts"]) != set(_COUNT_TABLES)
+    ):
+        raise CatalogRecoveryError("Catalogue manifest has no count audit")
+    if not isinstance(payload.get("source_records_by_source"), dict):
+        raise CatalogRecoveryError("Catalogue manifest has no source count audit")
+    return payload
+
+
+def validate_catalog(
+    db_path: Path = DEFAULT_CATALOG_PATH,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+) -> CatalogValidation:
+    """Validate the packaged DB without including user JSON overlays."""
+    db_path = db_path.resolve()
+    try:
+        manifest = load_catalog_manifest(manifest_path.resolve())
+    except CatalogRecoveryError as exc:
+        return CatalogValidation(False, "manifest_invalid", str(exc))
+
+    try:
+        catalog_exists = db_path.exists()
+        actual_bytes = db_path.stat().st_size if catalog_exists else 0
+    except OSError as exc:
+        return CatalogValidation(
+            False,
+            "catalog_unreadable",
+            f"The character catalogue cannot be inspected: {exc}",
+        )
+
+    if not catalog_exists:
+        return CatalogValidation(
+            False,
+            "catalog_missing",
+            "The packaged character catalogue is missing.",
+            {"path": str(db_path)},
+        )
+
+    expected_bytes = int(manifest["catalog_bytes"])
+    if actual_bytes != expected_bytes:
+        return CatalogValidation(
+            False,
+            "size_mismatch",
+            "The character catalogue size does not match its manifest.",
+            {"expected_bytes": expected_bytes, "actual_bytes": actual_bytes},
+        )
+
+    try:
+        actual_sha256 = sha256_file(db_path)
+    except OSError as exc:
+        return CatalogValidation(
+            False,
+            "catalog_unreadable",
+            f"The character catalogue cannot be read: {exc}",
+        )
+    expected_sha256 = str(manifest["catalog_sha256"])
+    if actual_sha256 != expected_sha256:
+        return CatalogValidation(
+            False,
+            "checksum_mismatch",
+            "The character catalogue checksum does not match its manifest.",
+            {
+                "expected_sha256": expected_sha256,
+                "actual_sha256": actual_sha256,
+            },
+        )
+
+    connection: sqlite3.Connection | None = None
+    try:
+        uri = db_path.as_uri() + "?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=15.0)
+        schema_row = connection.execute(
+            "SELECT value FROM build_metadata WHERE key = 'schema_version'"
+        ).fetchone()
+        schema_version = int(schema_row[0]) if schema_row else 0
+        expected_schema = int(manifest["catalog_schema_version"])
+        if schema_version != expected_schema:
+            return CatalogValidation(
+                False,
+                "schema_mismatch",
+                "The character catalogue schema is incompatible.",
+                {
+                    "expected_schema": expected_schema,
+                    "actual_schema": schema_version,
+                },
+            )
+
+        quick_check = str(connection.execute("PRAGMA quick_check").fetchone()[0])
+        if quick_check != "ok":
+            return CatalogValidation(
+                False,
+                "sqlite_corrupt",
+                f"SQLite quick_check failed: {quick_check}",
+            )
+
+        foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
+        if foreign_key_errors:
+            return CatalogValidation(
+                False,
+                "foreign_key_errors",
+                "The character catalogue has invalid relationships.",
+                {"error_count": len(foreign_key_errors)},
+            )
+
+        actual_counts = {
+            table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            for table in manifest["counts"]
+        }
+        expected_counts = {
+            str(table): int(value)
+            for table, value in manifest["counts"].items()
+        }
+        if actual_counts != expected_counts:
+            return CatalogValidation(
+                False,
+                "count_mismatch",
+                "The character catalogue record counts do not match its manifest.",
+                {"expected": expected_counts, "actual": actual_counts},
+            )
+
+        actual_sources = {
+            str(row[0]): int(row[1])
+            for row in connection.execute(
+                "SELECT source, COUNT(*) FROM source_records GROUP BY source"
+            ).fetchall()
+        }
+        expected_sources = {
+            str(source): int(value)
+            for source, value in manifest["source_records_by_source"].items()
+        }
+        if actual_sources != expected_sources:
+            return CatalogValidation(
+                False,
+                "source_count_mismatch",
+                "The character catalogue source counts do not match its manifest.",
+                {"expected": expected_sources, "actual": actual_sources},
+            )
+    except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+        return CatalogValidation(
+            False,
+            "sqlite_unreadable",
+            f"The character catalogue cannot be validated: {exc}",
+        )
+    finally:
+        if connection is not None:
+            connection.close()
+
+    return CatalogValidation(
+        True,
+        "ok",
+        "The character catalogue passed checksum and SQLite validation.",
+        {
+            "sha256": actual_sha256,
+            "catalog_bytes": actual_bytes,
+            "schema_version": int(manifest["catalog_schema_version"]),
+        },
+    )
+
+
+def finalize_legacy_catalog_migration(
+    v2_validation: CatalogValidation,
+    legacy_db_path: Path = DEFAULT_LEGACY_CATALOG_PATH,
+) -> LegacyCatalogMigration:
+    """Remove a recognized v1 DB after the v2 runtime catalogue is healthy.
+
+    The legacy database is only a Forge updater bridge. It is never opened or
+    used as a runtime fallback by the v2 application.
+    """
+    legacy_db_path = legacy_db_path.resolve()
+    if not v2_validation.ok:
+        return LegacyCatalogMigration(
+            False,
+            "v2_not_ready",
+            "The inert legacy catalogue was retained because v2 is not ready.",
+            {"path": str(legacy_db_path)},
+        )
+
+    sidecar_paths = (
+        Path(str(legacy_db_path) + "-wal"),
+        Path(str(legacy_db_path) + "-shm"),
+    )
+    if not legacy_db_path.exists():
+        pending_sidecars: list[str] = []
+        for sidecar_path in sidecar_paths:
+            try:
+                sidecar_path.unlink(missing_ok=True)
+            except OSError:
+                pending_sidecars.append(str(sidecar_path))
+        return LegacyCatalogMigration(
+            not pending_sidecars,
+            (
+                "legacy_absent"
+                if not pending_sidecars
+                else "legacy_sidecar_cleanup_deferred"
+            ),
+            (
+                "The legacy catalogue is already absent."
+                if not pending_sidecars
+                else "Legacy SQLite sidecar cleanup will be retried on next startup."
+            ),
+            {
+                "path": str(legacy_db_path),
+                "pending_sidecars": pending_sidecars,
+            },
+        )
+
+    try:
+        legacy_bytes = legacy_db_path.stat().st_size
+        legacy_sha256 = sha256_file(legacy_db_path)
+    except OSError as exc:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_inspection_deferred",
+            "The legacy catalogue could not be inspected and was retained.",
+            {"path": str(legacy_db_path), "error": str(exc)},
+        )
+
+    fingerprint = (legacy_bytes, legacy_sha256)
+    if fingerprint not in _LEGACY_CATALOG_FINGERPRINTS:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_unrecognized",
+            "An unrecognized database exists at the legacy path and was preserved.",
+            {
+                "path": str(legacy_db_path),
+                "catalog_bytes": legacy_bytes,
+                "sha256": legacy_sha256,
+            },
+        )
+
+    try:
+        legacy_db_path.unlink()
+    except OSError as exc:
+        return LegacyCatalogMigration(
+            False,
+            "legacy_cleanup_deferred",
+            "The recognized legacy catalogue is still locked; cleanup will retry.",
+            {"path": str(legacy_db_path), "error": str(exc)},
+        )
+
+    pending_sidecars = []
+    for sidecar_path in sidecar_paths:
+        try:
+            sidecar_path.unlink(missing_ok=True)
+        except OSError:
+            pending_sidecars.append(str(sidecar_path))
+    return LegacyCatalogMigration(
+        not pending_sidecars,
+        "legacy_removed" if not pending_sidecars else "legacy_sidecar_cleanup_deferred",
+        (
+            "The inert legacy catalogue was removed."
+            if not pending_sidecars
+            else (
+                "The inert legacy catalogue was removed; SQLite sidecar cleanup "
+                "will retry on next startup."
+            )
+        ),
+        {
+            "path": str(legacy_db_path),
+            "catalog_bytes": legacy_bytes,
+            "sha256": legacy_sha256,
+            "pending_sidecars": pending_sidecars,
+        },
+    )
+
+
+def _validate_download_url(url: str) -> None:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").casefold()
+    if parsed.scheme != "https" or hostname not in _ALLOWED_DOWNLOAD_HOSTS:
+        raise CatalogRecoveryError(
+            "Catalogue downloads are restricted to trusted GitHub HTTPS hosts"
+        )
+
+
+def redownload_catalog(
+    db_path: Path = DEFAULT_CATALOG_PATH,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+    *,
+    close_callback: Callable[[], None] | None = None,
+    download_url: str | None = None,
+) -> CatalogValidation:
+    """Download, verify, and atomically install the exact manifest catalogue."""
+    db_path = db_path.resolve()
+    manifest = load_catalog_manifest(manifest_path.resolve())
+    url = str(download_url or manifest.get("download_url") or "").strip()
+    if not url:
+        raise CatalogRecoveryError("Catalogue manifest has no download URL")
+    _validate_download_url(url)
+
+    expected_bytes = int(manifest["catalog_bytes"])
+    expected_sha256 = str(manifest["catalog_sha256"])
+    temp_path = db_path.with_suffix(db_path.suffix + ".download")
+    response = None
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        response = requests.get(
+            url,
+            stream=True,
+            timeout=(15, 180),
+            headers={"User-Agent": "SDCharacterFinder/catalog-recovery"},
+        )
+        response.raise_for_status()
+        final_url = str(getattr(response, "url", url) or url)
+        _validate_download_url(final_url)
+
+        digest = hashlib.sha256()
+        downloaded_bytes = 0
+        with temp_path.open("wb") as handle:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if not chunk:
+                    continue
+                downloaded_bytes += len(chunk)
+                if downloaded_bytes > expected_bytes:
+                    raise CatalogRecoveryError(
+                        "Downloaded catalogue is larger than its manifest"
+                    )
+                digest.update(chunk)
+                handle.write(chunk)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        if downloaded_bytes != expected_bytes:
+            raise CatalogRecoveryError(
+                "Downloaded catalogue size does not match its manifest"
+            )
+        if digest.hexdigest() != expected_sha256:
+            raise CatalogRecoveryError(
+                "Downloaded catalogue checksum does not match its manifest"
+            )
+
+        downloaded_validation = validate_catalog(temp_path, manifest_path)
+        if not downloaded_validation.ok:
+            raise CatalogRecoveryError(downloaded_validation.message)
+
+        if close_callback is not None:
+            close_callback()
+        os.replace(temp_path, db_path)
+        installed_validation = validate_catalog(db_path, manifest_path)
+        if not installed_validation.ok:
+            raise CatalogRecoveryError(installed_validation.message)
+        return installed_validation
+    except requests.RequestException as exc:
+        raise CatalogRecoveryError(f"Catalogue download failed: {exc}") from exc
+    except CatalogRecoveryError:
+        raise
+    except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+        raise CatalogRecoveryError(f"Catalogue recovery failed: {exc}") from exc
+    finally:
+        if response is not None:
+            response.close()
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+
+
+def prepare_runtime_catalog(
+    packaged_db_path: Path = DEFAULT_CATALOG_PATH,
+    runtime_db_path: Path = DEFAULT_RUNTIME_CATALOG_PATH,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+    *,
+    close_callback: Callable[[], None] | None = None,
+) -> CatalogValidation:
+    """Synchronize a private runtime copy without leaving the tracked DB open."""
+    packaged_db_path = packaged_db_path.resolve()
+    runtime_db_path = runtime_db_path.resolve()
+    manifest_path = manifest_path.resolve()
+
+    packaged_validation = validate_catalog(packaged_db_path, manifest_path)
+    if not packaged_validation.ok:
+        return packaged_validation
+
+    with _RUNTIME_SYNC_LOCK:
+        runtime_validation = validate_catalog(runtime_db_path, manifest_path)
+        if runtime_validation.ok:
+            return CatalogValidation(
+                True,
+                "runtime_ready",
+                "The runtime character catalogue is current.",
+                {
+                    **runtime_validation.details,
+                    "runtime_path": str(runtime_db_path),
+                    "refreshed": False,
+                },
+            )
+
+        temp_path = runtime_db_path.with_suffix(runtime_db_path.suffix + ".sync")
+        try:
+            runtime_db_path.parent.mkdir(parents=True, exist_ok=True)
+            with packaged_db_path.open("rb") as source, temp_path.open("wb") as target:
+                shutil.copyfileobj(source, target, length=1024 * 1024)
+                target.flush()
+                os.fsync(target.fileno())
+
+            copied_validation = validate_catalog(temp_path, manifest_path)
+            if not copied_validation.ok:
+                return CatalogValidation(
+                    False,
+                    "runtime_copy_invalid",
+                    (
+                        "The packaged catalogue is valid, but its runtime copy "
+                        f"failed validation: {copied_validation.message}"
+                    ),
+                )
+
+            if close_callback is not None:
+                close_callback()
+            os.replace(temp_path, runtime_db_path)
+
+            installed_validation = validate_catalog(runtime_db_path, manifest_path)
+            if not installed_validation.ok:
+                return CatalogValidation(
+                    False,
+                    "runtime_install_invalid",
+                    (
+                        "The runtime character catalogue could not be installed: "
+                        f"{installed_validation.message}"
+                    ),
+                )
+            return CatalogValidation(
+                True,
+                "runtime_refreshed",
+                "The runtime character catalogue was refreshed.",
+                {
+                    **installed_validation.details,
+                    "runtime_path": str(runtime_db_path),
+                    "refreshed": True,
+                },
+            )
+        except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+            return CatalogValidation(
+                False,
+                "runtime_sync_failed",
+                f"The runtime character catalogue could not be prepared: {exc}",
+            )
+        finally:
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+
+
+def prepare_runtime_sqlite(
+    packaged_db_path: Path,
+    runtime_db_path: Path,
+    *,
+    close_callback: Callable[[], None] | None = None,
+) -> CatalogValidation:
+    """Prepare a mutable runtime SQLite copy using a source-hash sidecar."""
+    packaged_db_path = packaged_db_path.resolve()
+    runtime_db_path = runtime_db_path.resolve()
+    fingerprint_path = runtime_db_path.with_suffix(
+        runtime_db_path.suffix + ".source.sha256"
+    )
+
+    with _RUNTIME_SYNC_LOCK:
+        try:
+            if not packaged_db_path.exists():
+                return CatalogValidation(
+                    False,
+                    "package_missing",
+                    f"The packaged database is missing: {packaged_db_path}",
+                )
+            source_sha256 = sha256_file(packaged_db_path)
+            source_connection = sqlite3.connect(
+                packaged_db_path.as_uri() + "?mode=ro",
+                uri=True,
+                timeout=15.0,
+            )
+            try:
+                source_quick_check = str(
+                    source_connection.execute("PRAGMA quick_check").fetchone()[0]
+                )
+            finally:
+                source_connection.close()
+            if source_quick_check != "ok":
+                return CatalogValidation(
+                    False,
+                    "package_sqlite_corrupt",
+                    f"Packaged SQLite quick_check failed: {source_quick_check}",
+                )
+
+            recorded_sha256 = ""
+            if fingerprint_path.exists():
+                try:
+                    recorded_sha256 = fingerprint_path.read_text(
+                        encoding="ascii"
+                    ).strip()
+                except (OSError, UnicodeError):
+                    recorded_sha256 = ""
+            if runtime_db_path.exists() and recorded_sha256 == source_sha256:
+                runtime_connection: sqlite3.Connection | None = None
+                runtime_quick_check = ""
+                try:
+                    runtime_connection = sqlite3.connect(
+                        runtime_db_path.as_uri() + "?mode=ro",
+                        uri=True,
+                        timeout=15.0,
+                    )
+                    runtime_quick_check = str(
+                        runtime_connection.execute(
+                            "PRAGMA quick_check"
+                        ).fetchone()[0]
+                    )
+                except sqlite3.Error:
+                    runtime_quick_check = ""
+                finally:
+                    if runtime_connection is not None:
+                        runtime_connection.close()
+                if runtime_quick_check == "ok":
+                    return CatalogValidation(
+                        True,
+                        "runtime_ready",
+                        "The runtime database is current.",
+                        {
+                            "source_sha256": source_sha256,
+                            "runtime_path": str(runtime_db_path),
+                            "refreshed": False,
+                        },
+                    )
+
+            runtime_db_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = runtime_db_path.with_suffix(runtime_db_path.suffix + ".sync")
+            temp_fingerprint_path = fingerprint_path.with_suffix(
+                fingerprint_path.suffix + ".tmp"
+            )
+            try:
+                with packaged_db_path.open("rb") as source, temp_path.open(
+                    "wb"
+                ) as target:
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
+                    target.flush()
+                    os.fsync(target.fileno())
+
+                copied_connection = sqlite3.connect(
+                    temp_path.as_uri() + "?mode=ro",
+                    uri=True,
+                    timeout=15.0,
+                )
+                try:
+                    copied_quick_check = str(
+                        copied_connection.execute(
+                            "PRAGMA quick_check"
+                        ).fetchone()[0]
+                    )
+                finally:
+                    copied_connection.close()
+                if copied_quick_check != "ok":
+                    return CatalogValidation(
+                        False,
+                        "runtime_copy_invalid",
+                        f"Runtime SQLite quick_check failed: {copied_quick_check}",
+                    )
+
+                if close_callback is not None:
+                    close_callback()
+                os.replace(temp_path, runtime_db_path)
+                temp_fingerprint_path.write_text(
+                    source_sha256 + "\n",
+                    encoding="ascii",
+                )
+                os.replace(temp_fingerprint_path, fingerprint_path)
+                return CatalogValidation(
+                    True,
+                    "runtime_refreshed",
+                    "The runtime database was refreshed.",
+                    {
+                        "source_sha256": source_sha256,
+                        "runtime_path": str(runtime_db_path),
+                        "refreshed": True,
+                    },
+                )
+            finally:
+                for temporary_path in (temp_path, temp_fingerprint_path):
+                    if temporary_path.exists():
+                        try:
+                            temporary_path.unlink()
+                        except OSError:
+                            pass
+        except (OSError, sqlite3.Error, TypeError, ValueError) as exc:
+            return CatalogValidation(
+                False,
+                "runtime_sync_failed",
+                f"The runtime database could not be prepared: {exc}",
+            )
+
+
+def build_catalog_manifest(
+    db_path: Path,
+    *,
+    download_url: str,
+) -> dict[str, Any]:
+    """Create manifest data for a completed v2 catalogue."""
+    db_path = db_path.resolve()
+    _validate_download_url(download_url)
+    connection = sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True)
+    try:
+        schema_row = connection.execute(
+            "SELECT value FROM build_metadata WHERE key = 'schema_version'"
+        ).fetchone()
+        if not schema_row:
+            raise CatalogRecoveryError("Catalogue has no schema version")
+        counts = {
+            table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            for table in _COUNT_TABLES
+        }
+        source_counts = {
+            str(row[0]): int(row[1])
+            for row in connection.execute(
+                "SELECT source, COUNT(*) FROM source_records GROUP BY source"
+            ).fetchall()
+        }
+        quick_check = str(connection.execute("PRAGMA quick_check").fetchone()[0])
+        foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
+        if quick_check != "ok" or foreign_key_errors:
+            raise CatalogRecoveryError("Cannot manifest an invalid catalogue")
+    finally:
+        connection.close()
+
+    return {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "catalog_schema_version": int(schema_row[0]),
+        "catalog_bytes": db_path.stat().st_size,
+        "catalog_sha256": sha256_file(db_path),
+        "download_url": download_url,
+        "counts": counts,
+        "source_records_by_source": source_counts,
+    }

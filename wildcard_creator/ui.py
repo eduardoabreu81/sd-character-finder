@@ -2,7 +2,7 @@
 ui.py — Gradio UI for the YAML Wildcard Creator SD WebUI extension.
 
 One tab:
-  🎭 Characters → browse 20k Danbooru characters, search by name/tag/series,
+  🎭 Characters → browse canonical characters across Danbooru/e621/Anima,
                     send prompt tags directly to txt2img.
 
 Entry points:
@@ -25,6 +25,14 @@ from urllib.parse import urlparse
 import gradio as gr
 import requests
 
+from wildcard_creator.catalog_health import (
+    CatalogRecoveryError,
+    CatalogValidation,
+    finalize_legacy_catalog_migration,
+    prepare_runtime_catalog,
+    redownload_catalog,
+    validate_catalog,
+)
 from wildcard_creator.character_db import get_character_db
 from wildcard_creator.danbooru import DanbooruDB
 from wildcard_creator.utils.strings import normalize_wildcard_name
@@ -50,6 +58,51 @@ def _get_default_danbooru_auth() -> tuple[str, str]:
         return "", ""
 
 
+def _get_shared_opt(key: str, default):
+    """Read a WebUI setting with a standalone-safe fallback."""
+    try:
+        from modules import shared  # type: ignore
+
+        if hasattr(shared, "opts") and hasattr(shared.opts, key):
+            return getattr(shared.opts, key)
+    except Exception:
+        pass
+    return default
+
+
+def _clear_redownload_on_startup_setting() -> None:
+    """Consume the one-shot recovery setting when WebUI settings are available."""
+    try:
+        from modules import shared  # type: ignore
+
+        setattr(shared.opts, "sdcf_catalog_redownload_on_startup", False)
+        save_options = getattr(shared.opts, "save", None)
+        config_filename = getattr(shared, "config_filename", None)
+        if callable(save_options) and config_filename:
+            save_options(config_filename)
+    except Exception:
+        pass
+
+
+def _catalog_status_markdown(
+    validation: CatalogValidation,
+    recovery_note: str = "",
+) -> str:
+    if validation.ok:
+        if recovery_note:
+            return (
+                "### ✅ Character catalogue ready\n\n"
+                f"{recovery_note}"
+            )
+        return ""
+    note = f"\n\n{recovery_note}" if recovery_note else ""
+    return (
+        "### ⚠️ Character catalogue problem detected\n\n"
+        f"{validation.message}{note}\n\n"
+        "Search is disabled until the verified catalogue is restored."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tab -- Character Browser
 # ---------------------------------------------------------------------------
@@ -57,18 +110,118 @@ def _get_default_danbooru_auth() -> tuple[str, str]:
 def _build_characters_content():
     """Renders the character browser UI directly into the current Blocks context."""
     cdb = get_character_db()
-    _populated = cdb.is_populated()
+    recovery_note = ""
+    force_redownload = bool(
+        _get_shared_opt("sdcf_catalog_redownload_on_startup", False)
+    )
+    auto_restore = bool(_get_shared_opt("sdcf_catalog_auto_restore", True))
+    catalog_validation = (
+        validate_catalog()
+        if force_redownload
+        else prepare_runtime_catalog(close_callback=cdb.close)
+    )
+    package_needs_recovery = (
+        not catalog_validation.ok
+        and not catalog_validation.code.startswith("runtime_")
+    )
+    if force_redownload or (package_needs_recovery and auto_restore):
+        try:
+            redownload_catalog()
+            catalog_validation = prepare_runtime_catalog(close_callback=cdb.close)
+            if catalog_validation.ok:
+                recovery_note = "A verified copy was downloaded and activated."
+            else:
+                recovery_note = (
+                    "A verified packaged copy was downloaded, but the private "
+                    "runtime copy could not be prepared."
+                )
+        except CatalogRecoveryError as exc:
+            recovery_note = f"Automatic recovery failed: {exc}"
+            if force_redownload:
+                catalog_validation = prepare_runtime_catalog(
+                    close_callback=cdb.close
+                )
+        finally:
+            if force_redownload:
+                _clear_redownload_on_startup_setting()
+
+    finalize_legacy_catalog_migration(catalog_validation)
+    _populated = catalog_validation.ok and cdb.is_populated()
     _total = cdb.count() if _populated else 0
     _series_choices = ["All"] + [s for s, _ in cdb.list_series()] if _populated else ["All"]
 
-    _NOT_POPULATED_MSG = (
-        "⚠️ **Character database is downloading in the background!**\n\n"
-        "It takes a few minutes to fetch the 20k characters for the first time. "
-        "You can search, but results may be partial until it finishes."
+    catalog_status = gr.Markdown(
+        value=_catalog_status_markdown(catalog_validation, recovery_note),
+        visible=not catalog_validation.ok or bool(recovery_note),
+        elem_id="sdcf_catalog_status",
+    )
+    btn_catalog_redownload = gr.Button(
+        (
+            "↻ Retry catalogue preparation"
+            if catalog_validation.code.startswith("runtime_")
+            else "⬇️ Redownload verified catalogue"
+        ),
+        variant="primary",
+        visible=not catalog_validation.ok,
+        elem_id="sdcf_catalog_redownload",
     )
 
-    if _total < 20000:
-        gr.Markdown(_NOT_POPULATED_MSG)
+    def _redownload_catalog_action():
+        yield (
+            gr.update(
+                value=(
+                    "### ⏳ Restoring character catalogue\n\n"
+                    "Preparing or downloading the verified database..."
+                ),
+                visible=True,
+            ),
+            gr.update(interactive=False),
+        )
+        try:
+            packaged_validation = validate_catalog()
+            downloaded = False
+            if not packaged_validation.ok:
+                redownload_catalog()
+                downloaded = True
+            validation = prepare_runtime_catalog(close_callback=cdb.close)
+            if not validation.ok:
+                raise CatalogRecoveryError(validation.message)
+            finalize_legacy_catalog_migration(validation)
+            action_note = (
+                "A verified copy was downloaded and activated."
+                if downloaded
+                else "The verified runtime copy was prepared."
+            )
+            yield (
+                gr.update(
+                    value=_catalog_status_markdown(
+                        validation,
+                        (
+                            f"{action_note} "
+                            "Reload this tab to refresh all controls."
+                        ),
+                    ),
+                    visible=True,
+                ),
+                gr.update(visible=False, interactive=True),
+            )
+        except CatalogRecoveryError as exc:
+            failed_validation = validate_catalog()
+            yield (
+                gr.update(
+                    value=_catalog_status_markdown(
+                        failed_validation,
+                        f"Recovery failed: {exc}",
+                    ),
+                    visible=True,
+                ),
+                gr.update(visible=True, interactive=True),
+            )
+
+    btn_catalog_redownload.click(
+        _redownload_catalog_action,
+        outputs=[catalog_status, btn_catalog_redownload],
+    )
 
     def _discover_wildcard_dirs() -> tuple[list[str], dict[str, str]]:
         """
@@ -172,8 +325,8 @@ def _build_characters_content():
     _wildcard_dirs, _wildcard_dir_map = _discover_wildcard_dirs()
 
     gr.Markdown(
-        f"### Browse {_total:,} Danbooru characters\n"
-        "Search by name or tag, filter by series, then send to Generate."
+        f"### Browse {_total:,} canonical character variations\n"
+        "Search by character, alias, prompt tag, or work; then choose a source representation."
     )
 
     def _load_favorites_initial() -> list[dict]:
@@ -255,6 +408,60 @@ def _build_characters_content():
             pass
         return []
 
+    def _render_card_badges(item: dict, is_favorite: bool = False) -> str:
+        sources = item.get("sources") or []
+        if not sources:
+            combination = str(item.get("source_combination") or "")
+            sources = [
+                value
+                for value in combination.split("+")
+                if value in {"danbooru", "e621", "anima"}
+            ]
+        if not sources:
+            sources = [item.get("source", "danbooru")]
+
+        source_badges = "".join(
+            (
+                f"<span class='sdcf-badge sdcf-badge-{html.escape(str(source))}'>"
+                f"{html.escape(str(source))}</span>"
+            )
+            for source in sources
+        )
+        flags: list[str] = []
+        if item.get("exclusive_source"):
+            status = item.get("exclusivity_status")
+            label = (
+                "exclusive"
+                if status == "reviewed"
+                else f"{item['exclusive_source']} only"
+            )
+            badge_class = (
+                "sdcf-badge-exclusive"
+                if status == "reviewed"
+                else "sdcf-badge-source-only"
+            )
+            flags.append(
+                f"<span class='sdcf-badge {badge_class}'>"
+                f"{html.escape(label)}</span>"
+            )
+        if item.get("is_variation"):
+            flags.append(
+                "<span class='sdcf-badge sdcf-badge-variation'>variation</span>"
+            )
+        if is_favorite:
+            flags.append(
+                "<span class='sdcf-badge sdcf-badge-favorite'>favorite</span>"
+            )
+        flag_html = (
+            f"<div class='sdcf-card-flag-badges'>{''.join(flags)}</div>"
+            if flags
+            else ""
+        )
+        return (
+            f"<div class='sdcf-card-source-badges'>{source_badges}</div>"
+            f"{flag_html}"
+        )
+
     def _render_initial_recent_gallery(results_list: list[dict]) -> str:
         if not results_list:
             return "<div class='sdcf-char-gallery'><div class='civmodellist'><p style='color:#888;font-size:0.85em;padding:16px'>No characters to display.</p></div></div>"
@@ -263,11 +470,9 @@ def _build_characters_content():
         for idx, item in enumerate(results_list):
             img_src = item.get("image_url") or "https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview"
             name = item.get("name", "")
-            source = item.get("source", "danbooru")
-
             safe_img = html.escape(str(img_src or ""), quote=True)
             safe_name = html.escape(str(name or ""))
-            safe_source = html.escape(str(source or "danbooru"))
+            badges_html = _render_card_badges(item)
             onclick_js = (
                 "const app=(window.gradioApp?window.gradioApp():document);"
                 "const input=app.querySelector('#sdcf_recent_select_idx textarea, #sdcf_recent_select_idx input');"
@@ -283,7 +488,7 @@ def _build_characters_content():
                 f"""
                 <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
-                        <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
+                        {badges_html}
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>
@@ -297,54 +502,96 @@ def _build_characters_content():
     _initial_recent_df = [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in _initial_recent]
     _initial_recent_gallery = _render_initial_recent_gallery(_initial_recent)
 
-    with gr.Row():
-        with gr.Column(scale=2):
+    with gr.Row(elem_id="sdcf_character_search_controls", equal_height=True):
+        with gr.Column(scale=3, min_width=220):
             char_search = gr.Textbox(
                 label="Search",
                 placeholder="e.g. miku, saber, blue hair…",
                 lines=1,
+                interactive=_populated,
                 elem_id="sdcf_char_search"
             )
-        with gr.Column(scale=1):
+        with gr.Column(scale=2, min_width=180):
             char_series = gr.Dropdown(
-                label="Series",
+                label="Franchise / Work",
                 choices=_series_choices,
                 value="All",
                 interactive=True,
                 elem_id="sdcf_char_series"
             )
-        with gr.Column(scale=1):
+        with gr.Column(scale=2, min_width=180):
             tag_status_filter = gr.Dropdown(
-                label="Danbooru tag",
+                label="Danbooru availability",
                 choices=["All", "Missing Danbooru Tag", "Has Danbooru Tag"],
                 value="All",
                 interactive=True,
                 elem_id="sdcf_tag_status_filter"
             )
-        with gr.Column(scale=1, min_width=100):
-            btn_char_search = gr.Button("🔍 Search", variant="primary", elem_id="sdcf_btn_search")
-        with gr.Column(scale=1, min_width=100):
-            btn_char_clear_search = gr.Button("✖ Clear Search", elem_id="sdcf_btn_clear_search")
-        with gr.Column(scale=1, min_width=100):
-            btn_char_reset = gr.Button("✖ Clear All", elem_id="sdcf_btn_clear_all")
+        btn_char_search = gr.Button(
+            "🔍 Search",
+            variant="primary",
+            size="lg",
+            interactive=_populated,
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_btn_search",
+        )
+        btn_char_clear_search = gr.Button(
+            "✖ Clear Search",
+            size="lg",
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_btn_clear_search",
+        )
+        btn_char_reset = gr.Button(
+            "✖ Clear All",
+            size="lg",
+            scale=1,
+            min_width=110,
+            elem_id="sdcf_btn_clear_all",
+        )
 
-    with gr.Row():
-        source_filter = gr.Radio(
-            label="Source",
-            choices=["all", "danbooru", "e621", "anima"],
-            value="all",
-            interactive=True,
-            elem_id="sdcf_source_filter"
-        )
-        favorites_only = gr.Checkbox(label="❤️ Favorites Only", value=False, interactive=True, elem_id="sdcf_favorites_only_chk")
-        recent_searches = gr.Dropdown(
-            label="Recent Searches",
-            choices=get_search_history_db().get_all(),
-            value=None,
-            interactive=True,
-            min_width=200,
-            elem_id="sdcf_recent_searches"
-        )
+    with gr.Row(elem_id="sdcf_character_filter_controls"):
+        with gr.Column(scale=4, min_width=390):
+            with gr.Row(elem_id="sdcf_source_favorites_group"):
+                with gr.Column(scale=3, min_width=260):
+                    source_filter = gr.Radio(
+                        label="Source",
+                        choices=["all", "danbooru", "e621", "anima"],
+                        value="all",
+                        interactive=True,
+                        elem_id="sdcf_source_filter"
+                    )
+                with gr.Column(scale=1, min_width=130):
+                    favorites_only = gr.Checkbox(
+                        label="❤️ Favorites Only",
+                        value=False,
+                        interactive=True,
+                        elem_id="sdcf_favorites_only_chk",
+                    )
+        with gr.Column(scale=2, min_width=190):
+            exclusive_filter = gr.Dropdown(
+                label="Availability",
+                choices=[
+                    "All",
+                    "Reviewed exclusive",
+                    "Danbooru only",
+                    "e621 only",
+                    "Anima only",
+                    "Multiple sources",
+                ],
+                value="All",
+                interactive=True,
+                elem_id="sdcf_exclusive_filter",
+            )
+        with gr.Column(scale=3, min_width=240):
+            recent_searches = gr.Dropdown(
+                label="Recent Searches",
+                choices=get_search_history_db().get_all(),
+                value=None,
+                interactive=True,
+                elem_id="sdcf_recent_searches"
+            )
 
     current_page_state = gr.State(1)
     total_pages_state = gr.State(1)
@@ -363,6 +610,7 @@ def _build_characters_content():
                         line_breaks=False,
                         height=600,
                         row_count=(30, "fixed"),
+                        elem_id="sdcf_char_results",
                     )
                 with gr.Tab("Gallery View", id="tab_gallery"):
                     char_gallery = gr.HTML(
@@ -443,7 +691,19 @@ def _build_characters_content():
     with gr.Row():
         with gr.Column(scale=2):
             char_name_out = gr.Textbox(label="Character", interactive=False, lines=1)
-            char_series_out = gr.Textbox(label="Series", interactive=False, lines=1)
+            char_series_out = gr.Textbox(
+                label="Franchise / Work",
+                interactive=False,
+                lines=1,
+            )
+            representation_source = gr.Radio(
+                label="Representation source",
+                choices=[],
+                value=None,
+                interactive=True,
+                visible=False,
+                elem_id="sdcf_representation_source",
+            )
             char_danbooru_tag_out = gr.Textbox(
                 label="Canonical tag / trigger",
                 lines=1,
@@ -456,9 +716,13 @@ def _build_characters_content():
                 btn_char_add = gr.Button("➕ Add to txt2img", size="lg")
             with gr.Row():
                 btn_char_copy = gr.Button("📋 Copy Tags", size="lg")
-                btn_char_save_tag = gr.Button("💾 Save Danbooru Tag", size="lg")
+                btn_char_save_prompt = gr.Button("💾 Save prompt", size="lg")
+                btn_char_reset_prompt = gr.Button("↩ Source prompt", size="lg")
+            with gr.Row():
+                btn_char_save_tag = gr.Button("💾 Save lookup tag", size="lg")
                 btn_favorite_toggle = gr.Button("🤍 Favorite", size="lg")
             char_selected_id = gr.State(None)
+            char_selected_state = gr.State({})
             char_send_status = gr.Textbox(visible=True, interactive=False, label="Status")
 
             with gr.Row():
@@ -509,26 +773,37 @@ def _build_characters_content():
 
     http_session = requests.Session()
     http_session.headers.update({"User-Agent": "SDCharacterFinder/1.0"})
-    cover_data_uri_cache: OrderedDict[int, str] = OrderedDict()
+    cover_data_uri_cache: OrderedDict[str, str] = OrderedDict()
     COVER_DATA_URI_CACHE_MAX = 500
 
-    def _cache_get_data_uri(char_id: int) -> str | None:
-        val = cover_data_uri_cache.get(char_id)
+    def _cache_get_data_uri(cache_key: str) -> str | None:
+        val = cover_data_uri_cache.get(cache_key)
         if val is not None:
-            cover_data_uri_cache.move_to_end(char_id)
+            cover_data_uri_cache.move_to_end(cache_key)
         return val
 
-    def _cache_set_data_uri(char_id: int, data_uri: str) -> None:
-        cover_data_uri_cache[char_id] = data_uri
-        cover_data_uri_cache.move_to_end(char_id)
+    def _cache_set_data_uri(cache_key: str, data_uri: str) -> None:
+        cover_data_uri_cache[cache_key] = data_uri
+        cover_data_uri_cache.move_to_end(cache_key)
         while len(cover_data_uri_cache) > COVER_DATA_URI_CACHE_MAX:
             cover_data_uri_cache.popitem(last=False)
 
-    def do_search(query, series, tag_status, source, favorites_only, page, recent_chars, recent_page):
+    def do_search(
+        query,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        page,
+        recent_chars,
+        recent_page,
+    ):
         query = (query or "").strip()
         series = (series or "All").strip() or "All"
         tag_status = (tag_status or "All").strip() or "All"
         source = (source or "all").strip() or "all"
+        exclusive = (exclusive or "All").strip() or "All"
         raw_limit = get_shared_opt("sdcf_search_limit", 30)
         raw_thumb_size = get_shared_opt("sdcf_gallery_thumb_size", 160)
         raw_gallery_columns = get_shared_opt("sdcf_gallery_columns", 5)
@@ -557,6 +832,7 @@ def _build_characters_content():
                 series_filter=series if series != "All" else None,
                 tag_status_filter=tag_status,
                 source_filter=source,
+                exclusive_filter=exclusive,
                 favorites_list=favs,
                 limit=limit,
                 offset=offset,
@@ -608,7 +884,16 @@ def _build_characters_content():
                 1,
                 gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>"),
                 gr.update(),
-                "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, "", "🤍 Favorite",
+                "<div class='sdcf-preview-empty'>No preview</div>",
+                "",
+                "",
+                "",
+                _prompt_update(""),
+                None,
+                "",
+                "🤍 Favorite",
+                gr.update(choices=[], value=None, visible=False),
+                {},
                 recent_chars,
                 _render_list_df(recent_chars[:30]),
                 _render_gallery_html(recent_chars[:30], "sdcf_recent_select_idx"),
@@ -616,29 +901,129 @@ def _build_characters_content():
                 gr.update(value="<div style='text-align: center; margin-top: 8px;'>Error</div>")
             )
 
-    def jump_page_action(query, series, tag_status, source, favorites_only, page, total_pages, recent_chars, recent_page):
+    def jump_page_action(
+        query,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        page,
+        total_pages,
+        recent_chars,
+        recent_page,
+    ):
         try:
             new_page = int(float(page))
         except Exception:
             new_page = 1
         new_page = max(1, min(total_pages, new_page))
-        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
+        return do_search(
+            query,
+            series,
+            tag_status,
+            source,
+            exclusive,
+            favorites_only,
+            new_page,
+            recent_chars,
+            recent_page,
+        )
 
-    def load_recent_search(recent_val, series, tag_status, source, favorites_only, recent_chars, recent_page):
+    def load_recent_search(
+        recent_val,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        recent_chars,
+        recent_page,
+    ):
         query = recent_val or ""
-        res = do_search(query, series, tag_status, source, favorites_only, 1, recent_chars, recent_page)
+        res = do_search(
+            query,
+            series,
+            tag_status,
+            source,
+            exclusive,
+            favorites_only,
+            1,
+            recent_chars,
+            recent_page,
+        )
         return (gr.update(value=query),) + res
 
-    def search_first_page(query, series, tag_status, source, favorites_only, recent_chars, recent_page):
-        return do_search(query, series, tag_status, source, favorites_only, 1, recent_chars, recent_page)
+    def search_first_page(
+        query,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        recent_chars,
+        recent_page,
+    ):
+        return do_search(
+            query,
+            series,
+            tag_status,
+            source,
+            exclusive,
+            favorites_only,
+            1,
+            recent_chars,
+            recent_page,
+        )
 
-    def prev_page_action(query, series, tag_status, source, favorites_only, page, recent_chars, recent_page):
+    def prev_page_action(
+        query,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        page,
+        recent_chars,
+        recent_page,
+    ):
         new_page = max(1, page - 1)
-        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
+        return do_search(
+            query,
+            series,
+            tag_status,
+            source,
+            exclusive,
+            favorites_only,
+            new_page,
+            recent_chars,
+            recent_page,
+        )
 
-    def next_page_action(query, series, tag_status, source, favorites_only, page, total_pages, recent_chars, recent_page):
+    def next_page_action(
+        query,
+        series,
+        tag_status,
+        source,
+        exclusive,
+        favorites_only,
+        page,
+        total_pages,
+        recent_chars,
+        recent_page,
+    ):
         new_page = min(total_pages, page + 1)
-        return do_search(query, series, tag_status, source, favorites_only, new_page, recent_chars, recent_page)
+        return do_search(
+            query,
+            series,
+            tag_status,
+            source,
+            exclusive,
+            favorites_only,
+            new_page,
+            recent_chars,
+            recent_page,
+        )
 
     def do_clear_search():
         return (
@@ -646,6 +1031,7 @@ def _build_characters_content():
             gr.update(value="All"),
             gr.update(value="All"),
             gr.update(value="all"),
+            gr.update(value="All"),
             gr.update(value=False),
             gr.update(value=None),
         )
@@ -656,6 +1042,7 @@ def _build_characters_content():
             gr.update(value="All"),        # char_series
             gr.update(value="All"),        # tag_status_filter
             gr.update(value="all"),       # source_filter
+            gr.update(value="All"),        # exclusive_filter
             gr.update(value=False),        # favorites_only
             gr.update(value=[]),           # char_results
             gr.update(value="<div id='sdcf_char_gallery_html'><div class='civmodellist'></div></div>"),  # char_gallery
@@ -672,6 +1059,8 @@ def _build_characters_content():
             gr.update(value=""),           # char_tags_out
             None,                          # char_selected_id
             gr.update(value="🤍 Favorite"), # btn_favorite_toggle
+            gr.update(choices=[], value=None, visible=False),  # representation_source
+            {},                            # char_selected_state
             gr.update(value=""),           # char_send_status
             gr.update(value=""),           # wildcard_name
             gr.update(choices=[], value=[], visible=False),  # extra_tag_character
@@ -683,7 +1072,15 @@ def _build_characters_content():
         )
 
     def _render_list_df(results_list: list) -> list:
-        return [[r.get("name", ""), r.get("series", "") or "", r.get("source", "danbooru"), str(r.get("rank", ""))] for r in results_list]
+        return [
+            [
+                row.get("name", ""),
+                row.get("series", "") or "",
+                row.get("source_combination") or row.get("source", "danbooru"),
+                str(row.get("rank", "")),
+            ]
+            for row in results_list
+        ]
 
     def _render_recent_page(recent_chars, page):
         limit = get_shared_opt("sdcf_search_limit", 30)
@@ -738,6 +1135,7 @@ def _build_characters_content():
                     ".e621.net",
                     "e621.net",
                     "downloadmost.com",
+                    "blobs.animadex.net",
                 )
                 if not any(hostname == s or hostname.endswith(s) for s in allowed_suffixes):
                     return False
@@ -768,14 +1166,16 @@ def _build_characters_content():
             char_id = r.get("id")
             name = r.get("name", "")
             src_val = r.get("source", "danbooru")
+            representation_id = r.get("representation_id")
             if not url or not char_id:
                 return ("https://fakeimg.pl/400x400/282828/eae0d0/?text=No+Preview", name, src_val)
 
-            cached_data_uri = _cache_get_data_uri(int(char_id))
+            cache_key = str(representation_id or f"{char_id}:{src_val}")
+            cached_data_uri = _cache_get_data_uri(cache_key)
             if cached_data_uri:
                 return (cached_data_uri, name, src_val)
             
-            cov_path = covers_dir / f"{char_id}.jpg"
+            cov_path = covers_dir / f"v2_{cache_key.replace(':', '_')}.jpg"
             if not cov_path.exists():
                 try:
                     if _is_safe_url(url):
@@ -789,7 +1189,7 @@ def _build_characters_content():
                 try:
                     img_b64 = base64.b64encode(cov_path.read_bytes()).decode("ascii")
                     data_uri = f"data:image/jpeg;base64,{img_b64}"
-                    _cache_set_data_uri(int(char_id), data_uri)
+                    _cache_set_data_uri(cache_key, data_uri)
                     return (data_uri, name, src_val)
                 except Exception:
                     return (url, name, src_val)
@@ -805,7 +1205,10 @@ def _build_characters_content():
 
         for idx, (img_src, name, source) in enumerate(gallery):
             char_id = results_list[idx].get("id")
-            fav_html = "<div class='sdcf-badge sdcf-badge-favorite'>favorite</div>" if char_id and int(char_id) in fav_set else ""
+            badges_html = _render_card_badges(
+                results_list[idx],
+                is_favorite=bool(char_id and int(char_id) in fav_set),
+            )
             
             safe_img = html.escape(str(img_src or ""), quote=True)
             safe_name = html.escape(str(name or ""))
@@ -820,13 +1223,11 @@ def _build_characters_content():
                 "return false;"
             )
             safe_onclick = html.escape(onclick_js, quote=True)
-            safe_source = html.escape(source or "danbooru")
             cards_html.append(
                 f"""
                 <div class='civmodelcard' role='button' tabindex='0' onclick="{safe_onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){{event.preventDefault();this.click();}}">
                     <figure>
-                        {fav_html}
-                        <div class='sdcf-badge sdcf-badge-{safe_source}'>{safe_source}</div>
+                        {badges_html}
                         <img src='{safe_img}' alt='{safe_name}' loading='lazy' />
                         <figcaption>{safe_name}</figcaption>
                     </figure>
@@ -878,26 +1279,85 @@ def _build_characters_content():
             pass
         return "🤍 Favorite"
 
+    def _prompt_update(value: str, representation: dict | None = None):
+        label = "Prompt tags"
+        if representation and representation.get("prompt_override_conflict"):
+            label = "Prompt tags — local override needs review"
+        elif representation and representation.get("prompt_overridden"):
+            label = "Prompt tags — local override"
+        return gr.update(value=value, label=label)
+
     def _select_by_index(results_state, row_idx):
         if not results_state or row_idx < 0 or row_idx >= len(results_state):
-            return "<div class='sdcf-preview-empty'>No preview</div>", "", "", "", "", None, "", "🤍 Favorite"
-        char = results_state[row_idx]
+            return (
+                "<div class='sdcf-preview-empty'>No preview</div>",
+                "",
+                "",
+                "",
+                _prompt_update(""),
+                None,
+                "",
+                "🤍 Favorite",
+                gr.update(choices=[], value=None, visible=False),
+                {},
+            )
+        char = dict(results_state[row_idx])
+        char_id = char.get("id")
+        if char_id:
+            fresh_representations = cdb.get_representations(int(char_id))
+            if fresh_representations:
+                selected_representation = next(
+                    (
+                        item
+                        for item in fresh_representations
+                        if item.get("source") == char.get("source")
+                    ),
+                    fresh_representations[0],
+                )
+                char["representations"] = fresh_representations
+                char.update(
+                    {
+                        "source": selected_representation["source"],
+                        "representation_id": selected_representation[
+                            "representation_id"
+                        ],
+                        "source_record_id": selected_representation[
+                            "source_record_id"
+                        ],
+                        "tags": selected_representation["prompt_raw"],
+                        "source_prompt_raw": selected_representation[
+                            "source_prompt_raw"
+                        ],
+                        "image_url": selected_representation["image_url"],
+                        "rank": selected_representation["rank"],
+                        "danbooru_tag": selected_representation["canonical_tag"],
+                        "prompt_overridden": selected_representation[
+                            "prompt_overridden"
+                        ],
+                        "prompt_override_conflict": selected_representation[
+                            "prompt_override_conflict"
+                        ],
+                    }
+                )
         canonical_tag = (char.get("danbooru_tag") or "").strip()
         # DB tags are mandatory — always use them as the prompt base.
         # canonical_tag is only a fallback when tags is empty.
         prompt_value = (char.get("tags") or canonical_tag or "").strip()
         
         img_url = char.get("image_url")
-        char_id = char.get("id")
+        representation_id = char.get("representation_id")
         image_value = None
         if img_url:
             image_value = img_url
-            if char_id:
+            if representation_id or char_id:
                 try:
                     import base64
                     repo_root = Path(__file__).resolve().parent.parent
                     covers_dir = repo_root / "data" / "covers"
-                    cov_path = covers_dir / f"{char_id}.jpg"
+                    cache_key = str(
+                        representation_id or f"{char_id}:{char.get('source', 'danbooru')}"
+                    ).replace(":", "_")
+                    cov_path = covers_dir / f"v2_{cache_key}.jpg"
                     if cov_path.exists():
                         image_value = f"data:image/jpeg;base64,{base64.b64encode(cov_path.read_bytes()).decode('ascii')}"
                 except Exception:
@@ -916,17 +1376,85 @@ def _build_characters_content():
             is_favorite=is_favorite,
             source=char.get("source", "danbooru"),
         )
-
+        representations = char.get("representations") or []
+        active_representation = next(
+            (
+                item
+                for item in representations
+                if item.get("source") == char.get("source")
+            ),
+            None,
+        )
+        representation_choices = [
+            str(item.get("source"))
+            for item in representations
+            if item.get("source")
+        ]
 
         return (
             preview_html,
             char["name"],
             char.get("series") or "",
             canonical_tag,
-            prompt_value,
+            _prompt_update(prompt_value, active_representation),
             char.get("id"),
             _normalize_wildcard_name(char["name"]),
             _favorite_button_label(char.get("id")),
+            gr.update(
+                choices=representation_choices,
+                value=char.get("source"),
+                visible=len(representation_choices) > 1,
+            ),
+            char,
+        )
+
+    def _change_representation(source, selected_char):
+        if not selected_char or not source:
+            return (
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                selected_char or {},
+            )
+        representation = next(
+            (
+                item
+                for item in selected_char.get("representations", [])
+                if item.get("source") == source
+            ),
+            None,
+        )
+        if representation is None:
+            return gr.update(), gr.update(), gr.update(), selected_char
+
+        updated = dict(selected_char)
+        updated.update(
+            {
+                "source": representation["source"],
+                "representation_id": representation["representation_id"],
+                "source_record_id": representation["source_record_id"],
+                "tags": representation["prompt_raw"],
+                "source_prompt_raw": representation["source_prompt_raw"],
+                "image_url": representation["image_url"],
+                "rank": representation["rank"],
+                "danbooru_tag": representation["canonical_tag"],
+                "prompt_overridden": representation["prompt_overridden"],
+                "prompt_override_conflict": representation[
+                    "prompt_override_conflict"
+                ],
+            }
+        )
+        preview_html = _build_preview_html(
+            representation.get("image_url"),
+            updated.get("name") or "Preview",
+            is_favorite=get_favorites_db().is_favorite(int(updated["id"])),
+            source=representation["source"],
+        )
+        return (
+            gr.update(value=preview_html),
+            gr.update(value=representation["canonical_tag"]),
+            _prompt_update(representation["prompt_raw"], representation),
+            updated,
         )
 
     # --- Recently viewed helpers ---
@@ -954,6 +1482,15 @@ def _build_characters_content():
             "danbooru_tag": char.get("danbooru_tag") or "",
             "image_url": char.get("image_url") or "",
             "source": char.get("source", "danbooru"),
+            "sources": char.get("sources") or [char.get("source", "danbooru")],
+            "source_combination": char.get("source_combination")
+            or char.get("source", "danbooru"),
+            "representation_id": char.get("representation_id"),
+            "source_record_id": char.get("source_record_id"),
+            "representations": char.get("representations") or [],
+            "exclusive_source": char.get("exclusive_source"),
+            "exclusivity_status": char.get("exclusivity_status"),
+            "is_variation": bool(char.get("is_variation")),
         })
         final_list = updated[:100]
         _save_recent_history(final_list, do_save)
@@ -1019,16 +1556,161 @@ def _build_characters_content():
         return (*card_outputs, updated_recents, t, g, p, gr.update(value=i))
 
 
-    def save_manual_danbooru_tag(selected_id, manual_tag):
+    def _refresh_selected_state_from_db(selected_state):
+        updated_state = dict(selected_state or {})
+        selected_id = updated_state.get("id")
+        selected_source = updated_state.get("source")
+        if not selected_id or not selected_source:
+            return updated_state, None
+        representations = cdb.get_representations(int(selected_id))
+        selected_representation = next(
+            (
+                item
+                for item in representations
+                if item.get("source") == selected_source
+            ),
+            None,
+        )
+        if selected_representation is None:
+            return updated_state, None
+        updated_state["representations"] = representations
+        updated_state.update(
+            {
+                "representation_id": selected_representation["representation_id"],
+                "source_record_id": selected_representation["source_record_id"],
+                "tags": selected_representation["prompt_raw"],
+                "source_prompt_raw": selected_representation[
+                    "source_prompt_raw"
+                ],
+                "image_url": selected_representation["image_url"],
+                "rank": selected_representation["rank"],
+                "danbooru_tag": selected_representation["canonical_tag"],
+                "prompt_overridden": selected_representation["prompt_overridden"],
+                "prompt_override_conflict": selected_representation[
+                    "prompt_override_conflict"
+                ],
+            }
+        )
+        return updated_state, selected_representation
+
+    def save_manual_danbooru_tag(selected_id, manual_tag, selected_state):
         if not selected_id:
-            return gr.update(value="⚠️ Select a character first"), gr.update()
+            return (
+                gr.update(value="⚠️ Select a character first"),
+                gr.update(),
+                selected_state or {},
+            )
         manual_tag = (manual_tag or "").strip()
         if not manual_tag:
-            return gr.update(value="⚠️ Enter a Danbooru tag first"), gr.update()
+            return (
+                gr.update(value="⚠️ Enter a Danbooru tag first"),
+                gr.update(),
+                selected_state or {},
+            )
+        if (selected_state or {}).get("source") != "danbooru":
+            return (
+                gr.update(
+                    value=(
+                        "⚠️ Switch to the Danbooru representation before saving "
+                        "a lookup tag"
+                    )
+                ),
+                gr.update(),
+                selected_state or {},
+            )
         ok = cdb.save_danbooru_tag(int(selected_id), manual_tag)
         if not ok:
-            return gr.update(value="❌ Failed to save Danbooru tag"), gr.update()
-        return gr.update(value="✅ Danbooru tag saved"), gr.update(value=manual_tag)
+            return (
+                gr.update(value="❌ Failed to save Danbooru tag"),
+                gr.update(),
+                selected_state or {},
+            )
+        updated_state, _ = _refresh_selected_state_from_db(selected_state)
+        return (
+            gr.update(value="✅ Danbooru lookup tag saved; source prompt unchanged"),
+            gr.update(),
+            updated_state,
+        )
+
+    def save_prompt_override(selected_id, prompt, selected_state):
+        if not selected_id:
+            return (
+                gr.update(value="⚠️ Select a character first"),
+                gr.update(),
+                selected_state or {},
+            )
+        selected_source = str((selected_state or {}).get("source") or "").strip()
+        if not selected_source:
+            return (
+                gr.update(value="⚠️ Select a source representation first"),
+                gr.update(),
+                selected_state or {},
+            )
+        prompt = (prompt or "").strip()
+        if not prompt:
+            return (
+                gr.update(value="⚠️ Prompt cannot be empty"),
+                gr.update(),
+                selected_state or {},
+            )
+        if not cdb.save_prompt_override(
+            int(selected_id),
+            selected_source,
+            prompt,
+        ):
+            return (
+                gr.update(value="❌ Failed to save prompt override"),
+                gr.update(),
+                selected_state or {},
+            )
+        updated_state, representation = _refresh_selected_state_from_db(
+            selected_state
+        )
+        effective_prompt = (
+            representation["prompt_raw"] if representation is not None else prompt
+        )
+        return (
+            gr.update(
+                value=(
+                    f"✅ {selected_source} prompt override saved locally; "
+                    "source catalogue unchanged"
+                )
+            ),
+            _prompt_update(effective_prompt, representation),
+            updated_state,
+        )
+
+    def reset_prompt_override(selected_id, selected_state):
+        if not selected_id:
+            return (
+                gr.update(value="⚠️ Select a character first"),
+                gr.update(),
+                selected_state or {},
+            )
+        selected_source = str((selected_state or {}).get("source") or "").strip()
+        if not selected_source:
+            return (
+                gr.update(value="⚠️ Select a source representation first"),
+                gr.update(),
+                selected_state or {},
+            )
+        if not cdb.reset_prompt_override(int(selected_id), selected_source):
+            return (
+                gr.update(value="❌ Failed to reset prompt override"),
+                gr.update(),
+                selected_state or {},
+            )
+        updated_state, representation = _refresh_selected_state_from_db(
+            selected_state
+        )
+        source_prompt = (
+            representation["prompt_raw"] if representation is not None else ""
+        )
+        return (
+            gr.update(value=f"✅ Restored the packaged {selected_source} prompt"),
+            _prompt_update(source_prompt, representation),
+            updated_state,
+        )
 
     def _normalize_wildcard_name(name: str) -> str:
         name = (name or "").strip().replace(" ", "_").lower()
@@ -1106,10 +1788,10 @@ def _build_characters_content():
 
     btn_char_search.click(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
-        **get_js_kw("""(query, series, tag_status, source, favorites_only, recent_chars, recent_page) => {
-            const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+        inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        **get_js_kw("""(query, series, tag_status, source, exclusive, favorites_only, recent_chars, recent_page) => {
+            const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
             const targetKey = normalized('search results');
             const app = (window.gradioApp ? window.gradioApp() : document);
             const candidates = app.querySelectorAll('button, [role="tab"]');
@@ -1122,60 +1804,86 @@ def _build_characters_content():
                     break;
                 }
             }
-            return [query, series, tag_status, source, favorites_only, recent_chars, recent_page];
+            setTimeout(() => {
+                const results = app.querySelector('#sdcf_char_results');
+                const viewport = results && results.querySelector(
+                    '.ag-body-viewport, .svelte-virtual-list-viewport, [data-testid="dataframe"]'
+                );
+                if (viewport) viewport.scrollTop = 0;
+            }, 0);
+            return [query, series, tag_status, source, exclusive, favorites_only, recent_chars, recent_page];
         }""")
     )
     recent_searches.change(
         load_recent_search,
-        inputs=[recent_searches, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        inputs=[recent_searches, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_search, char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     char_search.submit(
         search_first_page,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        **get_js_kw("""(query, series, tag_status, source, exclusive, favorites_only, recent_chars, recent_page) => {
+            const app = (window.gradioApp ? window.gradioApp() : document);
+            const results = app.querySelector('#sdcf_char_results');
+            const viewport = results && results.querySelector(
+                '.ag-body-viewport, .svelte-virtual-list-viewport, [data-testid="dataframe"]'
+            );
+            if (viewport) viewport.scrollTop = 0;
+            return [query, series, tag_status, source, exclusive, favorites_only, recent_chars, recent_page];
+        }"""),
     )
     
     
     btn_prev_page_bot.click(
         prev_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, current_page_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_next_page_bot.click(
         next_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, current_page_state, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     
     page_jump_bot.submit(
         jump_page_action,
-        inputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, page_jump_bot, total_pages_state, recent_chars_state, recent_page_state],
-        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        inputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, page_jump_bot, total_pages_state, recent_chars_state, recent_page_state],
+        outputs=[char_results, char_gallery, char_results_state, current_page_state, total_pages_state, page_jump_bot, page_indicator_bot, recent_searches, char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, char_send_status, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     btn_char_clear_search.click(
         do_clear_search,
-        outputs=[char_search, char_series, tag_status_filter, source_filter, favorites_only, recent_searches],
+        outputs=[char_search, char_series, tag_status_filter, source_filter, exclusive_filter, favorites_only, recent_searches],
     )
     char_results.select(
         on_row_select,
         inputs=[char_results_state, recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     gallery_click_idx.change(
         on_gallery_click,
         inputs=[gallery_click_idx, char_results_state, recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     recent_select_idx.change(
         on_recent_click,
         inputs=[recent_select_idx, recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     recent_results_df.select(
         on_recent_row_select,
         inputs=[recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+    )
+    representation_source.change(
+        _change_representation,
+        inputs=[representation_source, char_selected_state],
+        outputs=[
+            char_image,
+            char_danbooru_tag_out,
+            char_tags_out,
+            char_selected_state,
+        ],
     )
 
     def clear_recent_viewed():
@@ -1252,23 +1960,47 @@ def _build_characters_content():
     fav_results_df.select(
         on_row_select,
         inputs=[fav_chars_state, recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
     fav_select_idx.change(
         on_gallery_click,
         inputs=[fav_select_idx, fav_chars_state, recent_chars_state, recent_save_session, recent_page_state],
-        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
+        outputs=[char_image, char_name_out, char_series_out, char_danbooru_tag_out, char_tags_out, char_selected_id, wildcard_name, btn_favorite_toggle, representation_source, char_selected_state, recent_chars_state, recent_results_df, recent_html, recent_page_state, page_indicator_recent],
     )
 
     btn_char_save_tag.click(
         save_manual_danbooru_tag,
-        inputs=[char_selected_id, char_danbooru_tag_out],
-        outputs=[char_send_status, char_tags_out],
-        **get_js_kw("""(id, tag) => {
-            if(!confirm('Save to database? This will become the default tag for this character.')) {
+        inputs=[char_selected_id, char_danbooru_tag_out, char_selected_state],
+        outputs=[char_send_status, char_tags_out, char_selected_state],
+        **get_js_kw("""(id, tag, selectedState) => {
+            if(!confirm('Save this as your Danbooru lookup tag? The source prompt will not be changed.')) {
                 throw new Error('Cancelled by user');
             }
-            return [id, tag];
+            return [id, tag, selectedState];
+        }""")
+    )
+    btn_char_save_prompt.click(
+        save_prompt_override,
+        inputs=[char_selected_id, char_tags_out, char_selected_state],
+        outputs=[char_send_status, char_tags_out, char_selected_state],
+        **get_js_kw("""(id, prompt, selectedState) => {
+            const source = (selectedState && selectedState.source) || 'selected';
+            if(!confirm(`Save this local prompt override for ${source}? The packaged source prompt will remain unchanged.`)) {
+                throw new Error('Cancelled by user');
+            }
+            return [id, prompt, selectedState];
+        }""")
+    )
+    btn_char_reset_prompt.click(
+        reset_prompt_override,
+        inputs=[char_selected_id, char_selected_state],
+        outputs=[char_send_status, char_tags_out, char_selected_state],
+        **get_js_kw("""(id, selectedState) => {
+            const source = (selectedState && selectedState.source) || 'selected';
+            if(!confirm(`Restore the packaged ${source} prompt and remove its local override?`)) {
+                throw new Error('Cancelled by user');
+            }
+            return [id, selectedState];
         }""")
     )
 
@@ -1284,7 +2016,13 @@ def _build_characters_content():
                     continue
         return None
 
-    def toggle_favorite(char_id, search_state, recent_state, fav_state):
+    def toggle_favorite(
+        char_id,
+        selected_state,
+        search_state,
+        recent_state,
+        fav_state,
+    ):
         if not char_id:
             return gr.update(value="⚠️ Select a character first"), gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
         try:
@@ -1292,7 +2030,16 @@ def _build_characters_content():
             db = get_favorites_db()
             is_fav = db.toggle(int(char_id))
 
-            selected = _find_char_by_id_in_states(char_id, search_state, recent_state, fav_state)
+            selected = (
+                selected_state
+                if selected_state and selected_state.get("id") == char_id
+                else _find_char_by_id_in_states(
+                    char_id,
+                    search_state,
+                    recent_state,
+                    fav_state,
+                )
+            )
             preview_html = gr.update()
             if selected:
                 preview_html = gr.update(
@@ -1329,7 +2076,13 @@ def _build_characters_content():
 
     btn_favorite_toggle.click(
         toggle_favorite,
-        inputs=[char_selected_id, char_results_state, recent_chars_state, fav_chars_state],
+        inputs=[
+            char_selected_id,
+            char_selected_state,
+            char_results_state,
+            recent_chars_state,
+            fav_chars_state,
+        ],
         outputs=[char_send_status, char_image, btn_favorite_toggle, fav_chars_state, fav_results_df, fav_html],
     )
     btn_char_send.click(
@@ -1338,7 +2091,7 @@ def _build_characters_content():
         outputs=[char_send_status],
         **get_js_kw("""(tags) => {
             const switchToTab = (target) => {
-                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
                 const targetKey = normalized(target);
                 const app = gradioApp();
                 const candidates = app.querySelectorAll('button, [role="tab"]');
@@ -1368,7 +2121,7 @@ def _build_characters_content():
         outputs=[char_send_status],
         **get_js_kw("""(tags, deduplicateEnabled) => {
             const switchToTab = (target) => {
-                const normalized = (value) => (value || '').toLowerCase().replace(/\s+/g, '');
+                const normalized = (value) => (value || '').toLowerCase().replace(/\\s+/g, '');
                 const targetKey = normalized(target);
                 const app = gradioApp();
                 const candidates = app.querySelectorAll('button, [role="tab"]');
@@ -1585,6 +2338,7 @@ def _build_characters_content():
             char_series,
             tag_status_filter,
             source_filter,
+            exclusive_filter,
             favorites_only,
             char_results,
             char_gallery,
@@ -1601,6 +2355,8 @@ def _build_characters_content():
             char_tags_out,
             char_selected_id,
             btn_favorite_toggle,
+            representation_source,
+            char_selected_state,
             char_send_status,
             wildcard_name,
             extra_tag_character,
