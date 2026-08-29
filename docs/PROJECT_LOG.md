@@ -1,5 +1,76 @@
 # PROJECT_LOG
 
+### [2026-08-29] Promoção do Catálogo v2 para `main` (v0.7.0)
+
+**O que mudou (pt-BR):**
+- O branch `feat/canonical-characters-v2` foi promovido para `main` com merge
+  commit (`--no-ff`), preservando os 16 commits da construção do v2.
+- Publicado o release `v0.7.0`, com a tag no último commit do branch — criada
+  **antes** do merge, para que `main` nunca ficasse publicada apontando para
+  uma URL de recuperação inexistente.
+- A recuperação verificada saiu do `raw.githubusercontent.com` pinado em commit
+  e passou a usar o asset do release. Nenhuma mudança de código foi necessária:
+  `release-assets.githubusercontent.com` e `objects.githubusercontent.com` já
+  estavam na allowlist de download.
+- O rebuild do catálogo passou a ser possível a partir de um clone limpo. O
+  export de personagens do AnimaDex virou arquivo versionado e os dois snapshots
+  de `data/generated/` viraram assets do release.
+- Entradas de build fixadas em LF, corrigindo os hashes de proveniência.
+- README realinhado com o manifest e com uma seção de upgrade a partir da
+  v0.6.2. `pytest.ini` adicionado para que a suíte rode da raiz.
+
+**Validações executadas:**
+- Redownload verificado real a partir do release: 83.079.168 bytes e SHA-256
+  `15aa0125…` conferidos, `redownload_catalog()` retornando `ok=True`.
+- Upgrade simulado de uma instalação v0.6.2 (`9184a33`) via `git pull`: árvore
+  limpa, `anima_characters.db` removido, `characters.db` byte-idêntico,
+  favoritos/histórico/overrides preservados.
+- Startup v2 na instalação atualizada: `runtime_ready`, migração legada
+  `legacy_removed`, segundo start idempotente (`legacy_absent`).
+- Recuperação de corrupção na instalação atualizada: `checksum_mismatch`
+  detectado, redownload restaurou, runtime `runtime_refreshed`.
+- Rebuild completo a partir do clone limpo: as 16 tabelas bateram linha por
+  linha com o catálogo publicado.
+- Suíte: 46 testes aprovados, 7 subtests.
+
+**Arquivos alterados:**
+- `data/characters.manifest.json` — `download_url` para o asset do release.
+- `scripts/generate_catalog_manifest.py` — `DEFAULT_DOWNLOAD_URL` atualizado.
+- `data/anima_import/characters.csv` — export AnimaDex versionado.
+- `.gitignore` — forma `dir/*` para permitir reinclusão seletiva.
+- `.gitattributes` — entradas de build fixadas em LF.
+- `docs/CATALOG_REBUILD.md` — runbook de rebuild e recuperação.
+- `README.md` — seção permanente do catálogo v2, números do manifest, upgrade.
+- `pytest.ini` — `testpaths` e `pythonpath`.
+
+**Decisões:**
+- Hospedar a recuperação em asset de release, não em URL `raw` pinada em commit.
+  A URL `raw` só vive enquanto o commit for alcançável e serve 79 MB por um
+  canal feito para arquivos pequenos.
+- Publicar o release antes do merge, com a tag no commit final do branch. A tag
+  fica contida em `main` após o merge e elimina a janela de URL quebrada.
+- Distribuir os snapshots de entrada (`danbooru_tag_aliases.json`,
+  `anidb_anime_titles.xml.gz`) como assets, em vez de reamostrar as APIs vivas.
+  Reamostrar adotaria silenciosamente o que o upstream retornar hoje.
+- Números públicos passam a ser os do manifest (39.006 canônicos / 39.007
+  variações / 59.508 representações), não a soma por fonte.
+
+**Pontos sensíveis:**
+- O rebuild reproduz o conteúdo, nunca o digest: o layout de páginas do SQLite
+  muda a cada execução. Publicar um rebuild sempre regenera o manifest.
+- A migração v2 apaga `data/characters.db`, então o Git reporta uma deleção
+  local em instalações já atualizadas. É esperado, e o runbook restaura o
+  arquivo antes do rebuild.
+- Permanecem 1.238 representações e621 sem série resolvida. Elas não devem
+  receber dados do heurístico antigo sem nova evidência.
+- O clone completo do repositório é de ~175 MB. Não bloqueia nada hoje, mas
+  pesa em toda instalação via "Install from URL".
+
+**Próximos passos / Next steps:**
+- Regressão visual e funcional no Forge Neo com a v0.7.0 já em `main`.
+- Retomar a revisão das séries e621 ainda não resolvidas.
+- Avaliar tirar os bancos do histórico do git em uma futura major.
+
 ### [2026-07-24] Character Catalogue v2 — Official e621 Series Enrichment
 
 **O que mudou (pt-BR):**
@@ -552,12 +623,10 @@
    - Validar busca, filtros, reset de rolagem, seleção automática, troca de
      representação e prompts específicos de Danbooru/e621/Anima.
    - Confirmar o fluxo de atualização pelo gerenciador do Forge com o banco
-     runtime aberto.
-2. **P0 — Preparar promoção para `main`**
-   - Revisar o diff completo do branch temporário.
-   - Alinhar versão, What's New, Changelog e números públicos do README com o
-     manifest v2.
-   - Definir estratégia de merge e tag somente após aprovação dos testes.
+     runtime aberto. O caminho de arquivos já foi validado fora do Forge:
+     pull limpo, migração do banco legado e recuperação por download.
+2. ~~**P0 — Preparar promoção para `main`**~~ — concluído em 2026-08-29
+   (merge `--no-ff`, release e tag `v0.7.0`, README alinhado ao manifest).
 3. **P1 — Continuar a revisão das séries e621**
    - Trabalhar os 1.238 registros ainda não resolvidos por evidência oficial.
    - Priorizar grupos de alto impacto e usar posts/wiki apenas de forma
