@@ -14,92 +14,101 @@
 
 > **Can't remember the exact tag for that specific character? Want to discover a new art style and completely change the look of your generations? Say no more!** 🦸‍♂️
 
-Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse over **39,500+ unique characters** (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) and **19,800+ unique artist styles** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex) without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
+Your ultimate **character encyclopedia** and **artist style discovery** tool directly inside your Stable Diffusion WebUI. Browse **39,006 canonical characters** — backed by 59,508 immutable source representations (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) — and **19,800+ unique artist styles** (6,024 Danbooru + 4,032 e621 + 15,879 AnimaDex) without leaving your UI — search characters by name, tag, or series; discover unique art styles with real-time previews; and send both character tags and artist signatures straight to `txt2img` with a single click!
 
 ---
 
 ## 📋 Table of Contents
 
+- [Character Catalogue v2](#-character-catalogue-v2)
 - [What's New](#-whats-new)
 - [Changelog](#-changelog)
-- [Roadmap](#️-roadmap)
+- [Completed Milestones](#️-completed-milestones)
 - [Features](#-features)
 - [Installation](#-installation)
+- [Upgrading from v0.6.2](#️-upgrading-from-v062)
 - [Quick Start](#-quick-start)
 - [Credits](#-credits)
 
 ---
 
-## 🧪 Experimental Character Catalogue v2
+## 📚 Character Catalogue v2
 
-The `feat/canonical-characters-v2` branch is a preview of the new character
-architecture. It expects the bundled `data/catalog/characters-v2.db` to use
-schema v5 and never opens the legacy `data/characters.db` at runtime.
+Since **v0.7.0** the extension ships a canonical character catalogue at
+`data/catalog/characters-v2.db` (schema v5). It replaces the flat v1 database:
+one canonical character now holds separate Danbooru, e621, and AnimaDex
+representations instead of appearing as three unrelated rows.
 
-- One canonical variation can have separate Danbooru, e621, and Anima
-  representations.
-- A representation keeps its source prompt, trigger, image, rank, and URL
-  together. Switching source never rewrites prompt punctuation or escaping.
-- Search accepts canonical character names, official character aliases,
-  original work titles, Western/common work aliases, and prompt tags.
-- Accepted title matches use the official English work name for display while
-  retaining the original transcription and Japanese title as searchable aliases.
-- Availability filters distinguish reviewed exclusives, source-only candidates,
-  and characters represented by multiple sources.
-- Prompt edits can be saved locally per representation source. They are stored
-  in `data/user_overrides_v2.json`; provider prompts inside the catalogue remain
+**39,006 canonical characters** across **39,007 variations**, backed by
+**59,508 immutable source representations** (20,016 Danbooru + 3,000 e621 +
+36,492 AnimaDex).
+
+### What it changes
+
+- **Source-faithful prompts** — Each representation keeps its own prompt,
+  trigger, image, rank, and URL together. Switching source never rewrites prompt
+  punctuation or escaping.
+- **Search across identities** — Canonical names, official character aliases,
+  original work titles, Western/common work aliases, and prompt tags all match.
+  Accepted title matches display the official English work name while keeping
+  the original transcription and Japanese title searchable.
+- **Honest availability filters** — 20,117 characters are confirmed across
+  multiple sources and 4 exclusives have completed manual identity review. The
+  remaining 18,885 stay labelled **source-only candidates** rather than being
+  presented as reviewed exclusives before that review exists.
+- **Local prompt overrides** — Prompt edits are saved per representation source
+  in `data/user_overrides_v2.json`. Provider prompts inside the catalogue stay
   immutable and can be restored with **Source prompt**.
-- The packaged database is checked against `data/characters.manifest.json`
-  (SHA-256, schema, SQLite integrity, relationships, and expected counts).
-  Invalid catalogues display a recovery warning and a verified-redownload button.
-- The tracked character and artist databases are never kept open by the running
-  extension. Verified private copies under `data/runtime/` serve searches instead,
-  allowing Forge's in-app Git updater to replace packaged databases on Windows.
-- The first update from v1 keeps the old `data/characters.db` byte-identical only
-  as a Forge updater bridge. After restart, v2 validates and activates its private
-  runtime copy, recognizes the old official database by checksum, and removes it.
-  The legacy database is never used as a fallback.
-  If the old **Save Danbooru Tag** behavior modified that tracked database, Windows
-  Git must restore a dirty locked file; that installation needs one final WebUI
-  shutdown for the v2 update. Future updates use private runtime copies and do not
-  have this limitation.
-- The packaged catalogue currently contains 39,007 variations backed by 59,508
-  immutable source representations.
-- e621 series metadata is audited offline from the official daily tag, alias,
-  implication, and wiki exports. The current preview resolves 1,762 of the
-  3,000 e621 representations, including 1,273 unambiguous active copyright
-  implications. The remaining records stay unresolved instead of reusing the
-  legacy heuristic that mislabeled publishers and generic tags as works.
 
-Only four source-exclusive variations have completed manual identity review.
-The remaining Anima-only and e621-only rows are deliberately labelled as
-source-only candidates until the identity/variation review is complete.
+### e621 series coverage
 
-For a clean remote test, remove the existing extension folder and clone the
-branch directly inside the WebUI `extensions` directory:
+e621 series metadata is audited offline from the official daily tag, alias,
+implication, and wiki exports. **1,762 of the 3,000** e621 representations
+resolve to a work, including 1,273 from unambiguous active copyright
+implications. The remaining 1,238 stay unresolved on purpose: the legacy
+heuristic they replaced mislabelled publishers and generic tags as works, and no
+series is better than a wrong one.
 
-```bash
-git clone --branch feat/canonical-characters-v2 --single-branch \
-  https://github.com/eduardoabreu81/sd-character-finder.git
-```
+### Integrity and recovery
 
-Restart WebUI after cloning. Favorites, recent history, and user overrides
-should start clean during this experimental phase.
+The packaged database is validated against `data/characters.manifest.json` on
+startup — SHA-256, schema version, SQLite integrity, relationships, and expected
+record counts. An invalid catalogue shows a recovery warning and a
+verified-redownload button.
 
-The first startup creates ignored runtime copies of the catalogues, requiring
-approximately another 94 MB of local disk space. Later catalogue updates replace
-those copies atomically after validation.
-
-Two recovery controls are available under **Settings → SD Character Finder**:
+Two controls live under **Settings → SD Character Finder**:
 
 - **Automatically redownload the verified character catalogue when validation
-  fails** restores a missing or damaged database.
-- **Redownload the verified character catalogue on next UI startup** forces one
-  verified redownload and resets itself after that startup.
+  fails** — restores a missing or damaged database.
+- **Redownload the verified character catalogue on next UI startup** — forces
+  one verified redownload, then resets itself.
+
+Downloads are restricted to trusted GitHub HTTPS hosts and verified by size and
+SHA-256 before being installed atomically. Maintainers rebuilding or
+republishing the catalogue should follow
+[docs/CATALOG_REBUILD.md](docs/CATALOG_REBUILD.md).
+
+### Disk usage
+
+The tracked databases are never held open by the running extension. Validated
+private copies under `data/runtime/` serve searches instead, so Forge's in-app
+Git updater can replace packaged databases on Windows. Those copies cost roughly
+**94 MB** of additional local disk space and are replaced atomically after
+validation on later updates.
 
 ---
 
 ## 🆕 What's New
+
+### v0.7.0 — Canonical Character Catalogue v2
+- **🧬 MAJOR UPDATE — Canonical Catalogue!** Characters are no longer flat rows per source. **39,006 canonical characters** across 39,007 variations now hold **59,508 immutable source representations**, so one character carries its Danbooru, e621, and AnimaDex prompts side by side.
+- **Source-Faithful Prompts** ⭐ — Every representation keeps its own prompt, trigger, image, rank, and URL. Switching source never rewrites punctuation or escaping.
+- **Smarter Search** — Matches canonical names, official character aliases, original work titles, Western/common aliases, and prompt tags. Official English work titles are displayed while original and Japanese titles stay searchable.
+- **Honest Availability Filters** — Confirmed multi-source characters, reviewed exclusives, and source-only candidates are kept distinct instead of being presented as equivalent.
+- **e621 Series from Official Exports** — 1,762 of 3,000 e621 representations now resolve to a real work using the official daily exports, replacing a heuristic that mislabelled publishers and generic tags as franchises.
+- **Verified Integrity & Recovery** ⭐ — The catalogue is checked against a manifest (SHA-256, schema, SQLite integrity, record counts) on every startup, with one-click verified redownload when that check fails.
+- **Forge-Safe Updates** — Packaged databases are never held open at runtime, so Forge's in-app Git updater can replace them on Windows.
+- **Per-Source Prompt Overrides** — Local prompt edits are saved per source in `data/user_overrides_v2.json`; provider prompts stay immutable and restorable.
 
 ### v0.6.2 — AnimaDex Integration
 - **New Source: AnimaDex** — Added 36,492 Anima characters and 15,879 Anima artists to the bundled database.
@@ -125,6 +134,17 @@ Two recovery controls are available under **Settings → SD Character Finder**:
 ---
 
 ## 📖 Changelog
+
+### v0.7.0 — Canonical Character Catalogue v2
+- **New Catalogue** — `data/catalog/characters-v2.db` (schema v5) with canonical characters, variations, and per-source representations. The legacy `data/characters.db` is never opened at runtime and is removed after the first restart.
+- **Manifest Validation** — `data/characters.manifest.json` pins size, SHA-256, schema version, SQLite integrity, relationships, and record counts.
+- **Verified Recovery** — Catalogue redownload is restricted to trusted GitHub HTTPS hosts, verified by size and digest, and installed atomically. The artifact is hosted on release assets so recovery never depends on repository history.
+- **Runtime Copies** — Character and artist databases are served from validated private copies under `data/runtime/`, unblocking Forge's Windows Git updater.
+- **e621 Series Audit** — Offline audit against the official daily tag, alias, implication, and wiki exports; 1,273 links come from unambiguous active copyright implications.
+- **Reproducible Rebuild** — The AnimaDex character export is tracked and the full rebuild chain is documented in [docs/CATALOG_REBUILD.md](docs/CATALOG_REBUILD.md).
+- **Test Suite** — 46 automated tests covering the builder, the e621 audit, catalogue health, legacy migration, and recovery.
+- **Search Controls Layout** — Search, Clear Search, and Clear All are now direct `gr.Row` children using `size="lg"` and `equal_height=True`, fixing alignment on Forge Neo.
+- **Removed** — `data/anima_characters.db` is no longer shipped; its data lives in the v2 catalogue.
 
 ### v0.6.1 — Artist Tab Reliability & Polish
 - **Unified Tab Structure** — Artists is now a sub-tab inside "SD Character Finder" instead of a separate top-level tab.
@@ -256,6 +276,13 @@ Two recovery controls are available under **Settings → SD Character Finder**:
 - Clean image rendering without cropping.
 - Stable status messages after add/copy actions.
 
+### v0.7.0 — Canonical Character Catalogue v2 ✅
+- Canonical character / variation / representation model with immutable per-source prompts.
+- Manifest-validated catalogue with verified redownload and recovery controls.
+- Forge-safe runtime database copies on Windows.
+- Offline e621 series audit from the official daily exports.
+- Reproducible rebuild chain and a 46-test automated suite.
+
 ---
 
 ## 🎯 Features
@@ -263,8 +290,11 @@ Two recovery controls are available under **Settings → SD Character Finder**:
 > ⭐ = Core Highlights
 
 ### 🔍 Browse Characters
-- Browse **39,500+ unique characters** (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) directly inside the WebUI — no tab switching! ⭐
+- Browse **39,006 canonical characters** backed by 59,508 source representations (20,016 Danbooru + 3,000 e621 + 36,492 AnimaDex) directly inside the WebUI — no tab switching! ⭐
 - Search by character name, tag, or browse alphabetically by series/franchise
+- **Switch source per character** — read the Danbooru, e621, or AnimaDex representation of the same character without leaving the card, each with its own untouched prompt ⭐
+- Search also matches official character aliases, original work titles, and Western/common work aliases, not just the display name
+- Filter by availability: confirmed multi-source characters, reviewed exclusives, or source-only candidates
 - Use multiple keywords for precise filtering (e.g., `miku vocaloid` ensures both terms exist)
 - Track your session with **Recent searches** and **Favorites** Tabs directly synced local-first. ⭐
 - High-performance offline SQLite database ensures instant search results without internet dependence ⭐
@@ -313,6 +343,32 @@ Two recovery controls are available under **Settings → SD Character Finder**:
 5. Go to the **Installed** sub-tab and click **Apply and restart UI**.
 
 > ⚠️ Compatible with AUTOMATIC1111, Forge, and Forge Classic / Neo.
+
+---
+
+## ⬆️ Upgrading from v0.6.2
+
+Update normally — **Extensions → Check for updates → Apply and restart UI**, or
+`git pull` inside the extension folder. No manual steps are required.
+
+What happens on the first v0.7.0 start:
+
+1. The v2 catalogue is validated against its manifest and a private runtime copy
+   is activated.
+2. The old `data/characters.db` is kept byte-identical through the update purely
+   as a bridge for the Forge updater. After the restart, v2 recognizes it by
+   checksum and removes it. **It is never used as a fallback.**
+3. `data/anima_characters.db` is no longer shipped and is removed; its data now
+   lives in the v2 catalogue.
+
+Favorites, recent history, and existing user overrides are preserved. New prompt
+edits are stored per representation source in `data/user_overrides_v2.json`.
+
+> ⚠️ **One-time Windows caveat.** If the old **Save Danbooru Tag** behaviour
+> modified the tracked `data/characters.db`, Git has to restore a dirty file
+> that the running WebUI still holds open. That installation needs one final
+> WebUI shutdown before the update applies. Later updates use private runtime
+> copies and do not have this limitation.
 
 ---
 
