@@ -4,8 +4,10 @@
 .github/copilot-instructions.md
 AGENTS.local.md
 # ``docs/*`` (not ``docs/``) so the public documents below can be re-included.
+# PROJECT_LOG.md stopped being versioned on 2026-08-29; it is agent context,
+# not a public document. CATALOG_REBUILD.md stays tracked because the README
+# links to it.
 docs/*
-!docs/PROJECT_LOG.md
 !docs/CATALOG_REBUILD.md
 .specstory/
 .codegraph/
