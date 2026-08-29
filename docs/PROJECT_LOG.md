@@ -1,5 +1,66 @@
 # PROJECT_LOG
 
+### [2026-07-24] Character Catalogue v2 — Official e621 Series Enrichment
+
+**O que mudou (pt-BR):**
+- Adicionada uma auditoria offline das séries e621 baseada nos exports diários
+  oficiais de tags, aliases, implications e wiki pages.
+- O catálogo v2 foi reconstruído com série resolvida para 1.762 das 3.000
+  representações e621. Desse total, 1.273 associações vieram de implications
+  ativas e inequívocas de personagem para copyright.
+- Adicionado um coletor complementar de evidências por posts para os casos que
+  ainda exigem revisão, sem transformar chamadas individuais à API no caminho
+  principal de reconstrução.
+- O banco empacotado e o manifest foram atualizados de forma coordenada, com
+  checksum e URL de recuperação apontando para o artefato imutável correto.
+- Corrigido definitivamente o alinhamento dos botões Search, Clear Search e
+  Clear All. Os botões agora são filhos diretos da `gr.Row`, usam `size="lg"`
+  e seguem `equal_height=True`, solução validada visualmente no Forge Neo.
+- A suíte terminou com 46 testes aprovados.
+
+**Arquivos alterados:**
+- `data/catalog/characters-v2.db` — catálogo v2 enriquecido e validado.
+- `data/e621_series_implications.json` — evidências oficiais reproduzíveis.
+- `data/characters.manifest.json` — tamanho, hash e URL do novo catálogo.
+- `scripts/audit_e621_series.py` — auditoria offline dos exports e621.
+- `scripts/fetch_e621_post_evidence.py` — evidência complementar por posts.
+- `scripts/build_character_catalog_v2.py` — aplicação segura das séries auditadas.
+- `scripts/generate_catalog_manifest.py` — geração do manifest atualizado.
+- `tests/test_audit_e621_series.py` — cobertura da classificação oficial.
+- `tests/test_fetch_e621_post_evidence.py` — cobertura da coleta complementar.
+- `tests/test_build_character_catalog_v2.py` — regressões do catálogo enriquecido.
+- `wildcard_creator/ui.py` — estrutura nativa de altura dos botões de busca.
+- `style.css` — remoção dos seletores de altura que não funcionavam no Forge.
+- `README.md` — números e política da auditoria e621.
+
+**Decisões:**
+- Os exports oficiais e621 são a fonte primária para reconstrução em lote.
+  Wiki pages e posts são evidência complementar para revisão, não substitutos
+  para uma relação oficial inequívoca.
+- Tags genéricas, publishers e heurísticas posicionais não podem preencher
+  automaticamente uma obra. Na ausência de evidência suficiente, a série
+  permanece vazia.
+- Prompts de Danbooru, e621 e Anima continuam artefatos imutáveis e específicos
+  de cada fonte; enriquecimento de metadados não pode reformatá-los.
+- O layout dos botões deve usar propriedades e hierarquia nativas do Gradio.
+  CSS permanece apenas para apresentação, não para corrigir a estrutura.
+
+**Pontos sensíveis:**
+- Ainda existem 1.238 representações e621 sem série resolvida. Elas não devem
+  receber dados do antigo heurístico sem nova evidência.
+- O branch `feat/canonical-characters-v2` continua sendo uma prévia de teste.
+  Nenhum merge em `main` ou tag de versão foi feito neste encerramento.
+- O README público ainda usa números agregados da versão v0.6.2 que não
+  representam exatamente as entidades canônicas/variações do manifest v2.
+  Essa comunicação deve ser revisada antes da promoção para `main`.
+
+**Próximos passos / Next steps:**
+- Concluir a regressão visual e funcional no Forge Neo para todas as fontes.
+- Revisar seletivamente os casos e621 ainda sem série usando as filas de
+  evidência, sem voltar a heurísticas automáticas.
+- Após os testes finais, preparar a promoção do branch v2 para `main`, alinhar
+  versão/README e somente então decidir a tag de release.
+
 ### [2026-07-23] Character Catalogue v2 — Forge-Safe Runtime Database
 
 **What changed:**
@@ -484,3 +545,24 @@
 ### Regras de Documentação
 
 > **What's New (apenas a família da minor atual):** A seção "What's New" mantém as entradas da família da minor atual vX.Y.* inteira (ex: se estamos em v0.6.1, ficam v0.6.1 e v0.6.0 no What's New; se estamos em v0.4.0-ex, fica apenas v0.4.0-ex). Versões de famílias anteriores (ex: v0.5.x) pertencem exclusivamente ao Changelog.
+
+## Backlog
+
+1. **P0 — Testes finais no Forge Neo**
+   - Validar busca, filtros, reset de rolagem, seleção automática, troca de
+     representação e prompts específicos de Danbooru/e621/Anima.
+   - Confirmar o fluxo de atualização pelo gerenciador do Forge com o banco
+     runtime aberto.
+2. **P0 — Preparar promoção para `main`**
+   - Revisar o diff completo do branch temporário.
+   - Alinhar versão, What's New, Changelog e números públicos do README com o
+     manifest v2.
+   - Definir estratégia de merge e tag somente após aprovação dos testes.
+3. **P1 — Continuar a revisão das séries e621**
+   - Trabalhar os 1.238 registros ainda não resolvidos por evidência oficial.
+   - Priorizar grupos de alto impacto e usar posts/wiki apenas de forma
+     complementar e auditável.
+4. **P1 — Retomar filas de revisão manual**
+   - Revisar os 159 casos de títulos AniDB.
+   - Manter pendentes os aliases Danbooru que podem conectar identidades ou
+     séries diferentes até cherry-picking explícito.
