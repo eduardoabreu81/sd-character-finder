@@ -3,8 +3,10 @@
 # ============================================
 .github/copilot-instructions.md
 AGENTS.local.md
-docs/
-docs/PROJECT_LOG.md
+# ``docs/*`` (not ``docs/``) so the public documents below can be re-included.
+docs/*
+!docs/PROJECT_LOG.md
+!docs/CATALOG_REBUILD.md
 .specstory/
 .codegraph/
 
@@ -16,7 +18,10 @@ __pycache__/
 tmp_resolve_*.txt
 data/covers/
 data/artist_covers/
-data/anima_import/
+# The AnimaDex character export is a tracked rebuild input; the artist
+# export is not needed to rebuild the character catalogue.
+data/anima_import/*
+!data/anima_import/characters.csv
 data/anima_preview_samples/
 data/anima_characters.db
 data/characters.db.download
