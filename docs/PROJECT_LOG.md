@@ -33,6 +33,24 @@
   linha com o catálogo publicado.
 - Suíte: 46 testes aprovados, 7 subtests.
 
+**Investigação: remoção futura da ponte legada (`data/characters.db`):**
+- Pergunta levantada: um usuário parado na v0.6.2 que só atualize numa v0.8.0
+  que já tenha removido o arquivo quebraria? Esperar a base "drenar" não é
+  estratégia — não existe garantia de drenagem.
+- Teste executado: instalação em `9184a33` com conexão SQLite persistente
+  aberta em `data/characters.db` (exatamente como a v0.6.2 faz, `self._conn`
+  cacheada e nunca fechada), fazendo `git pull` para uma v0.8.0 simulada que
+  remove o arquivo do tracking.
+- Resultado: o pull **não aborta**. Retorna exit code 0 e emite apenas
+  `warning: unable to unlink 'data/characters.db': Invalid argument`. Todos os
+  demais arquivos são atualizados e o HEAD avança. O arquivo travado permanece
+  no disco como untracked — um órfão de 24 MB.
+- No restart seguinte, `finalize_legacy_catalog_migration` reconhece o
+  fingerprint `cbd084da…` e o remove (`legacy_removed`). Confirmado no teste.
+- A limpeza nunca depende de uma janela única: quando não consegue, retorna
+  `legacy_cleanup_deferred` / `legacy_inspection_deferred` /
+  `legacy_sidecar_cleanup_deferred` e retenta no próximo startup.
+
 **Arquivos alterados:**
 - `data/characters.manifest.json` — `download_url` para o asset do release.
 - `scripts/generate_catalog_manifest.py` — `DEFAULT_DOWNLOAD_URL` atualizado.
@@ -54,6 +72,16 @@
   Reamostrar adotaria silenciosamente o que o upstream retornar hoje.
 - Números públicos passam a ser os do manifest (39.006 canônicos / 39.007
   variações / 59.508 representações), não a soma por fonte.
+- A ponte `data/characters.db` pode ser removida do tracking em qualquer
+  release futura, **desde que `_LEGACY_CATALOG_FINGERPRINTS` e
+  `finalize_legacy_catalog_migration` permaneçam no código**. Removendo o
+  arquivo e a lógica juntos, o órfão ficaria no disco para sempre.
+- A ponte protege contra *modificação* de um arquivo travado, não contra
+  deleção. Modificar falharia deixando um banco desatualizado no lugar;
+  deletar apenas adia a limpeza. Por isso ela precisou existir na v0.7.0, e
+  por isso deixa de ser necessária depois.
+- `docs/PROJECT_LOG.md` deixa de ser versionado a partir de hoje. O histórico
+  já publicado permanece nos commits anteriores.
 
 **Pontos sensíveis:**
 - O rebuild reproduz o conteúdo, nunca o digest: o layout de páginas do SQLite
@@ -65,6 +93,15 @@
   receber dados do heurístico antigo sem nova evidência.
 - O clone completo do repositório é de ~175 MB. Não bloqueia nada hoje, mas
   pesa em toda instalação via "Install from URL".
+- Remover a ponte rende só ~24 MB de working tree, e zero de download: o blob
+  está no histórico desde a v0.0.1, então todo clone completo o baixa de
+  qualquer forma. Encolher o download de verdade exige reescrever o histórico.
+- Quem alterou `data/characters.db` pelo antigo **Save Danbooru Tag** tem um
+  fingerprint desconhecido. A migração o preserva de propósito
+  (`legacy_unrecognized`), então esse usuário mantém o órfão indefinidamente.
+  É o comportamento correto: nunca apagar o que não se reconhece.
+- A regressão funcional dentro do Forge Neo continua **não executada**. Toda a
+  validação da v0.7.0 foi em nível de arquivo e biblioteca, fora da UI.
 
 **Próximos passos / Next steps:**
 - Regressão visual e funcional no Forge Neo com a v0.7.0 já em `main`.
@@ -627,11 +664,17 @@
      pull limpo, migração do banco legado e recuperação por download.
 2. ~~**P0 — Preparar promoção para `main`**~~ — concluído em 2026-08-29
    (merge `--no-ff`, release e tag `v0.7.0`, README alinhado ao manifest).
-3. **P1 — Continuar a revisão das séries e621**
+3. **P1 — Remover a ponte `data/characters.db` (v0.8.0)**
+   - Seguro em qualquer release; ver a investigação de 2026-08-29.
+   - Condição obrigatória: manter `_LEGACY_CATALOG_FINGERPRINTS` e
+     `finalize_legacy_catalog_migration` no código.
+   - Ganho pequeno (~24 MB de working tree). Vale agrupar com uma eventual
+     reescrita de histórico, que é o custo real.
+4. **P1 — Continuar a revisão das séries e621**
    - Trabalhar os 1.238 registros ainda não resolvidos por evidência oficial.
    - Priorizar grupos de alto impacto e usar posts/wiki apenas de forma
      complementar e auditável.
-4. **P1 — Retomar filas de revisão manual**
+5. **P1 — Retomar filas de revisão manual**
    - Revisar os 159 casos de títulos AniDB.
    - Manter pendentes os aliases Danbooru que podem conectar identidades ou
      séries diferentes até cherry-picking explícito.
