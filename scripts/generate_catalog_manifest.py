@@ -17,12 +17,13 @@ from wildcard_creator.catalog_health import build_catalog_manifest
 
 DEFAULT_DATABASE = ROOT / "data" / "catalog" / "characters-v2.db"
 DEFAULT_OUTPUT = ROOT / "data" / "characters.manifest.json"
-# Pin recovery to the immutable commit that first published this exact DB.
-# Update this value only when publishing a rebuilt catalogue and manifest.
+# Pin recovery to the release asset that publishes this exact database.
+# Release assets do not depend on a commit staying reachable, and they are the
+# right channel for an artifact this size. Update this value only when
+# publishing a rebuilt catalogue and manifest; see docs/CATALOG_REBUILD.md.
 DEFAULT_DOWNLOAD_URL = (
-    "https://raw.githubusercontent.com/eduardoabreu81/sd-character-finder/"
-    "0fbce1fb6ca4b7ca1eaf9edd4633fb55033cb66d/"
-    "data/catalog/releases/characters-v2-20260724.db"
+    "https://github.com/eduardoabreu81/sd-character-finder/"
+    "releases/download/v0.7.0/characters-v2-20260724.db"
 )
 
 
