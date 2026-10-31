@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def _escape_tag_for_sd(tag: str) -> str:
-    """Escape parentheses for Stable Diffusion prompt compatibility.
+    r"""Escape parentheses for Stable Diffusion prompt compatibility.
     
     In SD WebUI, parentheses are used for weight emphasis:
       (word)  -> increases weight
